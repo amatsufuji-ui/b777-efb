@@ -7,7 +7,6 @@ import PdfWorker from 'pdfjs-dist/legacy/build/pdf.worker.js?worker&inline';
 importedPdfjsLib.GlobalWorkerOptions.workerPort = new PdfWorker();
 localPdfjsLib = importedPdfjsLib;
 
-
 // ==========================================
 // 📖 目次 (TABLE OF CONTENTS) - test
 // ==========================================
