@@ -8584,7 +8584,7 @@ const BuddyCommView = ({ p }) => {
 const FltInfoView = ({ p }) => {
   const {
     currentFlightInfo, selectedDep, selectedArr, formatTime, trafficTimeRange,
-    setTrafficTimeRange, trafficMode, setTrafficMode, relatedTraffic, handleAirlineSelect,
+    setTrafficTimeRange, depTrafficMode, setDepTrafficMode, arrTrafficMode, setArrTrafficMode, relatedTraffic, handleAirlineSelect,
     setSelectedDep, setSelectedArr, setSelectedFlightId, selectedFlightId, selectedAirlineCode,
     selectedAirline, selectedCallsign, availableFlights, airlineCodes, airlines,
     callsigns, availableDeps, availableArrs, forceANASelection, handleTrafficSelect
@@ -8618,6 +8618,19 @@ const FltInfoView = ({ p }) => {
       f.flightNo.toLowerCase().includes(selectedFlightId.toLowerCase())
     );
   }, [availableFlights, selectedFlightId, selectedAirlineCode]);
+
+  // ★ プルダウン選択時のハンドラーを追加 (一方をOFFにする)
+  const handleDepModeChange = (e) => {
+      const val = e.target.value;
+      setDepTrafficMode(val);
+      if (val !== 'OFF') setArrTrafficMode('OFF');
+  };
+
+  const handleArrModeChange = (e) => {
+      const val = e.target.value;
+      setArrTrafficMode(val);
+      if (val !== 'OFF') setDepTrafficMode('OFF');
+  };
 
   return (
     <div className="flex flex-col gap-1 w-full flex-1 animate-in fade-in duration-300 mt-0.5">
@@ -8797,7 +8810,7 @@ const FltInfoView = ({ p }) => {
             {/* 下段: トラフィック情報 */}
             {currentFlightInfo && (
                 <div className="mt-1 pt-1.5 border-t border-slate-700/50 flex flex-col gap-1 w-full relative z-10 pl-2 pr-1">
-                    <div className="flex flex-row items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
                         <div className="flex items-center gap-1.5">
                             <SafeIcon name="Radar" className="w-4 h-4 text-purple-400" />
                             <span className="text-[12px] lg:text-[14px] xl:text-[15px] font-black text-purple-100 uppercase tracking-widest leading-none mt-0.5">Traffic Watch</span>
@@ -8816,25 +8829,39 @@ const FltInfoView = ({ p }) => {
                             </div>
                         </div>
                         
-                        <div className="flex bg-slate-700 p-0.5 rounded-lg border border-slate-500 shadow-inner items-center">
-                            <button 
-                                onClick={() => setTrafficMode('ALL')} 
-                                className={`px-2 py-1 lg:px-2.5 rounded-md text-[10px] xl:text-[11px] font-black transition-all whitespace-nowrap leading-none ${trafficMode === 'ALL' ? 'bg-slate-500 text-white shadow-md ring-1 ring-slate-400' : 'text-slate-200 hover:text-white hover:bg-slate-600/50'}`}
-                            >
-                                ALL
-                            </button>
-                            <button 
-                                onClick={() => setTrafficMode('DEP')} 
-                                className={`px-2 py-1 lg:px-2.5 rounded-md text-[10px] xl:text-[11px] font-black transition-all whitespace-nowrap leading-none ${trafficMode === 'DEP' ? 'bg-slate-500 text-sky-400 shadow-md ring-1 ring-sky-400' : 'text-slate-200 hover:text-white hover:bg-slate-600/50'}`}
-                            >
-                                DEP {currentFlightInfo?.origin && currentFlightInfo.origin !== '--' ? `(${currentFlightInfo.origin})` : ''}
-                            </button>
-                            <button 
-                                onClick={() => setTrafficMode('ARR')} 
-                                className={`px-2 py-1 lg:px-2.5 rounded-md text-[10px] xl:text-[11px] font-black transition-all whitespace-nowrap leading-none ${trafficMode === 'ARR' ? 'bg-slate-500 text-emerald-400 shadow-md ring-1 ring-emerald-400' : 'text-slate-200 hover:text-white hover:bg-slate-600/50'}`}
-                            >
-                                ARR {currentFlightInfo?.dest && currentFlightInfo.dest !== '--' ? `(${currentFlightInfo.dest})` : ''}
-                            </button>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                            <div className="flex items-center gap-1.5 bg-slate-800/80 p-0.5 rounded-lg border border-slate-600 shadow-sm">
+                                <span className="text-[9px] xl:text-[10px] font-black text-sky-400 pl-1.5 uppercase whitespace-nowrap">DEP AIRPORT {currentFlightInfo?.origin && currentFlightInfo.origin !== '--' ? `(${currentFlightInfo.origin})` : ''}</span>
+                                <div className="relative group flex items-center h-full">
+                                    <select 
+                                        value={depTrafficMode}
+                                        onChange={handleDepModeChange}
+                                        className="bg-slate-600 border border-slate-500 rounded-md text-[9px] xl:text-[10px] font-black text-white pl-2 pr-5 py-0.5 outline-none focus:border-sky-400 shadow-md appearance-none cursor-pointer hover:bg-slate-500 hover:border-sky-400 transition-colors"
+                                    >
+                                        <option value="DEP">DEP</option>
+                                        <option value="ARR">ARR</option>
+                                        <option value="ALL">ALL</option>
+                                        <option value="OFF">OFF</option>
+                                    </select>
+                                    <SafeIcon name="ChevronDown" className="w-3 h-3 absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-200 pointer-events-none" />
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-1.5 bg-slate-800/80 p-0.5 rounded-lg border border-slate-600 shadow-sm">
+                                <span className="text-[9px] xl:text-[10px] font-black text-emerald-400 pl-1.5 uppercase whitespace-nowrap">ARR AIRPORT {currentFlightInfo?.dest && currentFlightInfo.dest !== '--' ? `(${currentFlightInfo.dest})` : ''}</span>
+                                <div className="relative group flex items-center h-full">
+                                    <select 
+                                        value={arrTrafficMode}
+                                        onChange={handleArrModeChange}
+                                        className="bg-slate-600 border border-slate-500 rounded-md text-[9px] xl:text-[10px] font-black text-white pl-2 pr-5 py-0.5 outline-none focus:border-emerald-400 shadow-md appearance-none cursor-pointer hover:bg-slate-500 hover:border-emerald-400 transition-colors"
+                                    >
+                                        <option value="OFF">OFF</option>
+                                        <option value="DEP">DEP</option>
+                                        <option value="ARR">ARR</option>
+                                        <option value="ALL">ALL</option>
+                                    </select>
+                                    <SafeIcon name="ChevronDown" className="w-3 h-3 absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-200 pointer-events-none" />
+                                </div>
+                            </div>
                         </div>
                     </div>
                     
@@ -8881,19 +8908,24 @@ const FltInfoView = ({ p }) => {
                                         </span>
                                     </div>
                                     
-                                    {/* 5. TO/FM 目的地 */}
-                                    <div className="w-[64px] xl:w-[72px] shrink-0 flex items-center justify-start gap-1">
-                                        {t._tType === 'DEP' ? (
-                                            <>
-                                                <span className="inline-block w-[22px] text-center bg-sky-500/20 text-sky-400 px-1 py-0.5 rounded-[4px] font-black tracking-widest text-[9px] xl:text-[10px] border border-sky-500/30">TO</span> 
-                                                <span className="text-white text-[13px] xl:text-[14px] font-black truncate">{t.dest}</span>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <span className="inline-block w-[22px] text-center bg-emerald-500/20 text-emerald-400 px-1 py-0.5 rounded-[4px] font-black tracking-widest text-[9px] xl:text-[10px] border border-emerald-500/30">FM</span> 
-                                                <span className="text-white text-[13px] xl:text-[14px] font-black truncate">{t.origin}</span>
-                                            </>
-                                        )}
+                                    {/* 5. TO/FM 目的地 + 基準空港 */}
+                                    <div className="w-[74px] xl:w-[82px] shrink-0 flex flex-col items-start justify-center">
+                                        <div className="flex items-center justify-start gap-1">
+                                            {t._tType === 'DEP' ? (
+                                                <>
+                                                    <span className="inline-block w-[22px] text-center bg-sky-500/20 text-sky-400 px-1 py-0.5 rounded-[4px] font-black tracking-widest text-[9px] xl:text-[10px] border border-sky-500/30">TO</span> 
+                                                    <span className="text-white text-[13px] xl:text-[14px] font-black truncate">{t.dest}</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <span className="inline-block w-[22px] text-center bg-emerald-500/20 text-emerald-400 px-1 py-0.5 rounded-[4px] font-black tracking-widest text-[9px] xl:text-[10px] border border-emerald-500/30">FM</span> 
+                                                    <span className="text-white text-[13px] xl:text-[14px] font-black truncate">{t.origin}</span>
+                                                </>
+                                            )}
+                                        </div>
+                                        <span className={`text-[8.5px] font-bold mt-0.5 leading-none ${t._basePort === (currentFlightInfo?.origin || selectedDep) ? 'text-sky-400/80' : 'text-emerald-400/80'}`}>
+                                            @ {t._basePort}
+                                        </span>
                                     </div>
                                 </div>
                             </div>
@@ -11228,7 +11260,9 @@ export default function App() {
     }
   }, [stdHours, stdMins, isTakeoffAuto, taxiOutMins]);
 
-  const [selectedDep, setSelectedDep] = useState(""); const [selectedArr, setSelectedArr] = useState(""); const [selectedFlightId, setSelectedFlightId] = useState(""); const [selectedAirlineCode, setSelectedAirlineCode] = useState(""); const [selectedAirline, setSelectedAirline] = useState(""); const [selectedCallsign, setSelectedCallsign] = useState(""); const [trafficTimeRange, setTrafficTimeRange] = useState(30); const [trafficMode, setTrafficMode] = useState("ALL");
+  const [selectedDep, setSelectedDep] = useState(""); const [selectedArr, setSelectedArr] = useState(""); const [selectedFlightId, setSelectedFlightId] = useState(""); const [selectedAirlineCode, setSelectedAirlineCode] = useState(""); const [selectedAirline, setSelectedAirline] = useState(""); const [selectedCallsign, setSelectedCallsign] = useState(""); const [trafficTimeRange, setTrafficTimeRange] = useState(30); 
+  const [depTrafficMode, setDepTrafficMode] = useState("DEP"); 
+  const [arrTrafficMode, setArrTrafficMode] = useState("OFF"); // ★ 初期値を OFF に変更
 
   // APP CALC用のState (後日実装のためコメントアウトしてスペースを確保)
   /*
@@ -11328,38 +11362,58 @@ export default function App() {
   const availableFlights = parsedFlightData, airlineCodes = [...new Set(parsedFlightData.map(f => f.airlineCode))].sort(), airlines = [...new Set(parsedFlightData.map(f => f.airline))].sort(), callsigns = [...new Set(parsedFlightData.map(f => f.callsign))].sort(), availableDeps = [...new Set(parsedFlightData.map(f => f.origin))].sort(), availableArrs = [...new Set(parsedFlightData.map(f => f.dest))].sort();
   const currentFlightInfo = useMemo(() => { if (selectedAirlineCode && selectedFlightId) return parsedFlightData.find(f => f.airlineCode === selectedAirlineCode && f.flightNo === selectedFlightId) || null; return null; }, [parsedFlightData, selectedAirlineCode, selectedFlightId]);
   const displayFlightInfo = currentFlightInfo || { origin: selectedDep || '--', dest: selectedArr || '--', dep: null, arr: null, equipCode: state.selectedType || '--', speed: '--' };
+  
+  // ★ トラフィック計算ロジックを「イベント（発着）ベース」に刷新
   const relatedTraffic = useMemo(() => { 
     if (!displayFlightInfo || (!displayFlightInfo.origin && !displayFlightInfo.dest)) return [];
     const depPort = displayFlightInfo.origin; const arrPort = displayFlightInfo.dest;
     const depTime = displayFlightInfo.dep; const arrTime = displayFlightInfo.arr;
-    return parsedFlightData.filter(f => {
-      if (!f.origin || !f.dest || f.dep == null || f.arr == null) return false;
-      let matchDep = false; let matchArr = false;
-      if ((trafficMode === 'ALL' || trafficMode === 'DEP') && depPort && depPort !== '--' && depTime != null) {
-        if (f.origin === depPort) {
+    
+    let events = [];
+
+    parsedFlightData.forEach(f => {
+      if (!f.origin || !f.dest || f.dep == null || f.arr == null) return;
+      
+      // DEP空港でのイベント
+      if (depPort && depPort !== '--' && depTime != null && depTrafficMode !== 'OFF') {
+        if ((depTrafficMode === 'DEP' || depTrafficMode === 'ALL') && f.origin === depPort) {
           let diff = Math.abs(f.dep - depTime); if (diff > 720) diff = 1440 - diff;
-          if (diff <= trafficTimeRange) matchDep = true;
+          if (diff <= trafficTimeRange) {
+            events.push({ ...f, _tType: 'DEP', _tTime: f.dep, _basePort: depPort, _isCurrent: f.airlineCode === selectedAirlineCode && f.flightNo === selectedFlightId });
+          }
+        }
+        if ((depTrafficMode === 'ARR' || depTrafficMode === 'ALL') && f.dest === depPort) {
+          let diff = Math.abs(f.arr - depTime); if (diff > 720) diff = 1440 - diff;
+          if (diff <= trafficTimeRange) {
+            events.push({ ...f, _tType: 'ARR', _tTime: f.arr, _basePort: depPort, _isCurrent: f.airlineCode === selectedAirlineCode && f.flightNo === selectedFlightId });
+          }
         }
       }
-      if ((trafficMode === 'ALL' || trafficMode === 'ARR') && arrPort && arrPort !== '--' && arrTime != null) {
-        if (f.dest === arrPort) {
+      
+      // ARR空港でのイベント
+      if (arrPort && arrPort !== '--' && arrTime != null && arrTrafficMode !== 'OFF') {
+        if ((arrTrafficMode === 'DEP' || arrTrafficMode === 'ALL') && f.origin === arrPort) {
+          let diff = Math.abs(f.dep - arrTime); if (diff > 720) diff = 1440 - diff;
+          if (diff <= trafficTimeRange) {
+            events.push({ ...f, _tType: 'DEP', _tTime: f.dep, _basePort: arrPort, _isCurrent: f.airlineCode === selectedAirlineCode && f.flightNo === selectedFlightId });
+          }
+        }
+        if ((arrTrafficMode === 'ARR' || arrTrafficMode === 'ALL') && f.dest === arrPort) {
           let diff = Math.abs(f.arr - arrTime); if (diff > 720) diff = 1440 - diff;
-          if (diff <= trafficTimeRange) matchArr = true;
+          if (diff <= trafficTimeRange) {
+            events.push({ ...f, _tType: 'ARR', _tTime: f.arr, _basePort: arrPort, _isCurrent: f.airlineCode === selectedAirlineCode && f.flightNo === selectedFlightId });
+          }
         }
       }
-      return matchDep || matchArr;
-    }).map(f => {
-      let isDepMatch = false;
-      if ((trafficMode === 'ALL' || trafficMode === 'DEP') && depPort && depPort !== '--' && depTime != null && f.origin === depPort) {
-        let diff = Math.abs(f.dep - depTime); if (diff > 720) diff = 1440 - diff;
-        if (diff <= trafficTimeRange) isDepMatch = true;
-      }
-      return { ...f, _tType: isDepMatch ? 'DEP' : 'ARR', _tTime: isDepMatch ? f.dep : f.arr, _isCurrent: f.airlineCode === selectedAirlineCode && f.flightNo === selectedFlightId };
-    }).sort((a, b) => a._tTime - b._tTime); 
-  }, [parsedFlightData, displayFlightInfo, trafficMode, trafficTimeRange, selectedAirlineCode, selectedFlightId]);
+    });
+    
+    // イベントの時間順でソート
+    return events.sort((a, b) => a._tTime - b._tTime); 
+  }, [parsedFlightData, displayFlightInfo, depTrafficMode, arrTrafficMode, trafficTimeRange, selectedAirlineCode, selectedFlightId]);
+  
   const handleAirlineSelect = (type, val) => { if (type === 'code') { setSelectedAirlineCode(val); const match = parsedFlightData.find(f => f.airlineCode === val); if (match) { setSelectedAirline(match.airline); setSelectedCallsign(match.callsign); } } else if (type === 'name') { setSelectedAirline(val); const match = parsedFlightData.find(f => f.airline === val); if (match) { setSelectedAirlineCode(match.airlineCode); setSelectedCallsign(match.callsign); } } else if (type === 'callsign') { setSelectedCallsign(val); const match = parsedFlightData.find(f => f.callsign === val); if (match) { setSelectedAirlineCode(match.airlineCode); setSelectedAirline(match.airline); } } };
   const forceANASelection = () => { handleAirlineSelect('code', 'NH'); }; const handleTrafficSelect = (t) => { setSelectedAirlineCode(t.airlineCode); setSelectedAirline(t.airline); setSelectedCallsign(t.callsign); setSelectedFlightId(t.flightNo); }; const formatTime = (mins) => { if (mins == null) return "--:--"; const h = Math.floor(mins / 60) % 24, m = mins % 60; return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`; };
-  const fltInfoProps = { currentFlightInfo: displayFlightInfo, selectedDep, selectedArr, formatTime, trafficTimeRange, setTrafficTimeRange, trafficMode, setTrafficMode, relatedTraffic, handleAirlineSelect, setSelectedDep, setSelectedArr, setSelectedFlightId, selectedFlightId, selectedAirlineCode, selectedAirline, selectedCallsign, availableFlights, airlineCodes, airlines, callsigns, availableDeps, availableArrs, forceANASelection, handleTrafficSelect, onApplyFlightPlan: handleApplyFlightPlan };
+  const fltInfoProps = { currentFlightInfo: displayFlightInfo, selectedDep, selectedArr, formatTime, trafficTimeRange, setTrafficTimeRange, depTrafficMode, setDepTrafficMode, arrTrafficMode, setArrTrafficMode, relatedTraffic, handleAirlineSelect, setSelectedDep, setSelectedArr, setSelectedFlightId, selectedFlightId, selectedAirlineCode, selectedAirline, selectedCallsign, availableFlights, airlineCodes, airlines, callsigns, availableDeps, availableArrs, forceANASelection, handleTrafficSelect, onApplyFlightPlan: handleApplyFlightPlan };
 
    const computed = useMemo(() => {
       // 機種に基づくエンジンタイプの判定 (772/773はPW、77W/77FはGE)
