@@ -9,7 +9,7 @@ localPdfjsLib = importedPdfjsLib;
 
 
 // ==========================================
-// 📖 目次 (TABLE OF CONTENTS) - 再構成版
+// 📖 目次 (TABLE OF CONTENTS) - test
 // ==========================================
 // [1] SETTINGS & IMPORTS
 // [2] COMMON & UI COMPONENTS
