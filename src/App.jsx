@@ -9054,7 +9054,7 @@ const DashboardView = ({ state, updateState, computed, aircraftRegistrationList,
         </div>
       </div>
       <div className="bg-[#131c2f] border border-slate-700 rounded-lg p-1.5 shadow-xl">
-        <div className="flex items-center gap-1 mb-1 text-slate-400 font-bold text-[9px] tracking-widest"><SafeIcon name="Activity" className="w-3 h-3" /> CRUISE PERFORMANCE</div>
+        <div className="flex items-center gap-1 mb-1 text-cyan-400 font-bold tracking-widest text-[9px] border border-cyan-500/50 px-1.5 py-0.5 rounded-full bg-cyan-500/10 w-fit whitespace-nowrap"><div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></div>CRUISE PERFORMANCE</div>
         <div className="flex flex-col gap-1.5">
           <div className="flex w-full gap-1 overflow-x-auto hide-scrollbar">
             <div className="flex-1 min-w-[65px] border border-blue-500/30 rounded flex flex-col bg-[#0f172a] overflow-hidden p-1">
@@ -9097,7 +9097,7 @@ const DashboardView = ({ state, updateState, computed, aircraftRegistrationList,
             <div className="flex-[2] flex flex-col justify-center">
               <div className="flex justify-between items-end mb-0.5">
                 <span className="text-[8px] text-slate-400 font-bold tracking-wider">GROSS WT</span>
-                <div className="flex items-center"><input type="text" value={cruiseWtInputText} onChange={(e) => setCruiseWtInputText(e.target.value)} onBlur={() => { const w = parseWeightInput(cruiseWtInputText); if (w !== null) updateState('cruiseWeight', w); else setCruiseWtInputText(formatWeightDisplay(state.cruiseWeight)); }} className="bg-transparent text-right text-[10px] text-white font-bold font-mono w-12 border-b border-transparent hover:border-slate-500 focus:border-emerald-500 focus:outline-none transition-colors" /><span className="text-[7px] text-slate-500 ml-0.5">LBS</span></div>
+                <div className="flex items-center"><input type="text" value={cruiseWtInputText} onChange={(e) => setCruiseWtInputText(e.target.value)} onBlur={() => { const w = parseWeightInput(cruiseWtInputText); if (w !== null) updateState('cruiseWeight', w); else setCruiseWtInputText(formatWeightDisplay(state.cruiseWeight)); }} className="bg-transparent text-right text-[10px] text-white font-bold font-mono w-12 border-b border-transparent hover:border-slate-500 focus:border-emerald-500 focus:outline-none transition-colors" /><span className="text-[7px] text-slate-500 ml-0.5">KLBS</span></div>
               </div>
               <input type="range" step="1000" min={computed.minCruiseWeight} max={computed.maxCruiseWeight} value={computed.clampedCruiseWeight} onChange={(e) => updateState('cruiseWeight', Number(e.target.value))} className="w-full h-1 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-emerald-500 my-1.5" />
               <div className="flex justify-between text-[7px] text-slate-500 mt-0.5 font-mono"><span>{Math.round(computed.minCruiseWeight / 1000)}k</span><span>{Math.round(computed.maxCruiseWeight / 1000)}k</span></div>
@@ -9124,8 +9124,6 @@ const DashboardView = ({ state, updateState, computed, aircraftRegistrationList,
             <div className="text-[8px] text-slate-500 font-mono pl-1">ADJUSTED DISTANCE</div>
           </div>
           <div className="flex flex-wrap items-center gap-1">
-            <div className="flex gap-0.5"><button className={highlightToggleClass(state.aiConfig === 'OFF')} onClick={() => updateState('aiConfig', 'OFF')}>A/I OFF</button><button className={highlightToggleClass(state.aiConfig === 'ON', 'green')} onClick={() => updateState('aiConfig', 'ON')}>A/I ON</button></div>
-            <div className="h-3 w-px bg-slate-700 mx-0.5"></div>
             <div className="flex gap-0.5"><button className={highlightToggleClass(state.landingCondition === 'Normal', 'green')} onClick={() => updateState('landingCondition', 'Normal')}>NORMAL</button><button className={highlightToggleClass(state.landingCondition === '1 ENG INOP', 'red')} onClick={() => updateState('landingCondition', '1 ENG INOP')}>ENG INOP</button></div>
             <div className="h-3 w-px bg-slate-700 mx-0.5"></div>
             <div className="flex gap-0.5"><button className={highlightToggleClass(state.selectedRwyCond === '6-DRY', 'green')} onClick={() => updateState('selectedRwyCond', '6-DRY')}>DRY</button><button className={highlightToggleClass(state.selectedRwyCond === '5-WET', 'blue')} onClick={() => updateState('selectedRwyCond', '5-WET')}>WET</button></div>
@@ -9168,7 +9166,7 @@ const DashboardView = ({ state, updateState, computed, aircraftRegistrationList,
             <div className="flex-1 flex flex-col justify-around py-0.5 px-1 font-mono text-[9px] sm:text-xs"><div className="flex justify-between items-baseline leading-none"><span className="text-slate-500">3000m:</span><span className="font-bold text-slate-300">9,843'</span></div><div className="flex justify-between items-baseline leading-none"><span className="text-slate-500">2800m:</span><span className="font-bold text-slate-300">9,186'</span></div><div className="flex justify-between items-baseline leading-none"><span className="text-slate-500">2500m:</span><span className="font-bold text-slate-300">8,202'</span></div><div className="flex justify-between items-baseline leading-none"><span className="text-slate-500">2000m:</span><span className="font-bold text-slate-300">6,562'</span></div></div>
             <div className="px-1 py-0.5 text-[6px] opacity-0 font-mono text-center flex justify-between mt-auto border-t border-transparent pt-0.5"><span>-</span><span>-</span></div>
           </div>
-          <div className="border border-slate-750 rounded flex flex-col bg-[#131c2f] overflow-hidden shadow-lg p-1 h-full">
+          <div className="border border-slate-700 rounded flex flex-col bg-[#131c2f] overflow-hidden shadow-lg p-1 h-full">
             <div className="text-center text-[7px] sm:text-[8px] font-bold text-slate-300 pb-0.5 tracking-widest bg-[#1a2640]">AUTO 4</div>
             <div className="flex-1 flex flex-col justify-center gap-1.5 py-0.5 px-1">
               <div className="flex justify-between items-baseline leading-none"><span className="text-[8px] sm:text-[10px] text-slate-500 font-bold">{computed.activeFlaps[0]}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distAb41)}</span></div>
@@ -9176,7 +9174,7 @@ const DashboardView = ({ state, updateState, computed, aircraftRegistrationList,
             </div>
             <div className="px-1 py-0.5 text-[6px] opacity-0 font-mono text-center flex justify-between mt-auto border-t border-transparent pt-0.5"><span>-</span><span>-</span></div>
           </div>
-          <div className="border border-slate-750 rounded flex flex-col bg-[#131c2f] overflow-hidden shadow-lg p-1 h-full">
+          <div className="border border-slate-700 rounded flex flex-col bg-[#131c2f] overflow-hidden shadow-lg p-1 h-full">
             <div className="text-center text-[7px] sm:text-[8px] font-bold text-slate-300 pb-0.5 tracking-widest bg-[#1a2640]">AUTO 3</div>
             <div className="flex-1 flex flex-col justify-center gap-1.5 py-0.5 px-1">
               <div className="flex justify-between items-baseline leading-none"><span className="text-[8px] sm:text-[10px] text-slate-500 font-bold">{computed.activeFlaps[0]}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distAb31)}</span></div>
@@ -9184,7 +9182,7 @@ const DashboardView = ({ state, updateState, computed, aircraftRegistrationList,
             </div>
             <div className="px-1 py-0.5 text-[6px] opacity-0 font-mono text-center flex justify-between mt-auto border-t border-transparent pt-0.5"><span>-</span><span>-</span></div>
           </div>
-          <div className="border border-slate-750 rounded flex flex-col bg-[#131c2f] overflow-hidden shadow-lg p-1 h-full">
+          <div className="border border-slate-700 rounded flex flex-col bg-[#131c2f] overflow-hidden shadow-lg p-1 h-full">
             <div className="text-center text-[7px] sm:text-[8px] font-bold text-slate-300 pb-0.5 tracking-widest bg-[#1a2640]">AUTO 2</div>
             <div className="flex-1 flex flex-col justify-center gap-1.5 py-0.5 px-1">
               <div className="flex justify-between items-baseline leading-none"><span className="text-[8px] sm:text-[10px] text-slate-500 font-bold">{computed.activeFlaps[0]}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distAb21)}</span></div>
@@ -9192,7 +9190,7 @@ const DashboardView = ({ state, updateState, computed, aircraftRegistrationList,
             </div>
             <div className="px-1 py-0.5 text-[6px] opacity-0 font-mono text-center flex justify-between mt-auto border-t border-transparent pt-0.5"><span>-</span><span>-</span></div>
           </div>
-          <div className="border border-slate-750 rounded flex flex-col bg-[#131c2f] overflow-hidden shadow-lg p-1 h-full">
+          <div className="border border-slate-700 rounded flex flex-col bg-[#131c2f] overflow-hidden shadow-lg p-1 h-full">
             <div className="text-center text-[7px] sm:text-[8px] font-bold text-slate-300 pb-0.5 tracking-widest bg-[#1a2640]">AUTO 1</div>
             <div className="flex-1 flex flex-col justify-center gap-1.5 py-0.5 px-1">
               <div className="flex justify-between items-baseline leading-none"><span className="text-[8px] sm:text-[10px] text-slate-500 font-bold">{computed.activeFlaps[0]}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distAb11)}</span></div>
@@ -9205,7 +9203,7 @@ const DashboardView = ({ state, updateState, computed, aircraftRegistrationList,
           <div className="border border-slate-700 rounded p-1.5 flex flex-col bg-[#111827]">
             <div className="flex justify-between items-end mb-0.5">
               <span className="text-[8px] text-slate-400 font-bold tracking-wider">LANDING WT</span>
-              <div className="flex items-center"><input type="text" value={ldgWtInputText} onChange={(e) => setLdgWtInputText(e.target.value)} onBlur={() => { const w = parseWeightInput(ldgWtInputText); if (w !== null) updateState('landingWeight', w); else setLdgWtInputText(formatWeightDisplay(state.landingWeight)); }} className="bg-transparent text-right text-[10px] text-white font-bold font-mono w-12 border-b border-transparent hover:border-slate-500 focus:border-emerald-500 focus:outline-none transition-colors" /><span className="text-[7px] text-slate-500 ml-0.5">LBS</span></div>
+              <div className="flex items-center"><input type="text" value={ldgWtInputText} onChange={(e) => setLdgWtInputText(e.target.value)} onBlur={() => { const w = parseWeightInput(ldgWtInputText); if (w !== null) updateState('landingWeight', w); else setLdgWtInputText(formatWeightDisplay(state.landingWeight)); }} className="bg-transparent text-right text-[10px] text-white font-bold font-mono w-12 border-b border-transparent hover:border-slate-500 focus:border-emerald-500 focus:outline-none transition-colors" /><span className="text-[7px] text-slate-500 ml-0.5">KLBS</span></div>
             </div>
             <input type="range" step="1000" min={computed.landingMinWeight} max={computed.maxAvailableLdgWt} value={computed.clampedLandingWeight} onChange={(e) => updateState('landingWeight', Number(e.target.value))} className="w-full h-1 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-emerald-500 my-1.5" />
             <div className="flex justify-between text-[7px] text-slate-500 mt-0.5 font-mono"><span>{Math.round(computed.landingMinWeight / 1000)}k</span><span>MAX: {Math.round(computed.maxAvailableLdgWt / 1000)}k</span></div>
@@ -9216,7 +9214,7 @@ const DashboardView = ({ state, updateState, computed, aircraftRegistrationList,
             </div>
             <input type="range" min="-20" max="15" step="5" value={state.windComponent} onChange={(e) => updateState('windComponent', Number(e.target.value))} className="w-full h-1 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-blue-500 my-1.5" />
           </div>
-          <div className="border border-slate-750 rounded p-1.5 flex flex-col bg-[#111827] justify-center">
+          <div className="border border-slate-700 rounded p-1.5 flex flex-col bg-[#111827] justify-center">
             <div className="flex justify-between items-end mb-0.5">
               <span className="text-[8px] text-slate-400 font-bold tracking-wider">APP SPD ADD</span><span className="text-[10px] text-white font-bold font-mono"><span>+{state.appSpeedAdditive}</span><span className="text-[7px] text-slate-500 ml-0.5">KT</span></span>
             </div>
