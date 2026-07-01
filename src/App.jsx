@@ -10450,7 +10450,7 @@ const ApproachCalcView = () => {
                   ))}
                 </div>
              </div>
-             
+             　　
              {/* --- 上段：入力とテキスト結果（2カラム） --- */}
              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 lg:gap-3">
                {/* ◀ 左側：入力パネル */}
