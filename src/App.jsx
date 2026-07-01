@@ -11248,7 +11248,7 @@ const XwindView = () => {
 // [6] MAIN APP COMPONENT
 // ==========================================
 export default function App() {
-  const [activeTab, setActiveTab] = useState('DOCS');
+  const [activeTab, setActiveTab] = useState('DASHBOARD');
   const tabs = ['DASHBOARD', 'TFC INFO', 'WX/MNM', 'DOCS', 'スマカタ', 'REST CALC', 'APP CALC', 'BUDDY COMM', 'XWIND'];
 
   const [isPasteModalOpen, setIsPasteModalOpen] = useState(false); 
@@ -11650,4 +11650,4 @@ export default function App() {
       {activeTab === 'XWIND' && (<div className="flex flex-col gap-1 w-full flex-1 h-full mt-0.5">{typeof XwindView !== 'undefined' && <XwindView />}</div>)}
     </div>
   );
-} 
+}
