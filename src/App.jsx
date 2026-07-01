@@ -4058,25 +4058,25 @@ const DashboardView = ({ state, updateState, computed, aircraftRegistrationList,
           </div>
         </div>
         <div className="flex flex-col gap-1 w-full mt-0.5 border-t border-slate-700/50 pt-1.5 z-10">
-          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[9px] md:text-[10px] text-slate-400 w-full leading-none">
-            <span className="flex items-center gap-1 font-bold text-slate-300"><SafeIcon name="Maximize" className="w-3 h-3 text-blue-400" /> {computed.dim.span} x {computed.dim.length} x {computed.dim.height}</span>
-            <span className="text-slate-600 hidden sm:inline">|</span><span>RFFS: <strong className="text-slate-300">ICAO 9 / FAA E</strong></span>
-            <span className="text-slate-600 hidden sm:inline">|</span><span>OUTER GEAR: <strong className="text-slate-300">12.9M (CODE F)</strong></span>
-            <span className="text-slate-600 hidden sm:inline">|</span><span>WASHOUT: <strong className="text-slate-300">{computed.washout}</strong></span>
-            <span className="text-slate-600 hidden sm:inline">|</span><span className="flex items-center gap-1"><SafeIcon name="Users" className="w-3 h-3 text-amber-400" /> <strong className="text-slate-300">{computed.configText}</strong></span>
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[9px] md:text-[10px] text-slate-300 font-bold w-full leading-none">
+            <span className="flex items-center gap-1"><SafeIcon name="Maximize" className="w-3 h-3 text-blue-400" /> <span className="text-white font-black">{computed.dim.span} x {computed.dim.length} x {computed.dim.height}</span></span>
+            <span className="text-slate-500 hidden sm:inline">|</span><span>RFFS: <strong className="text-white font-black">ICAO 9 / FAA E</strong></span>
+            <span className="text-slate-500 hidden sm:inline">|</span><span>OUTER GEAR: <strong className="text-white font-black">12.9M (CODE F)</strong></span>
+            <span className="text-slate-500 hidden sm:inline">|</span><span>WASHOUT: <strong className="text-white font-black">{computed.washout}</strong></span>
+            <span className="text-slate-500 hidden sm:inline">|</span><span className="flex items-center gap-1"><SafeIcon name="Users" className="w-3 h-3 text-amber-400" /> <strong className="text-white font-black">{computed.configText}</strong></span>
           </div>
-          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[9px] md:text-[10px] text-slate-400 w-full leading-none mt-1">
-            <span>ETOPS: <strong className="text-slate-300">{computed.etops}</strong></span><span className="text-slate-600 hidden sm:inline">|</span><span>T/O: <strong className="text-slate-300">{computed.toSetting}</strong></span><span className="text-slate-600 hidden sm:inline">|</span><span>OXY: <strong className="text-slate-300 truncate max-w-[200px] sm:max-w-none">{computed.oxy}</strong></span><span className="text-slate-600 hidden sm:inline">|</span><span>ENG OIL: <strong className="text-slate-300">{computed.engOil}</strong></span><span className="text-slate-600 hidden sm:inline">|</span><span>BRK TEMP: <strong className="text-slate-300">{computed.brakeTemp}</strong></span>
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[9px] md:text-[10px] text-slate-300 font-bold w-full leading-none mt-1">
+            <span>ETOPS: <strong className="text-white font-black">{computed.etops}</strong></span><span className="text-slate-500 hidden sm:inline">|</span><span>T/O: <strong className="text-white font-black">{computed.toSetting}</strong></span><span className="text-slate-500 hidden sm:inline">|</span><span>OXY: <strong className="text-white font-black truncate max-w-[200px] sm:max-w-none">{computed.oxy}</strong></span><span className="text-slate-500 hidden sm:inline">|</span><span>ENG OIL: <strong className="text-white font-black">{computed.engOil}</strong></span><span className="text-slate-500 hidden sm:inline">|</span><span>BRK TEMP: <strong className="text-white font-black">{computed.brakeTemp}</strong></span>
           </div>
-          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[9px] md:text-[10px] text-slate-400 w-full leading-none mt-1">
-             <span className="font-bold text-rose-400 tracking-wider flex items-center gap-0.5 uppercase whitespace-nowrap"><SafeIcon name="Wind" className="w-3 h-3" /> X-WIND</span>
-             <span className="font-mono text-white text-[8px] sm:text-[9px] truncate">DRY:38 | WET:25 | CC3:20(15) | CC2:15(10) | CC1:10 <span className="text-slate-500">*() &lt;2700m</span></span>
-             <span className="text-slate-600 hidden sm:inline ml-1">|</span>
-             <span className="font-bold text-amber-500 tracking-wider flex items-center gap-0.5 uppercase whitespace-nowrap sm:ml-1"><SafeIcon name="AlertTriangle" className="w-3 h-3" /> DG MAX</span>
-             <span>火薬類: <strong className="text-slate-300">{computed.dgExp}</strong></span><span className="text-slate-600 hidden sm:inline">|</span><span>ISO: <strong className="text-slate-300">{computed.dgIso}</strong></span><span className="text-slate-600 hidden sm:inline">|</span><span>DRY: <strong className="text-slate-300">{computed.dgDry}</strong></span>
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[9px] md:text-[10px] text-slate-300 font-bold w-full leading-none mt-1">
+             <span className="text-rose-400 tracking-wider flex items-center gap-0.5 uppercase whitespace-nowrap"><SafeIcon name="Wind" className="w-3 h-3" /> X-WIND</span>
+             <span className="font-mono text-white font-black text-[8px] sm:text-[9px] truncate">DRY:38 | WET:25 | CC3:20(15) | CC2:15(10) | CC1:10 <span className="text-slate-400 font-bold">*() &lt;2700m</span></span>
+             <span className="text-slate-500 hidden sm:inline ml-1">|</span>
+             <span className="text-amber-500 tracking-wider flex items-center gap-0.5 uppercase whitespace-nowrap sm:ml-1"><SafeIcon name="AlertTriangle" className="w-3 h-3" /> DG MAX</span>
+             <span>火薬類: <strong className="text-white font-black">{computed.dgExp}</strong></span><span className="text-slate-500 hidden sm:inline">|</span><span>ISO: <strong className="text-white font-black">{computed.dgIso}</strong></span><span className="text-slate-500 hidden sm:inline">|</span><span>DRY: <strong className="text-white font-black">{computed.dgDry}</strong></span>
              <div className="flex items-center gap-1 ml-auto shrink-0">
-               <span className="bg-slate-800 text-[8px] md:text-[9px] font-mono px-1.5 py-0.5 rounded border border-slate-700 shadow-sm text-slate-300">Taxi: {computed.taxiFuelRate} lbs/m</span>
-               <span className="bg-slate-800 text-[8px] md:text-[9px] font-mono px-1.5 py-0.5 rounded border border-slate-700 shadow-sm text-slate-300">APU: 9 lbs/m</span>
+               <span className="bg-slate-800 text-[8px] md:text-[9px] font-mono px-1.5 py-0.5 rounded border border-slate-600 shadow-sm text-slate-200 font-black">Taxi: {computed.taxiFuelRate} lbs/m</span>
+               <span className="bg-slate-800 text-[8px] md:text-[9px] font-mono px-1.5 py-0.5 rounded border border-slate-600 shadow-sm text-slate-200 font-black">APU: 9 lbs/m</span>
              </div>
           </div>
         </div>
@@ -4086,61 +4086,61 @@ const DashboardView = ({ state, updateState, computed, aircraftRegistrationList,
         <div className="flex flex-col gap-1.5">
           <div className="flex w-full gap-1 overflow-x-auto hide-scrollbar">
             <div className="flex-1 min-w-[65px] border border-blue-500/30 rounded flex flex-col bg-[#0f172a] overflow-hidden p-1">
-              <div className="text-center text-[7px] sm:text-[8px] font-bold text-blue-400 pb-0.5 tracking-wider">OPT ALT</div>
-              <div className="flex-1 flex justify-center items-center"><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter leading-none">{formatNum(computed.optAlt)}</span><span className="text-[8px] text-slate-500 ml-0.5">FT</span></div>
+              <div className="text-center text-[9px] sm:text-[10px] font-bold text-blue-300 pb-0.5 tracking-wider">OPT ALT</div>
+              <div className="flex-1 flex justify-center items-center"><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter leading-none">{formatNum(computed.optAlt)}</span><span className="text-[9px] sm:text-[10px] font-bold text-slate-300 ml-0.5">FT</span></div>
             </div>
             <div className="flex-1 min-w-[65px] border border-orange-500/30 rounded flex flex-col bg-[#0f172a] overflow-hidden p-1">
-              <div className="text-center text-[7px] sm:text-[8px] font-bold text-orange-400 pb-0.5 tracking-wider">MAX ALT</div>
+              <div className="text-center text-[9px] sm:text-[10px] font-bold text-orange-300 pb-0.5 tracking-wider">MAX ALT</div>
               <div className="flex-1 flex flex-col justify-center items-center">
-                <div className="flex items-baseline"><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter leading-none">{formatNum(computed.maxAlt)}</span><span className="text-[8px] text-slate-500 ml-0.5">FT</span></div>
-                <span className="text-[6px] text-orange-500/70 bg-orange-500/10 px-1 rounded mt-0.5 whitespace-nowrap leading-none scale-90">{computed.limitReason}</span>
+                <div className="flex items-baseline"><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter leading-none">{formatNum(computed.maxAlt)}</span><span className="text-[9px] sm:text-[10px] font-bold text-slate-300 ml-0.5">FT</span></div>
+                <span className="text-[9px] sm:text-[10px] font-bold text-orange-200 bg-orange-500/30 px-1.5 py-[1px] rounded mt-0.5 whitespace-nowrap leading-none">{computed.limitReason}</span>
               </div>
             </div>
             <div className="flex-1 min-w-[65px] border border-purple-500/30 rounded flex flex-col bg-[#0f172a] overflow-hidden p-1">
-              <div className="text-center text-[7px] sm:text-[8px] font-bold text-purple-400 pb-0.5 tracking-wider">VMO / MMO</div>
+              <div className="text-center text-[9px] sm:text-[10px] font-bold text-purple-300 pb-0.5 tracking-wider">VMO / MMO</div>
               <div className="flex-1 flex flex-col justify-center items-center">
                 <div className="flex items-baseline"><span className="text-base sm:text-xl font-extrabold text-white font-mono tracking-tighter leading-none">{`${computed.vmo}/.${computed.mmo.toString().replace("0.", "")}`}</span></div>
-                <span className="text-[6px] text-purple-400/70 bg-purple-500/10 px-1 rounded mt-0.5 whitespace-nowrap scale-90">KIAS / MACH</span>
+                <span className="text-[9px] sm:text-[10px] font-bold text-purple-200 bg-purple-500/30 px-1.5 py-[1px] rounded mt-0.5 whitespace-nowrap">KIAS / MACH</span>
               </div>
             </div>
             <div className="flex-1 min-w-[70px] border border-indigo-500/30 rounded flex flex-col bg-[#0f172a] overflow-hidden p-1">
-              <div className="text-center text-[7px] sm:text-[8px] font-bold text-indigo-400 pb-0.5 tracking-wider">FLAP UP MAN</div>
+              <div className="text-center text-[9px] sm:text-[10px] font-bold text-indigo-300 pb-0.5 tracking-wider">FLAP UP MAN</div>
               <div className="flex-1 flex flex-col justify-center items-center">
-                <div className="flex items-baseline"><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter leading-none">{computed.flapUpManeuver}</span><span className="text-[8px] text-slate-500 ml-0.5">KTS</span></div>
-                <span className="text-[6px] text-indigo-400/70 bg-indigo-500/10 px-1 rounded mt-0.5 scale-90">Vref30 + 80</span>
+                <div className="flex items-baseline"><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter leading-none">{computed.flapUpManeuver}</span><span className="text-[9px] sm:text-[10px] font-bold text-slate-300 ml-0.5">KTS</span></div>
+                <span className="text-[9px] sm:text-[10px] font-bold text-indigo-200 bg-indigo-500/30 px-1.5 py-[1px] rounded mt-0.5">Vref30 + 80</span>
               </div>
             </div>
             <div className={`flex-[1.2] min-w-[120px] bg-slate-800/80 border border-slate-700 border-t-[3px] ${computed.minSpdBorderClass} rounded flex flex-col justify-between items-center relative overflow-hidden p-1 group`}>
-              <div className="absolute top-0.5 right-0.5 flex flex-col items-end gap-[1px]">
-                <span className="text-[6px] font-mono text-slate-400 bg-slate-900/80 px-0.5 rounded border border-slate-600 leading-none">{computed.holdSpdLabelWt}</span><span className="text-[6px] font-mono text-slate-400 bg-slate-900/80 px-0.5 rounded border border-slate-600 leading-none">{computed.holdSpdLabelAlt}</span>
+              <div className="absolute top-0.5 right-0.5 flex flex-col items-end gap-[2px]">
+                <span className="text-[9px] sm:text-[10px] font-mono font-bold text-slate-200 bg-slate-900/80 px-1 rounded border border-slate-600 leading-none">{computed.holdSpdLabelWt}</span><span className="text-[9px] sm:text-[10px] font-mono font-bold text-slate-200 bg-slate-900/80 px-1 rounded border border-slate-600 leading-none">{computed.holdSpdLabelAlt}</span>
               </div>
-              <span className="text-[7px] sm:text-[8px] font-black text-slate-400 uppercase tracking-wider whitespace-nowrap flex items-center gap-1 mt-0"><SafeIcon name="MapPin" className={`w-2.5 h-2.5 ${computed.minSpdIconClass}`} /> MINIMUM SPD</span>
+              <span className="text-[9px] sm:text-[10px] font-black text-slate-300 uppercase tracking-wider whitespace-nowrap flex items-center gap-1 mt-0"><SafeIcon name="MapPin" className={`w-2.5 h-2.5 ${computed.minSpdIconClass}`} /> MINIMUM SPD</span>
               <div className="flex items-center gap-1 my-0.5">
-                <div className="text-lg sm:text-2xl font-black tracking-tighter leading-none flex items-baseline gap-0.5">{computed.holdSpdJsx}<span className="text-[8px] text-slate-500 font-normal tracking-normal ml-0.5">{computed.spdUnit}</span></div>
+                <div className="text-lg sm:text-2xl font-black tracking-tighter leading-none flex items-baseline gap-0.5">{computed.holdSpdJsx}<span className="text-[9px] sm:text-[10px] font-bold text-slate-300 tracking-normal ml-0.5">{computed.spdUnit}</span></div>
               </div>
-              <div className="mt-auto flex flex-row items-center justify-center bg-slate-900/50 py-0.5 px-1 rounded-md border border-slate-700/50 w-full"><span className="text-[5px] sm:text-[6.5px] font-mono font-bold text-slate-300 whitespace-nowrap text-center">{computed.minSpdTypeJsx}</span></div>
+              <div className="mt-auto flex flex-row items-center justify-center bg-slate-900/50 py-0.5 px-1 rounded-md border border-slate-700/50 w-full"><span className="text-[9px] sm:text-[10px] font-mono font-bold text-slate-200 whitespace-nowrap text-center">{computed.minSpdTypeJsx}</span></div>
             </div>
           </div>
           <div className="w-full border border-slate-700 rounded p-1.5 flex gap-2 bg-[#1e293b]">
             <div className="flex-[2] flex flex-col justify-center">
               <div className="flex justify-between items-end mb-0.5">
-                <span className="text-[8px] text-slate-400 font-bold tracking-wider">GROSS WT</span>
-                <div className="flex items-center"><input type="text" value={cruiseWtInputText} onChange={(e) => setCruiseWtInputText(e.target.value)} onBlur={() => { const w = parseWeightInput(cruiseWtInputText); if (w !== null) updateState('cruiseWeight', w); else setCruiseWtInputText(formatWeightDisplay(state.cruiseWeight)); }} className="bg-transparent text-right text-[10px] text-white font-bold font-mono w-12 border-b border-transparent hover:border-slate-500 focus:border-emerald-500 focus:outline-none transition-colors" /><span className="text-[7px] text-slate-500 ml-0.5">KLBS</span></div>
+                <span className="text-[9px] sm:text-[10px] text-slate-200 font-bold tracking-wider">GROSS WT</span>
+                <div className="flex items-center"><input type="text" value={cruiseWtInputText} onChange={(e) => setCruiseWtInputText(e.target.value)} onBlur={() => { const w = parseWeightInput(cruiseWtInputText); if (w !== null) updateState('cruiseWeight', w); else setCruiseWtInputText(formatWeightDisplay(state.cruiseWeight)); }} className="bg-transparent text-right text-[11px] text-white font-bold font-mono w-12 border-b border-transparent hover:border-slate-500 focus:border-emerald-500 focus:outline-none transition-colors" /><span className="text-[9px] sm:text-[10px] font-bold text-slate-300 ml-0.5">KLBS</span></div>
               </div>
               <input type="range" step="1000" min={computed.minCruiseWeight} max={computed.maxCruiseWeight} value={computed.clampedCruiseWeight} onChange={(e) => updateState('cruiseWeight', Number(e.target.value))} className="w-full h-1 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-emerald-500 my-1.5" />
-              <div className="flex justify-between text-[7px] text-slate-500 mt-0.5 font-mono"><span>{Math.round(computed.minCruiseWeight / 1000)}k</span><span>{Math.round(computed.maxCruiseWeight / 1000)}k</span></div>
+              <div className="flex justify-between text-[9px] sm:text-[10px] font-bold text-slate-300 mt-0.5 font-mono"><span>{Math.round(computed.minCruiseWeight / 1000)}k</span><span>{Math.round(computed.maxCruiseWeight / 1000)}k</span></div>
             </div>
             <div className="w-px bg-slate-700 my-1 self-stretch"></div>
             <div className="flex-[1.5] flex flex-col justify-center min-w-[75px]">
-              <div className="flex justify-between items-end mb-0.5"><span className="text-[8px] text-slate-400 font-bold tracking-wider">CRZ ALT</span><span className="text-[10px] text-white font-bold font-mono"><span>{formatNum(state.cruiseAltitude)}</span><span className="text-[7px] text-slate-500 ml-0.5">FT</span></span></div>
+              <div className="flex justify-between items-end mb-0.5"><span className="text-[9px] sm:text-[10px] text-slate-200 font-bold tracking-wider">CRZ ALT</span><span className="text-[11px] text-white font-bold font-mono"><span>{formatNum(state.cruiseAltitude)}</span><span className="text-[9px] sm:text-[10px] font-bold text-slate-300 ml-0.5">FT</span></span></div>
               <input type="range" min="0" max="43000" step="1000" value={state.cruiseAltitude} onChange={(e) => updateState('cruiseAltitude', Number(e.target.value))} className="w-full h-1 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-blue-500 my-1.5" />
-              <div className="flex justify-between text-[7px] text-slate-500 mt-0.5 font-mono"><span>0</span><span>43k</span></div>
+              <div className="flex justify-between text-[9px] sm:text-[10px] font-bold text-slate-300 mt-0.5 font-mono"><span>0</span><span>43k</span></div>
             </div>
             <div className="w-px bg-slate-700 my-1 self-stretch"></div>
             <div className="flex-[1] flex flex-col justify-center min-w-[60px]">
-              <div className="flex justify-between items-end mb-0.5"><span className="text-[8px] text-slate-400 font-bold tracking-wider">ISA DEV</span><span className="text-[10px] text-white font-bold font-mono">{(state.isaDev >= 0 ? '+' : '') + state.isaDev + '°C'}</span></div>
+              <div className="flex justify-between items-end mb-0.5"><span className="text-[9px] sm:text-[10px] text-slate-200 font-bold tracking-wider">ISA DEV</span><span className="text-[11px] text-white font-bold font-mono">{(state.isaDev >= 0 ? '+' : '') + state.isaDev + '°C'}</span></div>
               <input type="range" min="-20" max="30" step="1" value={state.isaDev} onChange={(e) => updateState('isaDev', Number(e.target.value))} className="w-full h-1 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-blue-500 my-1.5" />
-              <div className="flex justify-between text-[7px] text-slate-500 mt-0.5 font-mono"><span>-20</span><span>+30</span></div>
+              <div className="flex justify-between text-[9px] sm:text-[10px] font-bold text-slate-300 mt-0.5 font-mono"><span>-20</span><span>+30</span></div>
             </div>
           </div>
         </div>
@@ -4149,7 +4149,7 @@ const DashboardView = ({ state, updateState, computed, aircraftRegistrationList,
         <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-1">
           <div className="flex items-center gap-1">
             <div className="flex items-center gap-1 text-emerald-400 font-bold tracking-widest text-[9px] border border-emerald-500/50 px-1.5 py-0.5 rounded-full bg-emerald-500/10 whitespace-nowrap"><div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></div>LANDING</div>
-            <div className="text-[8px] text-slate-500 font-mono pl-1">ADJUSTED DISTANCE</div>
+            <div className="text-[9px] sm:text-[10px] font-bold text-slate-300 font-mono pl-1">ADJUSTED DISTANCE</div>
           </div>
           <div className="flex flex-wrap items-center gap-1">
             <div className="flex gap-0.5"><button className={highlightToggleClass(state.landingCondition === 'Normal', 'green')} onClick={() => updateState('landingCondition', 'Normal')}>NORMAL</button><button className={highlightToggleClass(state.landingCondition === '1 ENG INOP', 'red')} onClick={() => updateState('landingCondition', '1 ENG INOP')}>ENG INOP</button></div>
@@ -4160,69 +4160,69 @@ const DashboardView = ({ state, updateState, computed, aircraftRegistrationList,
             <div className="h-3 w-px bg-slate-700 mx-0.5"></div>
             <div className="flex items-center gap-1">
               <div className="flex gap-0.5"><button className={highlightToggleClass(state.factConfig === '1.15', 'green')} onClick={() => updateState('factConfig', '1.15')}>FACT 1.15</button><button className={highlightToggleClass(state.factConfig === '1.00')} onClick={() => updateState('factConfig', '1.00')}>BASE 1.00</button></div>
-              <span className="text-[8px] text-slate-500 font-mono hidden sm:inline ml-1 whitespace-nowrap">OAT 30℃ for DRY/WET</span>
+              <span className="text-[9px] sm:text-[10px] font-bold text-slate-300 font-mono hidden sm:inline ml-1 whitespace-nowrap">OAT 30℃ for DRY/WET</span>
             </div>
           </div>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-1 w-full">
           <div className="border border-pink-500/60 rounded flex flex-col bg-[#0f172a] overflow-hidden shadow-lg p-1 h-full">
-            <div className="text-center text-[7.5px] sm:text-[8.5px] font-black text-pink-400 pb-0.5 tracking-widest bg-[#131c2f]">TARGET N1</div>
+            <div className="text-center text-[9px] sm:text-[10px] font-black text-pink-300 pb-0.5 tracking-widest bg-[#131c2f]">TARGET N1</div>
             <div className="flex-1 flex flex-col justify-center gap-1.5 py-0.5 px-1">
-              <div className="flex justify-between items-baseline leading-none"><div className="flex items-baseline gap-1"><span className="text-[9px] sm:text-[11px] text-pink-300 font-bold">{computed.activeFlaps[0]}</span><span className="text-[7px] sm:text-[8px] text-pink-400 font-mono font-bold tracking-tighter">{computed.pchF1}</span></div><div className="flex items-baseline"><span className="text-lg sm:text-2xl font-extrabold text-emerald-400 font-mono tracking-tighter">{computed.n1F1}</span><span className="text-[7px] text-emerald-400/80 font-bold ml-[1px]">%</span></div></div>
-              <div className="flex justify-between items-baseline leading-none"><div className="flex items-baseline gap-1"><span className="text-[9px] sm:text-[11px] text-pink-300 font-bold">{computed.activeFlaps[1]}</span><span className="text-[7px] sm:text-[8px] text-pink-400 font-mono font-bold tracking-tighter">{computed.pchF2}</span></div><div className="flex items-baseline"><span className="text-lg sm:text-2xl font-extrabold text-emerald-400 font-mono tracking-tighter">{computed.n1F2}</span><span className="text-[7px] text-emerald-400/80 font-bold ml-[1px]">%</span></div></div>
+              <div className="flex justify-between items-baseline leading-none"><div className="flex items-baseline gap-1"><span className="text-[10px] sm:text-[12px] text-pink-200 font-bold">{computed.activeFlaps[0]}</span><span className="text-[9px] sm:text-[10px] text-pink-300 font-mono font-bold tracking-tighter">{computed.pchF1}</span></div><div className="flex items-baseline"><span className="text-lg sm:text-2xl font-extrabold text-emerald-400 font-mono tracking-tighter">{computed.n1F1}</span><span className="text-[9px] sm:text-[10px] text-emerald-300 font-bold ml-[1px]">%</span></div></div>
+              <div className="flex justify-between items-baseline leading-none"><div className="flex items-baseline gap-1"><span className="text-[10px] sm:text-[12px] text-pink-200 font-bold">{computed.activeFlaps[1]}</span><span className="text-[9px] sm:text-[10px] text-pink-300 font-mono font-bold tracking-tighter">{computed.pchF2}</span></div><div className="flex items-baseline"><span className="text-lg sm:text-2xl font-extrabold text-emerald-400 font-mono tracking-tighter">{computed.n1F2}</span><span className="text-[9px] sm:text-[10px] text-emerald-300 font-bold ml-[1px]">%</span></div></div>
             </div>
-            <div className="px-1 py-0.5 text-[6.5px] sm:text-[7px] text-pink-400/80 font-mono font-bold text-center flex justify-between mt-auto border-t border-pink-500/30 pt-0.5"><span>{computed.engine}</span><span className="text-pink-300">Vref+{state.appSpeedAdditive}</span></div>
+            <div className="px-1 py-0.5 text-[9px] sm:text-[10px] text-pink-200 font-mono font-bold text-center flex justify-between mt-auto border-t border-pink-500/40 pt-0.5"><span>{computed.engine}</span><span className="text-pink-200">Vref+{state.appSpeedAdditive}</span></div>
           </div>
           <div className="border border-slate-700 rounded flex flex-col bg-[#0f172a] overflow-hidden shadow-lg p-1 h-full">
-            <div className="text-center text-[7px] sm:text-[8px] font-bold text-slate-400 pb-0.5 tracking-wider bg-[#131c2f]">MAX MAN</div>
+            <div className="text-center text-[9px] sm:text-[10px] font-bold text-slate-300 pb-0.5 tracking-wider bg-[#131c2f]">MAX MAN</div>
             <div className="flex-1 flex flex-col justify-center gap-1.5 py-0.5 px-1">
-              <div className="flex justify-between items-baseline leading-none"><span className="text-[8px] sm:text-[10px] text-slate-500 font-bold">{computed.activeFlaps[0]}</span><div className="flex items-baseline gap-1"><span className="text-[6px] text-slate-500 font-mono tracking-tighter">{computed.penaltyF25}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distMan1)}</span></div></div>
-              <div className="flex justify-between items-baseline leading-none"><span className="text-[8px] sm:text-[10px] text-slate-500 font-bold">{computed.activeFlaps[1]}</span><div className="flex items-baseline gap-1"><span className="text-[6px] text-slate-500 font-mono tracking-tighter">{computed.penaltyF30}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distMan2)}</span></div></div>
-            </div>
-            <div className="px-1 py-0.5 text-[6px] opacity-0 font-mono text-center flex justify-between mt-auto border-t border-transparent pt-0.5"><span>-</span><span>-</span></div>
-          </div>
-          <div className="border border-slate-700 rounded flex flex-col bg-[#0f172a] overflow-hidden shadow-lg p-1 h-full">
-            <div className="text-center text-[7px] sm:text-[8px] font-bold text-slate-400 pb-0.5 tracking-widest bg-[#131c2f]">MAX AUTO</div>
-            <div className="flex-1 flex flex-col justify-center gap-1.5 py-0.5 px-1">
-              <div className="flex justify-between items-baseline leading-none"><span className="text-[8px] sm:text-[10px] text-slate-500 font-bold">{computed.activeFlaps[0]}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distMax1)}</span></div>
-              <div className="flex justify-between items-baseline leading-none"><span className="text-[8px] sm:text-[10px] text-slate-500 font-bold">{computed.activeFlaps[1]}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distMax2)}</span></div>
+              <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed.activeFlaps[0]}</span><div className="flex items-baseline gap-1"><span className="text-[9px] sm:text-[10px] font-bold text-slate-300 font-mono tracking-tighter">{computed.penaltyF25}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distMan1)}</span></div></div>
+              <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed.activeFlaps[1]}</span><div className="flex items-baseline gap-1"><span className="text-[9px] sm:text-[10px] font-bold text-slate-300 font-mono tracking-tighter">{computed.penaltyF30}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distMan2)}</span></div></div>
             </div>
             <div className="px-1 py-0.5 text-[6px] opacity-0 font-mono text-center flex justify-between mt-auto border-t border-transparent pt-0.5"><span>-</span><span>-</span></div>
           </div>
           <div className="border border-slate-700 rounded flex flex-col bg-[#0f172a] overflow-hidden shadow-lg p-1 h-full">
-            <div className="text-center text-[7px] sm:text-[8px] font-bold text-slate-400 pb-0.5 tracking-wider bg-[#131c2f]">M TO FT</div>
-            <div className="flex-1 flex flex-col justify-around py-0.5 px-1 font-mono text-[9px] sm:text-xs"><div className="flex justify-between items-baseline leading-none"><span className="text-slate-500">3000m:</span><span className="font-bold text-slate-300">9,843'</span></div><div className="flex justify-between items-baseline leading-none"><span className="text-slate-500">2800m:</span><span className="font-bold text-slate-300">9,186'</span></div><div className="flex justify-between items-baseline leading-none"><span className="text-slate-500">2500m:</span><span className="font-bold text-slate-300">8,202'</span></div><div className="flex justify-between items-baseline leading-none"><span className="text-slate-500">2000m:</span><span className="font-bold text-slate-300">6,562'</span></div></div>
+            <div className="text-center text-[9px] sm:text-[10px] font-bold text-slate-300 pb-0.5 tracking-widest bg-[#131c2f]">MAX AUTO</div>
+            <div className="flex-1 flex flex-col justify-center gap-1.5 py-0.5 px-1">
+              <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed.activeFlaps[0]}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distMax1)}</span></div>
+              <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed.activeFlaps[1]}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distMax2)}</span></div>
+            </div>
+            <div className="px-1 py-0.5 text-[6px] opacity-0 font-mono text-center flex justify-between mt-auto border-t border-transparent pt-0.5"><span>-</span><span>-</span></div>
+          </div>
+          <div className="border border-slate-700 rounded flex flex-col bg-[#0f172a] overflow-hidden shadow-lg p-1 h-full">
+            <div className="text-center text-[9px] sm:text-[10px] font-bold text-slate-300 pb-0.5 tracking-wider bg-[#131c2f]">M TO FT</div>
+            <div className="flex-1 flex flex-col justify-around py-0.5 px-1 font-mono text-[10px] sm:text-xs"><div className="flex justify-between items-baseline leading-none"><span className="text-slate-300 font-bold">3000m:</span><span className="font-bold text-slate-200">9,843'</span></div><div className="flex justify-between items-baseline leading-none"><span className="text-slate-300 font-bold">2800m:</span><span className="font-bold text-slate-200">9,186'</span></div><div className="flex justify-between items-baseline leading-none"><span className="text-slate-300 font-bold">2500m:</span><span className="font-bold text-slate-200">8,202'</span></div><div className="flex justify-between items-baseline leading-none"><span className="text-slate-300 font-bold">2000m:</span><span className="font-bold text-slate-200">6,562'</span></div></div>
             <div className="px-1 py-0.5 text-[6px] opacity-0 font-mono text-center flex justify-between mt-auto border-t border-transparent pt-0.5"><span>-</span><span>-</span></div>
           </div>
           <div className="border border-slate-700 rounded flex flex-col bg-[#131c2f] overflow-hidden shadow-lg p-1 h-full">
-            <div className="text-center text-[7px] sm:text-[8px] font-bold text-slate-300 pb-0.5 tracking-widest bg-[#1a2640]">AUTO 4</div>
+            <div className="text-center text-[9px] sm:text-[10px] font-bold text-slate-300 pb-0.5 tracking-widest bg-[#1a2640]">AUTO 4</div>
             <div className="flex-1 flex flex-col justify-center gap-1.5 py-0.5 px-1">
-              <div className="flex justify-between items-baseline leading-none"><span className="text-[8px] sm:text-[10px] text-slate-500 font-bold">{computed.activeFlaps[0]}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distAb41)}</span></div>
-              <div className="flex justify-between items-baseline leading-none"><span className="text-[8px] sm:text-[10px] text-slate-500 font-bold">{computed.activeFlaps[1]}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distAb42)}</span></div>
+              <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed.activeFlaps[0]}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distAb41)}</span></div>
+              <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed.activeFlaps[1]}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distAb42)}</span></div>
             </div>
             <div className="px-1 py-0.5 text-[6px] opacity-0 font-mono text-center flex justify-between mt-auto border-t border-transparent pt-0.5"><span>-</span><span>-</span></div>
           </div>
           <div className="border border-slate-700 rounded flex flex-col bg-[#131c2f] overflow-hidden shadow-lg p-1 h-full">
-            <div className="text-center text-[7px] sm:text-[8px] font-bold text-slate-300 pb-0.5 tracking-widest bg-[#1a2640]">AUTO 3</div>
+            <div className="text-center text-[9px] sm:text-[10px] font-bold text-slate-300 pb-0.5 tracking-widest bg-[#1a2640]">AUTO 3</div>
             <div className="flex-1 flex flex-col justify-center gap-1.5 py-0.5 px-1">
-              <div className="flex justify-between items-baseline leading-none"><span className="text-[8px] sm:text-[10px] text-slate-500 font-bold">{computed.activeFlaps[0]}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distAb31)}</span></div>
-              <div className="flex justify-between items-baseline leading-none"><span className="text-[8px] sm:text-[10px] text-slate-500 font-bold">{computed.activeFlaps[1]}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distAb32)}</span></div>
+              <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed.activeFlaps[0]}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distAb31)}</span></div>
+              <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed.activeFlaps[1]}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distAb32)}</span></div>
             </div>
             <div className="px-1 py-0.5 text-[6px] opacity-0 font-mono text-center flex justify-between mt-auto border-t border-transparent pt-0.5"><span>-</span><span>-</span></div>
           </div>
           <div className="border border-slate-700 rounded flex flex-col bg-[#131c2f] overflow-hidden shadow-lg p-1 h-full">
-            <div className="text-center text-[7px] sm:text-[8px] font-bold text-slate-300 pb-0.5 tracking-widest bg-[#1a2640]">AUTO 2</div>
+            <div className="text-center text-[9px] sm:text-[10px] font-bold text-slate-300 pb-0.5 tracking-widest bg-[#1a2640]">AUTO 2</div>
             <div className="flex-1 flex flex-col justify-center gap-1.5 py-0.5 px-1">
-              <div className="flex justify-between items-baseline leading-none"><span className="text-[8px] sm:text-[10px] text-slate-500 font-bold">{computed.activeFlaps[0]}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distAb21)}</span></div>
-              <div className="flex justify-between items-baseline leading-none"><span className="text-[8px] sm:text-[10px] text-slate-500 font-bold">{computed.activeFlaps[1]}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distAb22)}</span></div>
+              <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed.activeFlaps[0]}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distAb21)}</span></div>
+              <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed.activeFlaps[1]}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distAb22)}</span></div>
             </div>
             <div className="px-1 py-0.5 text-[6px] opacity-0 font-mono text-center flex justify-between mt-auto border-t border-transparent pt-0.5"><span>-</span><span>-</span></div>
           </div>
           <div className="border border-slate-700 rounded flex flex-col bg-[#131c2f] overflow-hidden shadow-lg p-1 h-full">
-            <div className="text-center text-[7px] sm:text-[8px] font-bold text-slate-300 pb-0.5 tracking-widest bg-[#1a2640]">AUTO 1</div>
+            <div className="text-center text-[9px] sm:text-[10px] font-bold text-slate-300 pb-0.5 tracking-widest bg-[#1a2640]">AUTO 1</div>
             <div className="flex-1 flex flex-col justify-center gap-1.5 py-0.5 px-1">
-              <div className="flex justify-between items-baseline leading-none"><span className="text-[8px] sm:text-[10px] text-slate-500 font-bold">{computed.activeFlaps[0]}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distAb11)}</span></div>
-              <div className="flex justify-between items-baseline leading-none"><span className="text-[8px] sm:text-[10px] text-slate-500 font-bold">{computed.activeFlaps[1]}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distAb12)}</span></div>
+              <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed.activeFlaps[0]}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distAb11)}</span></div>
+              <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed.activeFlaps[1]}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distAb12)}</span></div>
             </div>
             <div className="px-1 py-0.5 text-[6px] opacity-0 font-mono text-center flex justify-between mt-auto border-t border-transparent pt-0.5"><span>-</span><span>-</span></div>
           </div>
@@ -4230,33 +4230,33 @@ const DashboardView = ({ state, updateState, computed, aircraftRegistrationList,
         <div className="grid grid-cols-2 md:grid-cols-5 gap-1.5 pt-1">
           <div className="border border-slate-700 rounded p-1.5 flex flex-col bg-[#111827]">
             <div className="flex justify-between items-end mb-0.5">
-              <span className="text-[8px] text-slate-400 font-bold tracking-wider">LANDING WT</span>
-              <div className="flex items-center"><input type="text" value={ldgWtInputText} onChange={(e) => setLdgWtInputText(e.target.value)} onBlur={() => { const w = parseWeightInput(ldgWtInputText); if (w !== null) updateState('landingWeight', w); else setLdgWtInputText(formatWeightDisplay(state.landingWeight)); }} className="bg-transparent text-right text-[10px] text-white font-bold font-mono w-12 border-b border-transparent hover:border-slate-500 focus:border-emerald-500 focus:outline-none transition-colors" /><span className="text-[7px] text-slate-500 ml-0.5">KLBS</span></div>
+              <span className="text-[9px] sm:text-[10px] text-slate-200 font-bold tracking-wider">LANDING WT</span>
+              <div className="flex items-center"><input type="text" value={ldgWtInputText} onChange={(e) => setLdgWtInputText(e.target.value)} onBlur={() => { const w = parseWeightInput(ldgWtInputText); if (w !== null) updateState('landingWeight', w); else setLdgWtInputText(formatWeightDisplay(state.landingWeight)); }} className="bg-transparent text-right text-[11px] text-white font-bold font-mono w-12 border-b border-transparent hover:border-slate-500 focus:border-emerald-500 focus:outline-none transition-colors" /><span className="text-[9px] sm:text-[10px] font-bold text-slate-300 ml-0.5">KLBS</span></div>
             </div>
             <input type="range" step="1000" min={computed.landingMinWeight} max={computed.maxAvailableLdgWt} value={computed.clampedLandingWeight} onChange={(e) => updateState('landingWeight', Number(e.target.value))} className="w-full h-1 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-emerald-500 my-1.5" />
-            <div className="flex justify-between text-[7px] text-slate-500 mt-0.5 font-mono"><span>{Math.round(computed.landingMinWeight / 1000)}k</span><span>MAX: {Math.round(computed.maxAvailableLdgWt / 1000)}k</span></div>
+            <div className="flex justify-between text-[9px] sm:text-[10px] font-bold text-slate-300 mt-0.5 font-mono"><span>{Math.round(computed.landingMinWeight / 1000)}k</span><span>MAX: {Math.round(computed.maxAvailableLdgWt / 1000)}k</span></div>
           </div>
           <div className="border border-slate-700 rounded p-1.5 flex flex-col bg-[#111827] justify-center">
             <div className="flex justify-between items-end mb-0.5">
-              <span className="text-[8px] text-slate-400 font-bold tracking-wider">WIND COMP</span><span className="text-[10px] text-white font-bold font-mono"><span>{computed.windText}</span><span className="text-[7px] text-slate-500 ml-0.5">KT</span></span>
+              <span className="text-[9px] sm:text-[10px] text-slate-200 font-bold tracking-wider">WIND COMP</span><span className="text-[11px] text-white font-bold font-mono"><span>{computed.windText}</span><span className="text-[9px] sm:text-[10px] font-bold text-slate-300 ml-0.5">KT</span></span>
             </div>
             <input type="range" min="-20" max="15" step="5" value={state.windComponent} onChange={(e) => updateState('windComponent', Number(e.target.value))} className="w-full h-1 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-blue-500 my-1.5" />
           </div>
           <div className="border border-slate-700 rounded p-1.5 flex flex-col bg-[#111827] justify-center">
             <div className="flex justify-between items-end mb-0.5">
-              <span className="text-[8px] text-slate-400 font-bold tracking-wider">APP SPD ADD</span><span className="text-[10px] text-white font-bold font-mono"><span>+{state.appSpeedAdditive}</span><span className="text-[7px] text-slate-500 ml-0.5">KT</span></span>
+              <span className="text-[9px] sm:text-[10px] text-slate-200 font-bold tracking-wider">APP SPD ADD</span><span className="text-[11px] text-white font-bold font-mono"><span>+{state.appSpeedAdditive}</span><span className="text-[9px] sm:text-[10px] font-bold text-slate-300 ml-0.5">KT</span></span>
             </div>
             <input type="range" min="0" max="30" step="5" value={state.appSpeedAdditive} onChange={(e) => updateState('appSpeedAdditive', Number(e.target.value))} className="w-full h-1 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-blue-500 my-1.5" />
           </div>
           <div className="border border-slate-700 rounded p-1.5 flex flex-col bg-[#111827] justify-center">
             <div className="flex justify-between items-end mb-0.5">
-              <span className="text-[8px] text-slate-400 font-bold tracking-wider">PRESS ALT</span><span className="text-[10px] text-white font-bold font-mono"><span>{formatNum(state.pressureAlt)}</span><span className="text-[7px] text-slate-500 ml-0.5">FT</span></span>
+              <span className="text-[9px] sm:text-[10px] text-slate-200 font-bold tracking-wider">PRESS ALT</span><span className="text-[11px] text-white font-bold font-mono"><span>{formatNum(state.pressureAlt)}</span><span className="text-[9px] sm:text-[10px] font-bold text-slate-300 ml-0.5">FT</span></span>
             </div>
             <input type="range" min="0" max="8000" step="1000" value={state.pressureAlt} onChange={(e) => updateState('pressureAlt', Number(e.target.value))} className="w-full h-1 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-blue-500 my-1.5" />
           </div>
           <div className="border border-slate-700 rounded p-1.5 flex flex-col bg-[#111827] justify-center">
             <div className="flex justify-between items-end mb-0.5">
-              <span className="text-[8px] text-slate-400 font-bold tracking-wider">RWY SLOPE</span><span className="text-[10px] text-white font-bold font-mono"><span>{computed.slopeText}</span><span className="text-[7px] text-slate-500 ml-0.5">%</span></span>
+              <span className="text-[9px] sm:text-[10px] text-slate-200 font-bold tracking-wider">RWY SLOPE</span><span className="text-[11px] text-white font-bold font-mono"><span>{computed.slopeText}</span><span className="text-[9px] sm:text-[10px] font-bold text-slate-300 ml-0.5">%</span></span>
             </div>
             <input type="range" min="-2" max="2" step="1" value={state.rwSlope} onChange={(e) => updateState('rwSlope', Number(e.target.value))} className="w-full h-1 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-blue-500 my-1.5" />
           </div>
