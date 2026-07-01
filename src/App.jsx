@@ -11650,4 +11650,4 @@ export default function App() {
       {activeTab === 'XWIND' && (<div className="flex flex-col gap-1 w-full flex-1 h-full mt-0.5">{typeof XwindView !== 'undefined' && <XwindView />}</div>)}
     </div>
   );
-}
+} 
