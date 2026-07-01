@@ -2,13 +2,14 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import * as LucideIcons from 'lucide-react';
 
 //アプリ化する場合は以下を有効化する
-import * as importedPdfjsLib from 'pdfjs-dist/legacy/build/pdf.js';
-import PdfWorker from 'pdfjs-dist/legacy/build/pdf.worker.js?worker&inline';
-importedPdfjsLib.GlobalWorkerOptions.workerPort = new PdfWorker();
-localPdfjsLib = importedPdfjsLib;
+//import * as importedPdfjsLib from 'pdfjs-dist/legacy/build/pdf.js';
+//import PdfWorker from 'pdfjs-dist/legacy/build/pdf.worker.js?worker&inline';
+//importedPdfjsLib.GlobalWorkerOptions.workerPort = new PdfWorker();
+//localPdfjsLib = importedPdfjsLib;
+
 
 // ==========================================
-// 📖 目次 (TABLE OF CONTENTS) - test
+// 📖 目次 (TABLE OF CONTENTS) - 再構成版
 // ==========================================
 // [1] SETTINGS & IMPORTS
 // [2] COMMON & UI COMPONENTS
@@ -6235,7 +6236,7 @@ const SPECIAL_PAX_DATA = [
   { code: "BLND", label: "視覚障がい旅客", desc: "目の不自由な旅客。\n盲導犬は付添者とみなし、1名に対し1頭まで同伴可。", escort: "条件により必要\n(付添者1名に対し2名迄)", seat: "非常口不可\n※付添者は隣席", limit: "制限なし\n※単独搭乗時は制限あり" },
   { code: "DEAF", label: "聴覚障がい旅客", desc: "耳の不自由な旅客。\n聴導犬は1名に対し1頭まで同伴可。", escort: "-", seat: "非常口不可", limit: "制限なし" },
   { code: "[国内] PGNT\n[国際] EXMO", label: "妊婦", desc: "出産予定日より28日以内の旅客。", escort: "[国内] 予定日7日以内\n[国際] 予定日14日以内\nは医師の同伴が必要", seat: "非常口不可", limit: "制限なし" },
-  { code: "[国内] INF\n[国際] INFT", label: "幼児", desc: "[国内] 生後8日以上3歳未満\n[国際] 生後8日以上2歳未満", escort: "必要(12歳以上)\n同伴者1名につき2名迄", seat: "非常口不可\n※酸素マスク数の制限あり", limit: "[国内] 各装備座席数の20%以下\n[国際] 各装備座席数の10%以下" },
+  { code: "[国内] INF\n[国際] INFT\nINST", label: "幼児", desc: "[国内] 生後8日以上3歳未満\n[国際] 生後8日以上2歳未満\n※INSTは国内/国際共通で座席を使用する幼児(SOC INFT)", escort: "必要(12歳以上)\n同伴者1名につき2名迄", seat: "非常口不可\n※酸素マスク数の制限あり", limit: "[国内] 各装備座席数の20%以下\n[国際] 各装備座席数の10%以下" },
   { code: "[国内] CH / JRP\n[国際] CHLD / UMNR", label: "小児 / 単独搭乗", desc: "[国内] 3歳以上12歳未満 (JRPは6〜8歳)\n[国際] 2歳以上12歳未満 (UMNRは5〜12歳)", escort: "[国内] 6歳未満\n[国際] 5歳未満\nは12歳以上の同伴必要", seat: "非常口不可", limit: "制限なし" },
   { code: "PRIS", label: "被疑者", desc: "逮捕・拘束され、厳重な護送が行われるべき者。", escort: "[国内] 1名に対し2名以上等\n[国際] 1名につき3名", seat: "非常口不可\n※窓側等に指定", limit: "1機あたり3件以内\n合計3人以内" },
   { code: "[国内] DEPO\n[国際] DEPA / DEPU", label: "出入国管理局拘留者", desc: "退去を命じられた外国人、あるいはその容疑者。\n(DEPA=警備官同行, DEPU=同行なし)", escort: "[国内] 1名以上(入国警備官等)\n[国際] DEPAは同行あり", seat: "非常口不可", limit: "[国内] 1便あたり10名以内\n[国際] 制限なし" },
@@ -7391,6 +7392,7 @@ const WxMnmReference = () => {
 };
 
 // --- [5-2] Docs2View (DOCS) ---
+// --- [5-2] Docs2View (DOCS) ---
 const Docs2View = () => {
   const [activeTab, setActiveTab] = useState('classification');
 
@@ -7421,7 +7423,6 @@ const Docs2View = () => {
       });
 
       return (
-        // ★横スクロールを防ぐため whitespace-nowrap を除去
         <span key={idx} className="block">
           {formattedLine}
         </span>
@@ -7430,7 +7431,6 @@ const Docs2View = () => {
 
     return (
       <div className="flex flex-col gap-0.5">
-        {/* ★はみ出し防止のため、w-max から w-fit max-w-full などの折り返し対応に変更 */}
         {hasWarning && <span className="text-[9px] sm:text-[10px] text-rose-400 font-black block mb-0.5 leading-tight border border-rose-500/30 bg-rose-950/40 w-fit max-w-full break-words px-1 py-0.5 rounded shadow-sm">(※旅客機には搭載禁止)</span>}
         {lines}
       </div>
@@ -7443,7 +7443,7 @@ const Docs2View = () => {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between w-full p-2 lg:p-3 border-b border-slate-700/50 bg-slate-900/30 shrink-0 gap-2">
         <div className="flex items-center gap-2 px-2">
           <SafeIcon name="PackageWarning" className="w-4 h-4 lg:w-5 lg:h-5 text-pink-400" />
-          <h2 className="text-sm lg:text-base font-black uppercase tracking-widest text-pink-100">Docs 2</h2>
+          <h2 className="text-sm lg:text-base font-black uppercase tracking-widest text-pink-100">DOCS</h2>
         </div>
 
         <div className="flex bg-slate-700/80 p-1 rounded-lg border border-slate-500 shadow-inner items-center shrink-0">
@@ -7493,43 +7493,58 @@ const Docs2View = () => {
                 <div className="flex flex-col gap-4">
                   {/* 最大許容搭載量 */}
                   <div className="bg-slate-800/80 border border-slate-600 rounded-xl p-3 shadow-lg">
-                    <h4 className="text-sky-400 font-black text-xs mb-2">1. 最大許容搭載量 (B787)</h4>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left border-collapse min-w-[320px]">
+                    <h4 className="text-sky-400 font-black text-xs mb-2">1. 最大許容搭載量 (B777/B777F)</h4>
+                    <div className="overflow-x-auto custom-scrollbar pb-1">
+                      <table className="w-full text-left border-collapse min-w-[450px]">
                         <thead>
                           <tr className="bg-slate-700/50 text-slate-300 text-[9px] lg:text-[10px] border-b border-slate-600">
-                            <th className="p-1.5 border-r border-slate-600 whitespace-nowrap w-24">分類</th>
-                            <th className="p-1.5 border-r border-slate-600 whitespace-nowrap w-24">対象</th>
-                            <th className="p-1.5 border-r border-slate-600 whitespace-nowrap w-20">最大搭載量</th>
-                            <th className="p-1.5 whitespace-nowrap">備考</th>
+                            <th className="p-1.5 border-r border-slate-600 whitespace-nowrap w-[15%]">分類</th>
+                            <th className="p-1.5 border-r border-slate-600 whitespace-nowrap w-[35%]">対象</th>
+                            <th className="p-1.5 border-r border-slate-600 whitespace-nowrap w-[25%]">最大搭載量</th>
+                            <th className="p-1.5 whitespace-nowrap w-[25%]">備考</th>
                           </tr>
                         </thead>
                         <tbody className="text-[10px] lg:text-[11px] text-slate-300">
+                          {/* 火薬類 */}
                           <tr className="border-b border-slate-600/50">
                             <td className="p-1.5 border-r border-slate-600/50 font-bold text-sky-300">火薬類</td>
                             <td className="p-1.5 border-r border-slate-600/50">1貨物室あたり</td>
                             <td className="p-1.5 border-r border-slate-600/50 font-bold text-emerald-400">250kg <span className="text-[9px] font-normal text-slate-400">(550lbs)</span></td>
                             <td className="p-1.5 text-[9px] text-slate-400">全機種共通</td>
                           </tr>
+                          {/* 放射性物質 */}
                           <tr className="border-b border-slate-600/50">
-                            <td className="p-1.5 border-r border-slate-600/50 font-bold text-sky-300" rowSpan="2">放射性物質</td>
-                            <td className="p-1.5 border-r border-slate-600/50">1機あたり</td>
+                            <td className="p-1.5 border-r border-slate-600/50 font-bold text-sky-300" rowSpan="4">放射性物質</td>
+                            <td className="p-1.5 border-r border-slate-600/50">1機あたり (B777)</td>
                             <td className="p-1.5 border-r border-slate-600/50 font-bold text-emerald-400">32 単位</td>
-                            <td className="p-1.5 text-[9px] text-rose-300 bg-rose-500/10" rowSpan="2">核分裂物質の<br />搭載不可</td>
+                            <td className="p-1.5 text-[9px] text-rose-300 bg-rose-500/10" rowSpan="4">核分裂物質の<br />搭載不可</td>
                           </tr>
                           <tr className="border-b border-slate-600/50">
-                            <td className="p-1.5 border-r border-slate-600/50">ULD/Bulk<br />1台あたり</td>
+                            <td className="p-1.5 border-r border-slate-600/50">ULD/Bulk (B777)</td>
                             <td className="p-1.5 border-r border-slate-600/50 font-bold text-emerald-400">8 単位</td>
                           </tr>
                           <tr className="border-b border-slate-600/50">
-                            <td className="p-1.5 border-r border-slate-600/50 font-bold text-sky-300" rowSpan="2">ドライアイス</td>
-                            <td className="p-1.5 border-r border-slate-600/50">1機 (-9 / -8)</td>
+                            <td className="p-1.5 border-r border-slate-600/50">1機あたり (B777F)</td>
+                            <td className="p-1.5 border-r border-slate-600/50 font-bold text-emerald-400">200 単位</td>
+                          </tr>
+                          <tr className="border-b border-slate-600/50">
+                            <td className="p-1.5 border-r border-slate-600/50">ULD/Bulk (B777F)</td>
+                            <td className="p-1.5 border-r border-slate-600/50 font-bold text-emerald-400">50 単位</td>
+                          </tr>
+                          {/* ドライアイス */}
+                          <tr className="border-b border-slate-600/50">
+                            <td className="p-1.5 border-r border-slate-600/50 font-bold text-sky-300" rowSpan="3">ドライアイス</td>
+                            <td className="p-1.5 border-r border-slate-600/50">1機 (-300/300ER)</td>
+                            <td className="p-1.5 border-r border-slate-600/50 font-bold text-emerald-400">800kg</td>
+                            <td className="p-1.5 text-[9px] text-slate-400" rowSpan="3"></td>
+                          </tr>
+                          <tr className="border-b border-slate-600/50">
+                            <td className="p-1.5 border-r border-slate-600/50">1機 (-200)</td>
                             <td className="p-1.5 border-r border-slate-600/50 font-bold text-emerald-400">600kg</td>
-                            <td className="p-1.5 text-[9px] text-slate-400" rowSpan="2"></td>
                           </tr>
                           <tr>
-                            <td className="p-1.5 border-r border-slate-600/50">1機 (-10)</td>
-                            <td className="p-1.5 border-r border-slate-600/50 font-bold text-emerald-400">700kg</td>
+                            <td className="p-1.5 border-r border-slate-600/50">1機 (B777F)</td>
+                            <td className="p-1.5 border-r border-slate-600/50 font-bold text-emerald-400">2,300kg <span className="text-[9px] font-normal text-slate-400">(L/D 500kg)</span></td>
                           </tr>
                         </tbody>
                       </table>
@@ -7599,9 +7614,7 @@ const Docs2View = () => {
                 <h3 className="text-pink-400 font-black tracking-widest text-sm flex items-center gap-2 border-b border-slate-700/80 pb-1.5 px-1">
                   <SafeIcon name="List" className="w-4 h-4" /> 危険物分類表 (CLASSIFICATION)
                 </h3>
-                {/* overflow-x-auto を除外し、全体の枠に合わせて折り返させる */}
                 <div className="w-full overflow-x-auto rounded-xl border border-slate-600 shadow-xl bg-slate-800/50 custom-scrollbar">
-                  {/* table-fixed を利用して列幅（パーセント）を厳密に制御する */}
                   <table className="w-full text-left border-collapse table-fixed min-w-[950px]">
                     <thead>
                       <tr className="bg-slate-700 text-slate-200 border-b border-slate-500">
@@ -11235,13 +11248,15 @@ const XwindView = () => {
 // [6] MAIN APP COMPONENT
 // ==========================================
 export default function App() {
-  const [activeTab, setActiveTab] = useState('DASHBOARD');
-  // APP CALCのボタンを削除
-  const tabs = ['DASHBOARD', 'TFC INFO', 'WX/MNM', 'DOCS', 'スマカタ', 'REST CALC','APP CALC', 'BUDDY COMM', 'XWIND'];
+  const [activeTab, setActiveTab] = useState('DOCS');
+  const tabs = ['DASHBOARD', 'TFC INFO', 'WX/MNM', 'DOCS', 'スマカタ', 'REST CALC', 'APP CALC', 'BUDDY COMM', 'XWIND'];
 
-  const [isPasteModalOpen, setIsPasteModalOpen] = useState(false); const [flightId, setFlightId] = useState(""); const [isWifiModalOpen, setIsWifiModalOpen] = useState(false); const [isDrmModalOpen, setIsDrmModalOpen] = useState(false);
+  const [isPasteModalOpen, setIsPasteModalOpen] = useState(false); 
+  const [flightId, setFlightId] = useState(""); 
+  const [isWifiModalOpen, setIsWifiModalOpen] = useState(false); 
+  const [isDrmModalOpen, setIsDrmModalOpen] = useState(false);
   const [isSmartCatModalOpen, setIsSmartCatModalOpen] = useState(false);
-  
+
   // ★ 追加・変更: REST CALC用のStateと自動反映(useEffect)
   const [restFlightHours3, setRestFlightHours3] = useState(8); const [restFlightMins3, setRestFlightMins3] = useState(0); const [restFlightHours4, setRestFlightHours4] = useState(12); const [restFlightMins4, setRestFlightMins4] = useState(0);
   const [stdHours, setStdHours] = useState(10); const [stdMins, setStdMins] = useState(0);
