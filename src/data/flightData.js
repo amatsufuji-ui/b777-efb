@@ -1,4 +1,4 @@
-export const RAW_CSV_DATA = `
+const RAW_CSV_DATA = `
 Data:2026-04-24,
 Op Airline CodeFlight,Origin Code,Origin Country / Subregion,Destination Code,Destination Country / Subregion,Op Airline Code,Op Airline Name,Flight,Equipment Code,Equipment Name,Dep Time,Arr Time,Service Type,,
 O3272,KIX,Japan,HGH,China,O3,SF Airlines,272,73F,73F (B737 Freighter),0000,0140,Sched. Cargo Loose,SHUN FENG,M.82/340
