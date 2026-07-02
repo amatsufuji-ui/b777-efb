@@ -8970,15 +8970,15 @@ const DashboardView = ({ state, updateState, computed, aircraftRegistrationList,
             <span>ETOPS: <strong className="text-white font-black">{computed.etops}</strong></span><span className="text-slate-500 hidden sm:inline">|</span><span>T/O: <strong className="text-white font-black">{computed.toSetting}</strong></span><span className="text-slate-500 hidden sm:inline">|</span><span>OXY: <strong className="text-white font-black truncate max-w-[200px] sm:max-w-none">{computed.oxy}</strong></span><span className="text-slate-500 hidden sm:inline">|</span><span>ENG OIL: <strong className="text-white font-black">{computed.engOil}</strong></span><span className="text-slate-500 hidden sm:inline">|</span><span>BRK TEMP: <strong className="text-white font-black">{computed.brakeTemp}</strong></span>
           </div>
           <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[9px] md:text-[10px] text-slate-300 font-bold w-full leading-none mt-1">
-            <span className="text-rose-400 tracking-wider flex items-center gap-0.5 uppercase whitespace-nowrap"><SafeIcon name="Wind" className="w-3 h-3" /> X-WIND</span>
-            <span className="font-mono text-white font-black text-[8px] sm:text-[9px] truncate">DRY:38 | WET:25 | CC3:20(15) | CC2:15(10) | CC1:10 <span className="text-slate-400 font-bold">*() &lt;2700m</span></span>
-            <span className="text-slate-500 hidden sm:inline ml-1">|</span>
-            <span className="text-amber-500 tracking-wider flex items-center gap-0.5 uppercase whitespace-nowrap sm:ml-1"><SafeIcon name="AlertTriangle" className="w-3 h-3" /> DG MAX</span>
-            <span>火薬類: <strong className="text-white font-black">{computed.dgExp}</strong></span><span className="text-slate-500 hidden sm:inline">|</span><span>ISO: <strong className="text-white font-black">{computed.dgIso}</strong></span><span className="text-slate-500 hidden sm:inline">|</span><span>DRY: <strong className="text-white font-black">{computed.dgDry}</strong></span>
-            <div className="flex items-center gap-1 ml-auto shrink-0">
-              <span className="bg-slate-800 text-[8px] md:text-[9px] font-mono px-1.5 py-0.5 rounded border border-slate-600 shadow-sm text-slate-200 font-black">Taxi: {computed.taxiFuelRate} lbs/m</span>
-              <span className="bg-slate-800 text-[8px] md:text-[9px] font-mono px-1.5 py-0.5 rounded border border-slate-600 shadow-sm text-slate-200 font-black">APU: 9 lbs/m</span>
-            </div>
+             <span className="text-rose-400 tracking-wider flex items-center gap-0.5 uppercase whitespace-nowrap"><SafeIcon name="Wind" className="w-3 h-3" /> X-WIND</span>
+             <span className="font-mono text-white font-black text-[8px] sm:text-[9px] truncate">DRY:38 | WET:25 | CC3:20(15) | CC2:15(10) | CC1:10 <span className="text-slate-400 font-bold">*() &lt;2700m</span></span>
+             <span className="text-slate-500 hidden sm:inline ml-1">|</span>
+             <span className="text-amber-500 tracking-wider flex items-center gap-0.5 uppercase whitespace-nowrap sm:ml-1"><SafeIcon name="AlertTriangle" className="w-3 h-3" /> DG MAX</span>
+             <span>火薬類: <strong className="text-white font-black">{computed.dgExp}</strong></span><span className="text-slate-500 hidden sm:inline">|</span><span>ISO: <strong className="text-white font-black">{computed.dgIso}</strong></span><span className="text-slate-500 hidden sm:inline">|</span><span>DRY: <strong className="text-white font-black">{computed.dgDry}</strong></span>
+             <div className="flex items-center gap-1 ml-auto shrink-0">
+               <span className="bg-slate-800 text-[8px] md:text-[9px] font-mono px-1.5 py-0.5 rounded border border-slate-600 shadow-sm text-slate-200 font-black">Taxi: {computed.taxiFuelRate} lbs/m</span>
+               <span className="bg-slate-800 text-[8px] md:text-[9px] font-mono px-1.5 py-0.5 rounded border border-slate-600 shadow-sm text-slate-200 font-black">APU: 9 lbs/m</span>
+             </div>
           </div>
         </div>
       </div>
@@ -9065,67 +9065,63 @@ const DashboardView = ({ state, updateState, computed, aircraftRegistrationList,
             </div>
           </div>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-1 w-full">
-          <div className="border border-pink-500/60 rounded flex flex-col bg-[#0f172a] overflow-hidden shadow-lg p-1 h-full">
-            <div className="text-center text-[9px] sm:text-[10px] font-black text-pink-300 pb-0.5 tracking-widest bg-[#131c2f]">TARGET N1</div>
-            <div className="flex-1 flex flex-col justify-center gap-1.5 py-0.5 px-1">
-              <div className="flex justify-between items-baseline leading-none"><div className="flex items-baseline gap-1"><span className="text-[10px] sm:text-[12px] text-pink-200 font-bold">{computed.activeFlaps[0]}</span><span className="text-[9px] sm:text-[10px] text-pink-300 font-mono font-bold tracking-tighter">{computed.pchF1}</span></div><div className="flex items-baseline"><span className="text-lg sm:text-2xl font-extrabold text-emerald-400 font-mono tracking-tighter">{computed.n1F1}</span><span className="text-[9px] sm:text-[10px] text-emerald-300 font-bold ml-[1px]">%</span></div></div>
-              <div className="flex justify-between items-baseline leading-none"><div className="flex items-baseline gap-1"><span className="text-[10px] sm:text-[12px] text-pink-200 font-bold">{computed.activeFlaps[1]}</span><span className="text-[9px] sm:text-[10px] text-pink-300 font-mono font-bold tracking-tighter">{computed.pchF2}</span></div><div className="flex items-baseline"><span className="text-lg sm:text-2xl font-extrabold text-emerald-400 font-mono tracking-tighter">{computed.n1F2}</span><span className="text-[9px] sm:text-[10px] text-emerald-300 font-bold ml-[1px]">%</span></div></div>
+        <div className="flex flex-col gap-1 w-full">
+          <div className="grid grid-cols-3 gap-1 w-full">
+            <div className="border border-pink-500/60 rounded flex flex-col bg-[#0f172a] overflow-hidden shadow-lg p-1 h-full">
+              <div className="text-center text-[9px] sm:text-[10px] font-black text-pink-300 pb-0.5 tracking-widest bg-[#131c2f]">TARGET N1</div>
+              <div className="flex-1 flex flex-col justify-center gap-1.5 py-0.5 px-1">
+                <div className="flex justify-between items-baseline leading-none"><div className="flex items-baseline gap-1"><span className="text-[10px] sm:text-[12px] text-pink-200 font-bold">{computed.activeFlaps[0]}</span><span className="text-[9px] sm:text-[10px] text-pink-300 font-mono font-bold tracking-tighter">{computed.pchF1}</span></div><div className="flex items-baseline"><span className="text-lg sm:text-2xl font-extrabold text-emerald-400 font-mono tracking-tighter">{computed.n1F1}</span><span className="text-[9px] sm:text-[10px] text-emerald-300 font-bold ml-[1px]">%</span></div></div>
+                <div className="flex justify-between items-baseline leading-none"><div className="flex items-baseline gap-1"><span className="text-[10px] sm:text-[12px] text-pink-200 font-bold">{computed.activeFlaps[1]}</span><span className="text-[9px] sm:text-[10px] text-pink-300 font-mono font-bold tracking-tighter">{computed.pchF2}</span></div><div className="flex items-baseline"><span className="text-lg sm:text-2xl font-extrabold text-emerald-400 font-mono tracking-tighter">{computed.n1F2}</span><span className="text-[9px] sm:text-[10px] text-emerald-300 font-bold ml-[1px]">%</span></div></div>
+              </div>
+              <div className="px-1 py-0.5 text-[9px] sm:text-[10px] text-pink-200 font-mono font-bold text-center flex justify-between mt-auto border-t border-pink-500/40 pt-0.5"><span>{computed.engine}</span><span className="text-pink-200">Vref+{state.appSpeedAdditive}</span></div>
             </div>
-            <div className="px-1 py-0.5 text-[9px] sm:text-[10px] text-pink-200 font-mono font-bold text-center flex justify-between mt-auto border-t border-pink-500/40 pt-0.5"><span>{computed.engine}</span><span className="text-pink-200">Vref+{state.appSpeedAdditive}</span></div>
-          </div>
-          <div className="border border-slate-700 rounded flex flex-col bg-[#0f172a] overflow-hidden shadow-lg p-1 h-full">
-            <div className="text-center text-[9px] sm:text-[10px] font-bold text-slate-300 pb-0.5 tracking-wider bg-[#131c2f]">MAX MAN</div>
-            <div className="flex-1 flex flex-col justify-center gap-1.5 py-0.5 px-1">
-              <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed.activeFlaps[0]}</span><div className="flex items-baseline gap-1"><span className="text-[9px] sm:text-[10px] font-bold text-slate-300 font-mono tracking-tighter">{computed.penaltyF25}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distMan1)}</span></div></div>
-              <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed.activeFlaps[1]}</span><div className="flex items-baseline gap-1"><span className="text-[9px] sm:text-[10px] font-bold text-slate-300 font-mono tracking-tighter">{computed.penaltyF30}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distMan2)}</span></div></div>
+            <div className="border border-slate-700 rounded flex flex-col bg-[#0f172a] overflow-hidden shadow-lg p-1 h-full">
+              <div className="text-center text-[9px] sm:text-[10px] font-bold text-slate-300 pb-0.5 tracking-widest bg-[#131c2f]">MAX AUTO</div>
+              <div className="flex-1 flex flex-col justify-center gap-1.5 py-0.5 px-1">
+                <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed.activeFlaps[0]}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distMax1)}</span></div>
+                <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed.activeFlaps[1]}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distMax2)}</span></div>
+              </div>
+              <div className="px-1 py-0.5 text-[6px] opacity-0 font-mono text-center flex justify-between mt-auto border-t border-transparent pt-0.5"><span>-</span><span>-</span></div>
             </div>
-            <div className="px-1 py-0.5 text-[6px] opacity-0 font-mono text-center flex justify-between mt-auto border-t border-transparent pt-0.5"><span>-</span><span>-</span></div>
-          </div>
-          <div className="border border-slate-700 rounded flex flex-col bg-[#0f172a] overflow-hidden shadow-lg p-1 h-full">
-            <div className="text-center text-[9px] sm:text-[10px] font-bold text-slate-300 pb-0.5 tracking-widest bg-[#131c2f]">MAX AUTO</div>
-            <div className="flex-1 flex flex-col justify-center gap-1.5 py-0.5 px-1">
-              <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed.activeFlaps[0]}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distMax1)}</span></div>
-              <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed.activeFlaps[1]}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distMax2)}</span></div>
+            <div className="border border-slate-700 rounded flex flex-col bg-[#0f172a] overflow-hidden shadow-lg p-1 h-full">
+              <div className="text-center text-[9px] sm:text-[10px] font-bold text-slate-300 pb-0.5 tracking-wider bg-[#131c2f]">M TO FT</div>
+              <div className="flex-1 flex flex-col justify-around py-0.5 px-1 font-mono text-[10px] sm:text-xs"><div className="flex justify-between items-baseline leading-none"><span className="text-slate-300 font-bold">3000m:</span><span className="font-bold text-slate-200">9,843'</span></div><div className="flex justify-between items-baseline leading-none"><span className="text-slate-300 font-bold">2800m:</span><span className="font-bold text-slate-200">9,186'</span></div><div className="flex justify-between items-baseline leading-none"><span className="text-slate-300 font-bold">2500m:</span><span className="font-bold text-slate-200">8,202'</span></div><div className="flex justify-between items-baseline leading-none"><span className="text-slate-300 font-bold">2000m:</span><span className="font-bold text-slate-200">6,562'</span></div></div>
+              <div className="px-1 py-0.5 text-[6px] opacity-0 font-mono text-center flex justify-between mt-auto border-t border-transparent pt-0.5"><span>-</span><span>-</span></div>
             </div>
-            <div className="px-1 py-0.5 text-[6px] opacity-0 font-mono text-center flex justify-between mt-auto border-t border-transparent pt-0.5"><span>-</span><span>-</span></div>
           </div>
-          <div className="border border-slate-700 rounded flex flex-col bg-[#0f172a] overflow-hidden shadow-lg p-1 h-full">
-            <div className="text-center text-[9px] sm:text-[10px] font-bold text-slate-300 pb-0.5 tracking-wider bg-[#131c2f]">M TO FT</div>
-            <div className="flex-1 flex flex-col justify-around py-0.5 px-1 font-mono text-[10px] sm:text-xs"><div className="flex justify-between items-baseline leading-none"><span className="text-slate-300 font-bold">3000m:</span><span className="font-bold text-slate-200">9,843'</span></div><div className="flex justify-between items-baseline leading-none"><span className="text-slate-300 font-bold">2800m:</span><span className="font-bold text-slate-200">9,186'</span></div><div className="flex justify-between items-baseline leading-none"><span className="text-slate-300 font-bold">2500m:</span><span className="font-bold text-slate-200">8,202'</span></div><div className="flex justify-between items-baseline leading-none"><span className="text-slate-300 font-bold">2000m:</span><span className="font-bold text-slate-200">6,562'</span></div></div>
-            <div className="px-1 py-0.5 text-[6px] opacity-0 font-mono text-center flex justify-between mt-auto border-t border-transparent pt-0.5"><span>-</span><span>-</span></div>
-          </div>
-          <div className="border border-slate-700 rounded flex flex-col bg-[#131c2f] overflow-hidden shadow-lg p-1 h-full">
-            <div className="text-center text-[9px] sm:text-[10px] font-bold text-slate-300 pb-0.5 tracking-widest bg-[#1a2640]">AUTO 4</div>
-            <div className="flex-1 flex flex-col justify-center gap-1.5 py-0.5 px-1">
-              <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed.activeFlaps[0]}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distAb41)}</span></div>
-              <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed.activeFlaps[1]}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distAb42)}</span></div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-1 w-full">
+            <div className="border border-slate-700 rounded flex flex-col bg-[#131c2f] overflow-hidden shadow-lg p-1 h-full">
+              <div className="text-center text-[9px] sm:text-[10px] font-bold text-slate-300 pb-0.5 tracking-widest bg-[#1a2640]">AUTO 4</div>
+              <div className="flex-1 flex flex-col justify-center gap-1.5 py-0.5 px-1">
+                <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed.activeFlaps[0]}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distAb41)}</span></div>
+                <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed.activeFlaps[1]}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distAb42)}</span></div>
+              </div>
+              <div className="px-1 py-0.5 text-[6px] opacity-0 font-mono text-center flex justify-between mt-auto border-t border-transparent pt-0.5"><span>-</span><span>-</span></div>
             </div>
-            <div className="px-1 py-0.5 text-[6px] opacity-0 font-mono text-center flex justify-between mt-auto border-t border-transparent pt-0.5"><span>-</span><span>-</span></div>
-          </div>
-          <div className="border border-slate-700 rounded flex flex-col bg-[#131c2f] overflow-hidden shadow-lg p-1 h-full">
-            <div className="text-center text-[9px] sm:text-[10px] font-bold text-slate-300 pb-0.5 tracking-widest bg-[#1a2640]">AUTO 3</div>
-            <div className="flex-1 flex flex-col justify-center gap-1.5 py-0.5 px-1">
-              <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed.activeFlaps[0]}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distAb31)}</span></div>
-              <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed.activeFlaps[1]}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distAb32)}</span></div>
+            <div className="border border-slate-700 rounded flex flex-col bg-[#131c2f] overflow-hidden shadow-lg p-1 h-full">
+              <div className="text-center text-[9px] sm:text-[10px] font-bold text-slate-300 pb-0.5 tracking-widest bg-[#1a2640]">AUTO 3</div>
+              <div className="flex-1 flex flex-col justify-center gap-1.5 py-0.5 px-1">
+                <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed.activeFlaps[0]}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distAb31)}</span></div>
+                <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed.activeFlaps[1]}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distAb32)}</span></div>
+              </div>
+              <div className="px-1 py-0.5 text-[6px] opacity-0 font-mono text-center flex justify-between mt-auto border-t border-transparent pt-0.5"><span>-</span><span>-</span></div>
             </div>
-            <div className="px-1 py-0.5 text-[6px] opacity-0 font-mono text-center flex justify-between mt-auto border-t border-transparent pt-0.5"><span>-</span><span>-</span></div>
-          </div>
-          <div className="border border-slate-700 rounded flex flex-col bg-[#131c2f] overflow-hidden shadow-lg p-1 h-full">
-            <div className="text-center text-[9px] sm:text-[10px] font-bold text-slate-300 pb-0.5 tracking-widest bg-[#1a2640]">AUTO 2</div>
-            <div className="flex-1 flex flex-col justify-center gap-1.5 py-0.5 px-1">
-              <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed.activeFlaps[0]}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distAb21)}</span></div>
-              <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed.activeFlaps[1]}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distAb22)}</span></div>
+            <div className="border border-slate-700 rounded flex flex-col bg-[#131c2f] overflow-hidden shadow-lg p-1 h-full">
+              <div className="text-center text-[9px] sm:text-[10px] font-bold text-slate-300 pb-0.5 tracking-widest bg-[#1a2640]">AUTO 2</div>
+              <div className="flex-1 flex flex-col justify-center gap-1.5 py-0.5 px-1">
+                <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed.activeFlaps[0]}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distAb21)}</span></div>
+                <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed.activeFlaps[1]}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distAb22)}</span></div>
+              </div>
+              <div className="px-1 py-0.5 text-[6px] opacity-0 font-mono text-center flex justify-between mt-auto border-t border-transparent pt-0.5"><span>-</span><span>-</span></div>
             </div>
-            <div className="px-1 py-0.5 text-[6px] opacity-0 font-mono text-center flex justify-between mt-auto border-t border-transparent pt-0.5"><span>-</span><span>-</span></div>
-          </div>
-          <div className="border border-slate-700 rounded flex flex-col bg-[#131c2f] overflow-hidden shadow-lg p-1 h-full">
-            <div className="text-center text-[9px] sm:text-[10px] font-bold text-slate-300 pb-0.5 tracking-widest bg-[#1a2640]">AUTO 1</div>
-            <div className="flex-1 flex flex-col justify-center gap-1.5 py-0.5 px-1">
-              <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed.activeFlaps[0]}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distAb11)}</span></div>
-              <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed.activeFlaps[1]}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distAb12)}</span></div>
+            <div className="border border-slate-700 rounded flex flex-col bg-[#131c2f] overflow-hidden shadow-lg p-1 h-full">
+              <div className="text-center text-[9px] sm:text-[10px] font-bold text-slate-300 pb-0.5 tracking-widest bg-[#1a2640]">AUTO 1</div>
+              <div className="flex-1 flex flex-col justify-center gap-1.5 py-0.5 px-1">
+                <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed.activeFlaps[0]}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distAb11)}</span></div>
+                <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed.activeFlaps[1]}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed.distAb12)}</span></div>
+              </div>
+              <div className="px-1 py-0.5 text-[6px] opacity-0 font-mono text-center flex justify-between mt-auto border-t border-transparent pt-0.5"><span>-</span><span>-</span></div>
             </div>
-            <div className="px-1 py-0.5 text-[6px] opacity-0 font-mono text-center flex justify-between mt-auto border-t border-transparent pt-0.5"><span>-</span><span>-</span></div>
           </div>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-1.5 pt-1">
