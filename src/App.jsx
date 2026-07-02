@@ -354,9 +354,6 @@ const SmartCatModal = ({ isOpen, onClose }) => {
   );
 };
 
-// --- [2-7] WindComponentModal --- Xwindviewを作ったため削除
-
-
 // --- [2-8] Toast ---
 const Toast = () => {
   const [toastMsg, setToastMsg] = useState('');
@@ -364,7 +361,6 @@ const Toast = () => {
   if (!toastMsg) return null;
   return (<div className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] bg-slate-800 text-emerald-400 border border-emerald-500/50 px-4 py-2 rounded-full font-bold text-xs shadow-lg animate-in fade-in slide-in-from-top-4">{toastMsg}</div>);
 };
-
 
 //APP CALC描画用COMPONENT
 // ==========================================
