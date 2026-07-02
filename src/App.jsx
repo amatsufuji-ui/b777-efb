@@ -10983,22 +10983,22 @@ export default function App() {
   const [state, setState] = useState({ selectedReg: "", selectedType: "777-200", isaDev: 0, cruiseAltitude: 30000, landingCondition: "Normal", selectedRwyCond: "6-DRY", windComponent: 0, appSpeedAdditive: 5, pressureAlt: 0, rwSlope: 0, reverserConfig: "Both", factConfig: "1.00", aiConfig: "OFF", cruiseWeight: 400000, landingWeight: 400000, ptowOrig: null, pldwOrig: null, toElevOrig: null, ldElevOrig: null });
   const [cruiseWtInputText, setCruiseWtInputText] = useState(formatWeightDisplay(state.cruiseWeight)); const [ldgWtInputText, setLdgWtInputText] = useState(formatWeightDisplay(state.landingWeight));
   useEffect(() => { setCruiseWtInputText(formatWeightDisplay(state.cruiseWeight)); }, [state.cruiseWeight]); useEffect(() => { setLdgWtInputText(formatWeightDisplay(state.landingWeight)); }, [state.landingWeight]);
-
-  const updateState = (key, value) => {
-    setState(prev => {
-      const next = { ...prev, [key]: value };
-      if (key === 'landingCondition') {
+  
+  const updateState = (key, value) => { 
+    setState(prev => { 
+      const next = { ...prev, [key]: value }; 
+      if (key === 'landingCondition') { 
         if (value === '1 ENG INOP') {
           if (prev.ptowOrig) next.landingWeight = prev.ptowOrig;
           if (prev.toElevOrig !== null) next.pressureAlt = prev.toElevOrig;
           next.reverserConfig = 'One'; // ENG INOP時にONE REVへ自動変更
         } else if (value === 'Normal') {
-          if (prev.pldwOrig) next.landingWeight = prev.pldwOrig;
+          if (prev.pldwOrig) next.landingWeight = prev.pldwOrig; 
           if (prev.ldElevOrig !== null) next.pressureAlt = prev.ldElevOrig;
         }
-      }
-      return next;
-    });
+      } 
+      return next; 
+    }); 
   };
   const handleRegChange = (reg) => { const ac = aircraftRegistrationList.find(a => a.reg === reg); if (ac) setState(prev => ({ ...prev, selectedReg: reg, selectedType: ac.type, cruiseWeight: defaultCruiseWeights[ac.type], landingWeight: defaultLandingWeights[ac.type], landingCondition: "Normal" })); else setState(prev => ({ ...prev, selectedReg: reg })); };
   const setAircraftType = (type) => { setState(prev => ({ ...prev, selectedReg: "", selectedType: type, cruiseWeight: defaultCruiseWeights[type], landingWeight: defaultLandingWeights[type], landingCondition: "Normal" })); };
@@ -11013,8 +11013,8 @@ export default function App() {
       if (data.pldw !== undefined) { next.pldwOrig = data.pldw * 1000; }
       if (data.toElev !== undefined) { next.toElevOrig = Math.round(data.toElev / 100) * 100; }
       if (data.ldElev !== undefined) { next.ldElevOrig = Math.round(data.ldElev / 100) * 100; }
-
-      if (data.ptow !== undefined || data.pldw !== undefined) {
+      
+      if (data.ptow !== undefined || data.pldw !== undefined) { 
         if (prev.landingCondition === "1 ENG INOP" && data.ptow !== undefined) {
           next.landingWeight = data.ptow * 1000;
           if (data.toElev !== undefined) next.pressureAlt = Math.round(data.toElev / 100) * 100;
@@ -11047,8 +11047,8 @@ export default function App() {
   const availableFlights = parsedFlightData, airlineCodes = [...new Set(parsedFlightData.map(f => f.airlineCode))].sort(), airlines = [...new Set(parsedFlightData.map(f => f.airline))].sort(), callsigns = [...new Set(parsedFlightData.map(f => f.callsign))].sort(), availableDeps = [...new Set(parsedFlightData.map(f => f.origin))].sort(), availableArrs = [...new Set(parsedFlightData.map(f => f.dest))].sort();
   const currentFlightInfo = useMemo(() => { if (selectedAirlineCode && selectedFlightId) return parsedFlightData.find(f => f.airlineCode === selectedAirlineCode && f.flightNo === selectedFlightId) || null; return null; }, [parsedFlightData, selectedAirlineCode, selectedFlightId]);
   const displayFlightInfo = currentFlightInfo || { origin: selectedDep || '--', dest: selectedArr || '--', dep: null, arr: null, equipCode: state.selectedType || '--', speed: '--' };
-
-  const relatedTraffic = useMemo(() => {
+  
+  const relatedTraffic = useMemo(() => { 
     if (!displayFlightInfo || (!displayFlightInfo.origin && !displayFlightInfo.dest)) return [];
     const depPort = displayFlightInfo.origin, arrPort = displayFlightInfo.dest, depTime = displayFlightInfo.dep, arrTime = displayFlightInfo.arr; let events = [];
     parsedFlightData.forEach(f => {
@@ -11062,9 +11062,9 @@ export default function App() {
         if ((arrTrafficMode === 'ARR' || arrTrafficMode === 'ALL') && f.dest === arrPort) { let diff = Math.abs(f.arr - arrTime); if (diff > 720) diff = 1440 - diff; if (diff <= trafficTimeRange) events.push({ ...f, _tType: 'ARR', _tTime: f.arr, _basePort: arrPort, _isCurrent: f.airlineCode === selectedAirlineCode && f.flightNo === selectedFlightId }); }
       }
     });
-    return events.sort((a, b) => a._tTime - b._tTime);
+    return events.sort((a, b) => a._tTime - b._tTime); 
   }, [parsedFlightData, displayFlightInfo, depTrafficMode, arrTrafficMode, trafficTimeRange, selectedAirlineCode, selectedFlightId]);
-   
+  
   const handleAirlineSelect = (type, val) => { if (type === 'code') { setSelectedAirlineCode(val); const match = parsedFlightData.find(f => f.airlineCode === val); if (match) { setSelectedAirline(match.airline); setSelectedCallsign(match.callsign); } } else if (type === 'name') { setSelectedAirline(val); const match = parsedFlightData.find(f => f.airline === val); if (match) { setSelectedAirlineCode(match.airlineCode); setSelectedCallsign(match.callsign); } } else if (type === 'callsign') { setSelectedCallsign(val); const match = parsedFlightData.find(f => f.callsign === val); if (match) { setSelectedAirlineCode(match.airlineCode); setSelectedAirline(match.airline); } } };
   const forceANASelection = () => { handleAirlineSelect('code', 'NH'); }; const handleTrafficSelect = (t) => { setSelectedAirlineCode(t.airlineCode); setSelectedAirline(t.airline); setSelectedCallsign(t.callsign); setSelectedFlightId(t.flightNo); }; const formatTime = (mins) => { if (mins == null) return "--:--"; const h = Math.floor(mins / 60) % 24, m = mins % 60; return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`; };
   const fltInfoProps = { currentFlightInfo: displayFlightInfo, selectedDep, selectedArr, formatTime, trafficTimeRange, setTrafficTimeRange, depTrafficMode, setDepTrafficMode, arrTrafficMode, setArrTrafficMode, relatedTraffic, handleAirlineSelect, setSelectedDep, setSelectedArr, setSelectedFlightId, selectedFlightId, selectedAirlineCode, selectedAirline, selectedCallsign, availableFlights, airlineCodes, airlines, callsigns, availableDeps, availableArrs, forceANASelection, handleTrafficSelect, onApplyFlightPlan: handleApplyFlightPlan };
@@ -11073,7 +11073,7 @@ export default function App() {
     let engineStr = "GE"; if (state.selectedType === "777-200" || state.selectedType === "777-300") { engineStr = "PW"; } const isPW = engineStr === "PW";
     const mKey = typeof modelKeyMap !== 'undefined' ? modelKeyMap[state.selectedType] : '772'; const perfTable = typeof CRUISE_PERF_DATA !== 'undefined' ? CRUISE_PERF_DATA[mKey] : [[150, 41000, 43100, 0, 43100, 43100, 43100]];
     const minCruiseWeight = perfTable ? perfTable[0][0] * 1000 : 150000; const maxCruiseWeight = perfTable ? perfTable[perfTable.length - 1][0] * 1000 : 350000; const clampedCruiseWeight = Math.max(minCruiseWeight, Math.min(state.cruiseWeight, maxCruiseWeight));
-
+    
     let maxAvailableLdgWt = 800000; let landingMinWeight = 280000;
     if (mKey === "772") { maxAvailableLdgWt = 540000; landingMinWeight = 360000; } else if (mKey === "773") { maxAvailableLdgWt = 550000; landingMinWeight = 420000; } else if (mKey === "77W") { maxAvailableLdgWt = 800000; landingMinWeight = 460000; } else if (mKey === "77F") { maxAvailableLdgWt = 780000; landingMinWeight = 440000; }
     const clampedLandingWeight = Math.max(landingMinWeight, Math.min(state.landingWeight, maxAvailableLdgWt));
@@ -11097,7 +11097,7 @@ export default function App() {
     }
 
     let currentN1Flap25 = null, currentPchFlap25 = null, currentN1Flap30 = null, currentPchFlap30 = null;
-    if (!isEngInop && typeof TARGET_PITCH_N1_DATA_RAW !== 'undefined') {
+    if (!isEngInop && typeof TARGET_PITCH_N1_DATA_RAW !== 'undefined') { 
       const f25Data = TARGET_PITCH_N1_DATA_RAW[mKey]?.f25; const f30Data = TARGET_PITCH_N1_DATA_RAW[mKey]?.f30; const wt1000Ldg = clampedLandingWeight / 1000;
       if (f25Data && wt1000Ldg <= f25Data[f25Data.length - 1][0]) { currentPchFlap25 = interpolateObjArray(wt1000Ldg, f25Data, 1); currentN1Flap25 = interpolateObjArray(wt1000Ldg, f25Data, 2); }
       if (f30Data && wt1000Ldg <= f30Data[f30Data.length - 1][0]) { currentPchFlap30 = interpolateObjArray(wt1000Ldg, f30Data, 1); currentN1Flap30 = interpolateObjArray(wt1000Ldg, f30Data, 2); }
@@ -11109,7 +11109,7 @@ export default function App() {
       const dbKey = tCat + "_" + (state.selectedRwyCond === "5-WET" ? "wet" : "dry");
       const aomData = LANDING_DIST_DATA_RAW[mKey]?.[dbKey];
       if (!aomData) return null;
-
+      
       const bIdx = { "man": 1, "max": 2, "a4": 3, "a3": 4, "a2": 5, "a1": 6 }[brakeMode] || 2;
       const wt1000 = clampedLandingWeight / 1000;
       let baseDist = interpolateObjArray(wt1000, aomData.dist, bIdx);
@@ -11130,7 +11130,7 @@ export default function App() {
 
       return Math.round(correctedDist * scaleFactor);
     };
-
+    
     const washoutText = (mKey === "77W" || mKey === "77F") ? "10,000-30,000FT" : "10,000-12,000FT";
     const etops = mKey === "77F" ? "424NM" : "423NM";
     const toSetting = isPW ? "1.05EPR" : "55%N1";
@@ -11146,6 +11146,15 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#05070a] text-[#cbd5e1] pb-2 p-1 sm:p-2 space-y-1 font-sans flex flex-col relative overflow-hidden">
+      <style>{`
+        @keyframes glow-pulse {
+          0%, 100% { box-shadow: 0 0 4px 1px rgba(52, 211, 153, 0.4); }
+          50% { box-shadow: 0 0 16px 4px rgba(52, 211, 153, 0.9); }
+        }
+        .animate-glow-pulse {
+          animation: glow-pulse 2s ease-in-out infinite;
+        }
+      `}</style>
       <Toast />
       <PasteModal isOpen={isPasteModalOpen} onClose={() => setIsPasteModalOpen(false)} onApply={handleApplyFlightPlan} />
       <WifiPwdModal isOpen={isWifiModalOpen} onClose={() => setIsWifiModalOpen(false)} />
@@ -11163,13 +11172,12 @@ export default function App() {
               <WifiButton type="INT" url="http://info.ana.co.jp/" label="INT" hoverClass="hover:bg-sky-600" colorClass="text-sky-400 border-sky-500/50" onLongPress={() => setIsWifiModalOpen(true)} />
               <WifiButton type="DOM" url="http://www.ana.co.jp/wifi" label="DOM" hoverClass="hover:bg-emerald-600" colorClass="text-emerald-400 border-emerald-500/50" onLongPress={() => { }} />
 
-              <button onClick={() => setIsPasteModalOpen(true)} className="bg-slate-700 hover:bg-emerald-600 text-emerald-400 hover:text-white px-1 py-0.5 md:px-1.5 md:py-0.5 rounded flex items-center justify-center gap-0.5 transition-colors border border-slate-500 hover:border-emerald-400 shadow-sm" title="PDF/TXT 読込">
+              <button onClick={() => setIsPasteModalOpen(true)} className="animate-glow-pulse bg-emerald-600 hover:bg-emerald-500 text-white px-1 py-0.5 md:px-1.5 md:py-0.5 rounded flex items-center justify-center gap-0.5 transition-colors border border-emerald-400 ml-1 mr-1" title="PDF/TXT 読込">
                 <SafeIcon name="ClipboardPaste" className="w-2.5 h-2.5 md:w-3 md:h-3 pointer-events-none" />
                 <span className="text-[8px] md:text-[9px] lg:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">LOAD</span>
               </button>
 
               <button onClick={() => { if (!state.selectedReg || state.selectedReg === "N/A" || state.selectedReg === "") { window.dispatchEvent(new CustomEvent('show-toast', { detail: '機番を選択してください' })); return; } const buddycomUrl = typeof BUDDYCOM_LINKS !== 'undefined' ? BUDDYCOM_LINKS[state.selectedReg] : null; if (buddycomUrl) { const pastedFlightName = flightId ? `ANA${flightId}` : ""; if (pastedFlightName) { copyToClipboard(pastedFlightName); window.dispatchEvent(new CustomEvent('show-toast', { detail: `便名(${pastedFlightName})をコピーして起動しました` })); } else { window.dispatchEvent(new CustomEvent('show-toast', { detail: 'Buddycomを起動しました' })); } setTimeout(() => { window.open(buddycomUrl, '_blank'); }, 1000); } else { window.dispatchEvent(new CustomEvent('show-toast', { detail: 'この機番のBuddycomリンクは未登録です' })); } }} className={`px-1 py-0.5 md:px-1.5 md:py-0.5 rounded flex items-center justify-center gap-0.5 transition-colors border shadow-sm ${state.selectedReg && state.selectedReg !== "N/A" && state.selectedReg !== "" ? 'bg-slate-700 hover:bg-orange-600 text-orange-400 hover:text-white border-slate-500 hover:border-orange-400' : 'bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed'}`} title="Buddycomを開く"><SafeIcon name="Radio" className="w-2.5 h-2.5 md:w-3 md:h-3 pointer-events-none" /><span className="text-[8px] md:text-[9px] lg:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">BDYC</span></button>
-              <button onClick={() => setIsDrmModalOpen(true)} className="px-1 py-0.5 md:px-1.5 md:py-0.5 rounded flex items-center justify-center gap-0.5 transition-colors border shadow-sm bg-slate-800 text-rose-300 border-slate-600 hover:border-rose-400 hover:bg-slate-700 hover:text-white" title="DRM報告"><SafeIcon name="Send" className="w-2.5 h-2.5 md:w-3 md:h-3 pointer-events-none" /><span className="text-[8px] md:text-[9px] lg:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">DRM</span></button>
               <button onClick={() => { let flightQuery = ""; if (flightId) { flightQuery = `NH${flightId}`; } else if (selectedFlightId && selectedFlightId !== "N/A" && selectedFlightId !== "") { if (selectedAirlineCode && selectedAirlineCode !== "N/A" && selectedAirlineCode !== "") { flightQuery = `${selectedAirlineCode}${selectedFlightId}`; } else { flightQuery = `NH${selectedFlightId}`; } } if (flightQuery) { copyToClipboard(flightQuery); window.dispatchEvent(new CustomEvent('show-toast', { detail: `便名(${flightQuery})をコピーしました。検索窓にペーストしてください` })); } else { window.dispatchEvent(new CustomEvent('show-toast', { detail: 'FR24アプリを起動します' })); } setTimeout(() => { window.open('https://www.flightradar24.com', '_blank'); }, 1000); }} className="bg-slate-700 hover:bg-yellow-600 text-yellow-400 hover:text-white px-1 py-0.5 md:px-1.5 md:py-0.5 rounded flex items-center justify-center gap-0.5 transition-colors border border-slate-500 hover:border-yellow-400 shadow-sm" title="Flight Radar 24を開く"><SafeIcon name="Radar" className="w-2.5 h-2.5 md:w-3 md:h-3 pointer-events-none" /><span className="text-[8px] md:text-[9px] lg:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">FR24</span></button>
             </div>
             <div className="text-[10px] sm:text-xs font-black text-slate-300 tracking-widest bg-slate-800 px-2 py-0.5 rounded-t-md border border-slate-700 border-b-0">{activeTab}</div>
@@ -11206,20 +11214,20 @@ export default function App() {
       {activeTab === 'DOCS' && (<div className="flex flex-col gap-1 w-full flex-1 h-full">{typeof Docs2View !== 'undefined' && <Docs2View />}</div>)}
       {activeTab === 'REST CALC' && (<div className="flex flex-col gap-1 w-full flex-1 h-full">
         {typeof RestView !== 'undefined' && <RestView
-          flightHours={restCrewSize === 3 ? restFlightHours3 : restFlightHours4} setFlightHours={restCrewSize === 3 ? setRestFlightHours3 : setRestFlightHours4}
-          flightMins={restCrewSize === 3 ? restFlightMins3 : restFlightMins4} setFlightMins={restCrewSize === 3 ? setRestFlightMins3 : setRestFlightMins4}
-          stdHours={stdHours} setStdHours={setStdHours}
-          stdMins={stdMins} setStdMins={setStdMins}
-          isTakeoffAuto={isTakeoffAuto} setIsTakeoffAuto={setIsTakeoffAuto}
-          takeoffHours={restTakeoffHours} setTakeoffHours={setRestTakeoffHours}
-          takeoffMins={restTakeoffMins} setTakeoffMins={setRestTakeoffMins}
-          offsetMins={restOffsetMins} setOffsetMins={setRestOffsetMins}
-          landingOffsetMins={restLandingOffsetMins} setLandingOffsetMins={setRestLandingOffsetMins}
-          crewSize={restCrewSize} setCrewSize={setRestCrewSize}
-          firstRestMins={restFirstRestMins} setFirstRestMins={setRestFirstRestMins}
-          lastRestMins={restLastRestMins} setLastRestMins={setRestLastRestMins}
-          firstHalfMins={restFirstHalfMins} setFirstHalfMins={setRestFirstHalfMins}
-          taxiOutMins={taxiOutMins} />}
+        flightHours={restCrewSize === 3 ? restFlightHours3 : restFlightHours4} setFlightHours={restCrewSize === 3 ? setRestFlightHours3 : setRestFlightHours4}
+        flightMins={restCrewSize === 3 ? restFlightMins3 : restFlightMins4} setFlightMins={restCrewSize === 3 ? setRestFlightMins3 : setRestFlightMins4}
+        stdHours={stdHours} setStdHours={setStdHours}
+        stdMins={stdMins} setStdMins={setStdMins}
+        isTakeoffAuto={isTakeoffAuto} setIsTakeoffAuto={setIsTakeoffAuto}
+        takeoffHours={restTakeoffHours} setTakeoffHours={setRestTakeoffHours}
+        takeoffMins={restTakeoffMins} setTakeoffMins={setRestTakeoffMins}
+        offsetMins={restOffsetMins} setOffsetMins={setRestOffsetMins}
+        landingOffsetMins={restLandingOffsetMins} setLandingOffsetMins={setRestLandingOffsetMins}
+        crewSize={restCrewSize} setCrewSize={setRestCrewSize}
+        firstRestMins={restFirstRestMins} setFirstRestMins={setRestFirstRestMins}
+        lastRestMins={restLastRestMins} setLastRestMins={setRestLastRestMins}
+        firstHalfMins={restFirstHalfMins} setFirstHalfMins={setRestFirstHalfMins}
+        taxiOutMins={taxiOutMins} />}
       </div>)}
       {activeTab === 'BUDDY COMM' && (<div className="flex flex-col gap-1 w-full flex-1 h-full">{typeof BuddyCommView !== 'undefined' && <BuddyCommView p={{ aircraftRegistrationList: typeof aircraftRegistrationList !== 'undefined' ? aircraftRegistrationList : [], selectedReg: state.selectedReg, handleRegChange }} />}</div>)}
       {activeTab === 'APP CALC' && (<div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden">{typeof ApproachCalcView !== 'undefined' && <ApproachCalcView />}</div>)}
