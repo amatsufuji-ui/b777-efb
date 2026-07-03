@@ -354,6 +354,9 @@ const SmartCatModal = ({ isOpen, onClose }) => {
   );
 };
 
+// --- [2-7] WindComponentModal --- Xwindviewを作ったため削除
+
+
 // --- [2-8] Toast ---
 const Toast = () => {
   const [toastMsg, setToastMsg] = useState('');
@@ -361,6 +364,7 @@ const Toast = () => {
   if (!toastMsg) return null;
   return (<div className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] bg-slate-800 text-emerald-400 border border-emerald-500/50 px-4 py-2 rounded-full font-bold text-xs shadow-lg animate-in fade-in slide-in-from-top-4">{toastMsg}</div>);
 };
+
 
 //APP CALC描画用COMPONENT
 // ==========================================
@@ -11466,7 +11470,7 @@ export default function App() {
     if (state.isaDev <= 10) thrustLimit = isa10Raw; else if (state.isaDev <= 15) thrustLimit = isa10Raw + (isa15Raw - isa10Raw) * ((state.isaDev - 10) / 5); else if (state.isaDev <= 20) thrustLimit = isa15Raw + (isa20Raw - isa15Raw) * ((state.isaDev - 15) / 5); else thrustLimit = isa20Raw + (isa20Raw - isa15Raw) * ((state.isaDev - 20) / 5);
     thrustLimit = Math.round(thrustLimit); const buf13 = Math.round(buf13Raw); const maxAlt = Math.min(buf13, thrustLimit); const limitReason = maxAlt >= 43100 ? "Structural Limit" : (thrustLimit < buf13 ? "Thrust Limit" : "Maneuver Margin");
 
-    let mmo = (mKey === "772" || mKey === "773") ? 0.87 : 0.89, vmo = mKey === "77W" || mKey === "77F" ? Math.min(350, Math.round(330 + (state.cruiseAltitude / 30000) * 20)) : 330;
+    let mmo = (mKey === "772") ? 0.87 : 0.89, vmo = mKey === "77W" || mKey === "77F" ? Math.min(350, Math.round(330 + (state.cruiseAltitude / 30000) * 20)) : 330;
     const vref30Arr = typeof VREF_DATA !== 'undefined' ? VREF_DATA[mKey]?.vref30 : null; const vref30 = vref30Arr ? interpolateDirectArray(clampedCruiseWeight / 1000, vref30Arr.map(v => v[0]), vref30Arr.map(v => v[1])) : 140; const flapUpManeuver = vref30 ? Math.round(vref30 + 80) : "N/A";
 
     let holdSpdJsx = <span className="text-white">---</span>; let minSpdTypeJsx = <span><span className="text-violet-400">Flap UP HOLD</span> &lt; 20k</span>; let spdUnit = "KTS"; let minSpdBorderClass = "border-t-violet-500"; let minSpdIconClass = "text-violet-400";
