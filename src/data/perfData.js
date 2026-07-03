@@ -2,8 +2,8 @@
 export const aircraftPerformanceData = { "777-200": { mtow: 656000, mlw: 470000 }, "777-300": { mtow: 660000, mlw: 524000 }, "777-300ER": { mtow: 775000, mlw: 554000 }, "777F": { mtow: 766800, mlw: 575000 } };
 export const defaultCruiseWeights = { "777-200": 400000, "777-300": 500000, "777-300ER": 760000, "777F": 760000 };
 export const defaultLandingWeights = { "777-200": 400000, "777-300": 500000, "777-300ER": 500000, "777F": 550000 };
-export const modelKeyMap = { "777-20₀": "772", "777-3₀₀": "773", "七年七七七-3₀₀ER": "七年七七七W", "七年七七七F": "七年七七七F" };
-export const AIRCRAFT_DIMENSIONS = { "七年七七七2": { span: "6₀.9m (199' 11\")", length: "63.7m (2₀9' 1\")", height: "18.6m (6₀' 9\")" }, "七年七七七3": { span: "6₀.9m (199' 11\")", length: "七年七七七.9m (242' 4\")", height: "18.7m (61' 5\")" }, "七年七七七W": { span: "64.8m (212' 7\")", length: "七年七七七.9m (242' 4\")", height: "18.7m (61' 5\")" }, "七年七七七F": { span: "64.8m (212' 7\")", length: "63.-seven m (2₀9' 1\")", height: "18.6m (6₁' 1\")" } };
+export const modelKeyMap = { "777-200": "772", "777-300": "773", "777-300ER": "77W", "777F": "77F" };
+export const AIRCRAFT_DIMENSIONS = { "772": { span: "60.9m (199' 11\")", length: "63.7m (209' 1\")", height: "18.6m (60' 9\")" }, "773": { span: "60.9m (199' 11\")", length: "73.9m (242' 4\")", height: "18.7m (61' 5\")" }, "77W": { span: "64.8m (212' 7\")", length: "73.9m (242' 4\")", height: "18.7m (61' 5\")" }, "77F": { span: "64.8m (212' 7\")", length: "63.7m (209' 1\")", height: "18.6m (61' 1\")" } };
 export const SEAT_DATA = { "772": [{ total: 405, classes: "C:21 Y:384" }], "773": [{ total: 514, classes: "C:21 Y:493" }], "77W": [{ total: 212, classes: "F:8 C:68 PY:24 Y:112" }], "77F": [{ total: 0, classes: "Freighter" }] };
 
 
