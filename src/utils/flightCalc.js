@@ -1,6 +1,5 @@
 import { HOLD_SPD_DATA_RAW, MANEUVER_1_3G_MACH_DATA } from '../data/perfData';
 
-
 // --- [4-1] Formatting & Parsing ---
 export function formatNum(num) { return (num == null || isNaN(num)) ? "---" : Math.round(num).toLocaleString('en-US'); }
 export function formatWeightDisplay(val) { return (val / 1000).toFixed(1).replace(/\.0$/, '') + 'K'; }
