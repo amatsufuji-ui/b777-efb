@@ -4866,7 +4866,7 @@ export default function App() {
       if (f30Data && wt1000Ldg <= f30Data[f30Data.length - 1][0]) { currentPchFlap30 = interpolateObjArray(wt1000Ldg, f30Data, 1); currentN1Flap30 = interpolateObjArray(wt1000Ldg, f30Data, 2); }
     }
     const scaleFactor = state.factConfig === "1.15" ? 1.0 : (1.0 / 1.15); const activeFlaps = isEngInop ? ["F20", "F30"] : ["F25", "F30"];
-    const getAomDistance = (flapTagLong, brakeMode) => {
+ const getAomDistance = (flapTagLong, brakeMode) => {
       if (typeof LANDING_DIST_DATA_RAW === 'undefined') return null;
       const tCat = isEngInop ? (flapTagLong === "FLAP 20" ? "inop_f20" : "inop_f30") : (flapTagLong === "FLAP 25" ? "f25" : "f30");
       const dbKey = tCat + "_" + (state.selectedRwyCond === "5-WET" ? "wet" : "dry");
@@ -4883,7 +4883,7 @@ export default function App() {
 
       let correctedDist = baseDist;
       if (adj) {
-        if (state.appSpeedAdditive > 0 && adj.app) correctedDist += (state.appSpeedAdditive / 5) * adj.app;
+        if (adj.app) correctedDist += ((state.appSpeedAdditive - 5) / 5) * adj.app;
         if (state.pressureAlt > 0 && adj.alt) correctedDist += (state.pressureAlt / 1000) * adj.alt;
         if (state.rwSlope !== 0 && adj.slp) correctedDist += state.rwSlope * adj.slp;
         if (state.windComponent !== 0 && adj.tw) { correctedDist += state.windComponent > 0 ? (state.windComponent / 5) * adj.tw : (state.windComponent / 10) * adj.tw; }
