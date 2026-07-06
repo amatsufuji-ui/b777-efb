@@ -8,7 +8,7 @@ export const WxMnmReference = () => {
   const customStyles = `
     .wx-mnm-wrapper *, .wx-mnm-wrapper *::before, .wx-mnm-wrapper *::after { box-sizing: border-box; }
     .wx-mnm-wrapper { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #f8fafc; }
-    .wx-mnm-container { background-color: transparent; padding: 0.25rem; border-radius: 1rem; width: 100%; display: flex; flex-direction: column; overflow-x: hidden; }
+    .wx-mnm-container { background-color: transparent; padding: 0.25rem; border-radius: 1rem; width: 100%; height: 100%; display: flex; flex-direction: column; overflow-x: hidden; overflow-y: auto; }
     .wx-mnm-container h1 { font-size: 1.1rem; color: #f1f5f9; margin: 0 0 0.2rem 0; text-align: center; font-weight: 800; letter-spacing: 0.05em; }
     .wx-mnm-container p.desc { color: #94a3b8; font-size: 0.75rem; margin: 0 0 0.75rem 0; text-align: center; }
     
@@ -79,7 +79,7 @@ export const WxMnmReference = () => {
     .table-fpl { table-layout: auto !important; width: 100%; }
     .table-fpl th, .table-fpl td { padding: 0.3rem 0.2rem; font-size: 0.6rem; line-height: 1.3; border: 1px solid #475569; word-break: break-word; }
     .table-fpl td:first-child { font-weight: 800; color: #cbd5e1; text-align: center; width: 15%; min-width: 2rem; white-space: normal; }
-    .flex-col { display: flex; flex-direction: column; gap: 0.5rem; min-width: 0; justify-content: flex-start; }
+    .wx-flex-col { display: flex; flex-direction: column; gap: 0.5rem; min-width: 0; justify-content: flex-start; }
     
     .area-row { display: flex; flex-wrap: wrap; align-items: flex-start; margin-bottom: 0.2rem; line-height: 1.4; gap: 0.2rem; }
     .area-row:last-child { margin-bottom: 0; }
@@ -96,7 +96,7 @@ export const WxMnmReference = () => {
   `;
 
   return (
-    <div className="wx-mnm-wrapper w-full bg-slate-800/80 backdrop-blur-xl rounded-[1.5rem] p-1.5 lg:p-2 flex flex-col shadow-2xl border border-slate-700 relative overflow-hidden h-full">
+    <div className="wx-mnm-wrapper w-full bg-slate-800/80 backdrop-blur-xl rounded-[1.5rem] p-1.5 lg:p-2 flex flex-col shadow-2xl border border-slate-700 h-full min-h-0　overflow-hidden">
       <style dangerouslySetInnerHTML={{ __html: customStyles }} />
 
       {/* タブナビゲーション */}
@@ -113,12 +113,7 @@ export const WxMnmReference = () => {
         >
           <SafeIcon name="Eye" className="w-3.5 h-3.5" />CATⅠ / ADEQUATE
         </button>
-        <button
-          onClick={() => setActiveTab('etops')}
-          className={`px-2 py-1.5 lg:px-3 lg:py-2 rounded-lg text-[10px] lg:text-xs font-black transition-all whitespace-nowrap flex-1 flex items-center justify-center gap-1.5 ${activeTab === 'etops' ? 'bg-slate-600 text-white shadow-md border border-slate-400' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 border border-transparent'}`}
-        >
-          <SafeIcon name="Shield" className="w-3.5 h-3.5" />ETOPS
-        </button>
+        
         <button
           onClick={() => setActiveTab('familiar')}
           className={`px-2 py-1.5 lg:px-3 lg:py-2 rounded-lg text-[10px] lg:text-xs font-black transition-all whitespace-nowrap flex-1 flex items-center justify-center gap-1.5 ${activeTab === 'familiar' ? 'bg-slate-600 text-white shadow-md border border-slate-400' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 border border-transparent'}`}
@@ -133,8 +128,7 @@ export const WxMnmReference = () => {
         </button>
       </div>
 
-      <div className="wx-mnm-container h-full overflow-y-auto custom-scrollbar pr-2 pt-1">
-
+      <div className="wx-mnm-container custom-scrollbar pr-2 pt-1 flex-1 min-h-0">
         {/* === TAB 1: WX MNM フロー === */}
         {activeTab === 'wx_mnm' && (
           <div className="animate-in fade-in duration-300">
@@ -457,176 +451,7 @@ export const WxMnmReference = () => {
           </div>
         )}
 
-        {/* === TAB 3: ETOPS === */}
-        {activeTab === 'etops' && (
-          <div className="animate-in fade-in duration-300 h-full flex flex-col pb-1">
-
-            {/* ★ Adequate Airport の Suitability を上部に配置 ★ */}
-            <div className="mb-2 shrink-0">
-              {/* 1. ETOPS / Adequate Airport テーブル */}
-              <div className="table-container w-full">
-                <div className="table-title">【 参考 】 Adequate Airport の Suitability 判定気象条件 (4-14-3)</div>
-
-                {/* ①のブロック */}
-                <div style={{ padding: '0.5rem', backgroundColor: 'rgba(15, 23, 42, 0.4)', borderRadius: '0.5rem', border: '1px solid #475569' }}>
-                  <div style={{ fontSize: '0.8rem', fontWeight: '800', color: '#f8fafc', marginBottom: '0.5rem', textAlign: 'center' }}>
-                    ① 飛行実施計画の段階 (立案、検討および承認の段階)
-                  </div>
-                  <div className="table-notes" style={{ marginBottom: '0.5rem' }}>
-                    (1) 着陸予定滑走路は、進入方式および滑走路状態に応じた最大横風値以下であることが予想されること。<br />
-                    (2) 当該便の運航に適用できる最低気象条件が、下記の値以上であることが予想されること。
-                  </div>
-                  <table>
-                    <thead>
-                      <tr>
-                        <th style={{ width: '12%' }}>滑走路数</th>
-                        <th style={{ width: '38%' }}>利用可能な進入方式</th>
-                        <th style={{ width: '25%' }}>雲高</th>
-                        <th style={{ width: '25%' }}>視程</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td className="text-center">—</td>
-                        <td>CATⅢ運航</td>
-                        <td className="text-center">200ft</td>
-                        <td className="text-center">RVR 550m <br />or<br /> VIS 800m</td>
-                      </tr>
-                      <tr>
-                        <td className="text-center">—</td>
-                        <td>CATⅡ運航</td>
-                        <td className="text-center">300ft</td>
-                        <td className="text-center">RVR/VIS 1200m</td>
-                      </tr>
-                      <tr>
-                        <td className="text-center">複数(※)</td>
-                        <td>滑走路ごとに直線進入方式が設定されており利用可能な場合</td>
-                        <td className="text-center">最低のMNMに対して<br /><span className="highlight">DH/MDH + 200ft</span></td>
-                        <td className="text-center">最低のMNMに対して<br /><span className="highlight">RVR/VIS + 800m</span></td>
-                      </tr>
-                      <tr>
-                        <td className="text-center">単一</td>
-                        <td>CATⅠ、非精密(直線)、計器進入からの周回</td>
-                        <td className="text-center">最低のMNMに対して<br /><span className="highlight">DH/MDH + 400ft</span></td>
-                        <td className="text-center">最低のMNMに対して<br /><span className="highlight">RVR/VIS + 1600m</span></td>
-                      </tr>
-                    </tbody>
-                  </table>
-                  <div className="table-notes" style={{ marginTop: '0.3rem' }}>
-                    (※) 複数の滑走路とは、物理的に独立して設置され運用されている2本以上の滑走路を指す。（両進入端での2本はみなさない）
-                  </div>
-                </div>
-
-                {/* ②のブロック */}
-                <div style={{ marginTop: '0.5rem', padding: '0.75rem', backgroundColor: 'rgba(15, 23, 42, 0.4)', borderRadius: '0.5rem', border: '1px solid #475569' }}>
-                  <div style={{ fontSize: '0.8rem', fontWeight: '800', color: '#f8fafc', marginBottom: '0.4rem', textAlign: 'center' }}>
-                    ② Company Clearance 成立後および飛行中の変更時
-                  </div>
-                  <ul style={{ fontSize: '0.75rem', color: '#cbd5e1', margin: 0, paddingLeft: '1.2rem', lineHeight: '1.5' }}>
-                    <li>(1) 着陸予定滑走路は、進入方式および滑走路状態に応じた<strong style={{ color: '#f8fafc' }}>最大横風値以下</strong>であることが予想されること。</li>
-                    <li>(2) 当該便の運航に適用できる <strong style={{ color: '#f8fafc' }}>Landing Minima 以上</strong> であることが予想されること。</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex flex-col lg:flex-row gap-2 h-full">
-
-              {/* 4-14-3 */}
-              <div className="flex-1 flex flex-col min-h-0 h-full">
-                <div className="table-container h-full flex flex-col">
-                  <div className="table-title shrink-0 text-sm lg:text-base">4-14-3 ETOPSによる飛行実施計画</div>
-                  <div className="flex flex-col gap-2 p-1 overflow-y-auto custom-scrollbar flex-1">
-
-                    <div className="bg-slate-800/50 border border-slate-600 rounded-lg p-3 shadow-sm">
-                      <div className="text-xs lg:text-sm font-black text-sky-300 mb-2 border-b border-slate-600 pb-1.5 flex items-center gap-1">
-                        <SafeIcon name="CheckSquare" className="w-4 h-4" /> ① ETOPS ALTN Airport の Suitability
-                      </div>
-                      <div className="text-[10px] lg:text-xs text-slate-400 mb-2 leading-relaxed">
-                        最も早い予想緊急着陸時刻〜最も遅い予想緊急着陸時刻までの間、以下を満足すること。
-                      </div>
-                      <ul className="text-[10px] lg:text-xs text-slate-300 flex flex-col gap-2 pl-0 list-none">
-                        <li className="flex items-start gap-1.5"><span className="bg-sky-900/50 text-sky-400 px-1.5 py-0.5 rounded font-bold shrink-0 leading-none mt-0.5">(1) 気象</span> <span className="leading-relaxed">一般的運航条件 ＋ 最低気象条件(S-4-16)以上 ＋ 横風制限値以下</span></li>
-                        <li className="flex items-start gap-1.5"><span className="bg-sky-900/50 text-sky-400 px-1.5 py-0.5 rounded font-bold shrink-0 leading-none mt-0.5">(2) 滑走路</span> <span className="leading-relaxed">安全に着陸するために十分な長さ</span></li>
-                        <li className="flex items-start gap-1.5"><span className="bg-sky-900/50 text-sky-400 px-1.5 py-0.5 rounded font-bold shrink-0 leading-none mt-0.5">(3) 消防</span> <span className="leading-relaxed">ICAO RFFS カテゴリー4以上<br /><span className="text-[9px] lg:text-[10px] text-slate-400 mt-0.5 block">(緊急着陸通報から30分以内に同等支援が得られる場合は例外)</span></span></li>
-                        <li className="flex items-start gap-1.5"><span className="bg-sky-900/50 text-sky-400 px-1.5 py-0.5 rounded font-bold shrink-0 leading-none mt-0.5">(4) GPS</span> <span className="leading-relaxed">GPS進入前提の場合、5分を超えるRAIM Holeが予測されていないこと</span></li>
-                      </ul>
-                    </div>
-
-                    <div className="bg-slate-800/50 border border-slate-600 rounded-lg p-3 shadow-sm">
-                      <div className="text-xs lg:text-sm font-black text-sky-300 mb-2 border-b border-slate-600 pb-1.5 flex items-center gap-1">
-                        <SafeIcon name="Map" className="w-4 h-4" /> ②〜⑤ 予定飛行経路・通信・航法・搭載燃料
-                      </div>
-                      <ul className="text-[10px] lg:text-xs text-slate-300 list-disc pl-4 flex flex-col gap-2 mt-1">
-                        <li className="leading-relaxed">ETOPS ALTNから一発不作動巡航速度で<strong className="text-white">最大飛行時間の範囲内</strong>に経路を設定</li>
-                        <li className="leading-relaxed">良好な音声通信 (不可ならDatalink等の代替手段) を確保し、所要の精度の航法情報を得られること</li>
-                        <li className="leading-relaxed">規定燃料と Critical Fuel を比較し<strong className="text-white">多い方</strong>を搭載</li>
-                        <li className="leading-relaxed">飛行実施計画書に情報(出発・目的・代替、最大飛行時間)を明示し、操縦室内で参照可能であること</li>
-                      </ul>
-                    </div>
-
-                  </div>
-                </div>
-              </div>
-
-              {/* 4-14-4 */}
-              <div className="flex-1 flex flex-col min-h-0 h-full">
-                <div className="table-container h-full flex flex-col">
-                  <div className="table-title shrink-0 text-sm lg:text-base">4-14-4 出発後の飛行継続等に係る判断基準</div>
-                  <div className="flex flex-col gap-2 p-1 overflow-y-auto custom-scrollbar flex-1">
-
-                    <div className="bg-slate-800/50 border border-slate-600 rounded-lg p-3 shadow-sm">
-                      <div className="text-xs lg:text-sm font-black text-emerald-300 mb-2 border-b border-slate-600 pb-1.5 flex items-center gap-1">
-                        <SafeIcon name="Eye" className="w-4 h-4" /> ①〜④ 飛行中の確認と要件未達時の措置
-                      </div>
-                      <ul className="text-[10px] lg:text-xs text-slate-300 list-disc pl-4 flex flex-col gap-2 mt-1">
-                        <li className="leading-relaxed">ETOPS ALTNのSuitabilityを常に把握。最寄りの Adequate Airport も可能な限り把握する。</li>
-                        <li className="leading-relaxed"><strong className="text-white">各 ETOPS Entry Point 前</strong>ごとに再検討。(GPS進入前提時はRAIM予測を再確認)</li>
-                        <li className="leading-relaxed">
-                          <strong className="text-emerald-400 bg-emerald-900/30 px-1.5 py-0.5 rounded mr-1">未達時の措置</strong>
-                          運航管理者はETOPS ALTNを変更(新代替も最大飛行時間内か確認)し機長へ通報。<br />
-                          機長は適切な措置をとる。(※安全上より適切な措置があればそちらを優先)
-                        </li>
-                        <li className="leading-relaxed">悪天候等で経路変更時も、ETOPS ALTN または Adequate Airport から最大飛行時間の範囲内であること。(※緊急時等は例外)</li>
-                      </ul>
-                    </div>
-
-                    <div className="bg-rose-900/20 border border-rose-500/30 rounded-lg p-3 shadow-sm">
-                      <div className="text-xs lg:text-sm font-black text-rose-400 mb-2 border-b border-rose-500/30 pb-1.5 flex items-center gap-1">
-                        <SafeIcon name="AlertOctagon" className="w-4 h-4" /> ⑤ 緊急事態発生時の措置
-                      </div>
-                      <div className="flex flex-col gap-2 mt-1.5">
-                        <div className="bg-slate-900/50 p-2.5 rounded-lg border border-slate-700/50">
-                          <div className="text-[11px] lg:text-sm font-black text-rose-300 mb-1.5 border-l-2 border-rose-400 pl-2 leading-none">一発動機停止</div>
-                          <div className="text-[10px] lg:text-xs text-slate-300 leading-relaxed">
-                            最も近い(所要時間が短い) Suitabilityをみたす <strong className="text-white bg-rose-500/20 px-1.5 py-0.5 rounded border border-rose-500/30">Adequate Airport</strong> へ着陸を原則とする。<br />
-                            <div className="bg-rose-950/40 p-2 rounded mt-2 border border-rose-900">
-                              <span className="text-rose-300 font-bold text-[9px] lg:text-[10px] block mb-1">※以下を主たる理由に他飛行場を選択してはならない</span>
-                              <span className="text-slate-400 text-[9px] lg:text-[10px] flex flex-col gap-1 pl-1">
-                                <span>1) 十分な燃料を搭載していること</span>
-                                <span>2) 安全確保以外の観点で旅客の収容施設の都合が良いこと</span>
-                                <span>3) 航空機の整備作業に必要な設備等を確保しやすいこと</span>
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="bg-slate-900/50 p-2.5 rounded-lg border border-slate-700/50">
-                          <div className="text-[11px] lg:text-sm font-black text-orange-300 mb-1.5 border-l-2 border-orange-400 pl-2 leading-none">主要系統の不具合、その他重大な事態</div>
-                          <div className="text-[10px] lg:text-xs text-slate-300 leading-relaxed">
-                            最も近い(所要時間が短い) <strong className="text-white bg-orange-500/20 px-1.5 py-0.5 rounded border border-orange-500/30">ETOPS Alternate Airport</strong> へ着陸を原則とする。
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                  </div>
-                </div>
-              </div>
-
-            </div>
-
-          </div>
-        )}
+       
 
         {/* === TAB 4: FAMILIAR / 空港資格 === */}
         {activeTab === 'familiar' && (
@@ -639,7 +464,7 @@ export const WxMnmReference = () => {
               <div className="fpl-grid">
 
                 {/* 左カラム */}
-                <div className="flex-col">
+                <div className="wx-flex-col">
                   <div className="table-container">
                     <div className="table-title">BASIC1 機長の Familiar Minima (5-2-5 ②)</div>
                     <table className="table-fpl">
@@ -718,7 +543,7 @@ export const WxMnmReference = () => {
                 </div>
 
                 {/* 右カラム */}
-                <div className="flex-col">
+                <div className="wx-flex-col">
                   <div className="table-container">
                     <div className="table-title">飛行場要件における区分 (飛行場区分) (S-8-1 抜粋)</div>
                     <table className="table-fpl">

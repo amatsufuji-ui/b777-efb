@@ -146,9 +146,21 @@ export const parseFlightPlanText = (text) => {
     extractedIsa = parseInt(isaStr.replace('M', '-').replace('P', '+'), 10);
   }
 
-  const routeMatch = text.match(/(?:DEP\/DEST|ROUTE|FLT)[^\w]*([A-Z]{4})[^\w]*([A-Z]{4})/i) || text.match(/([A-Z]{4})\s*-\s*([A-Z]{4})/);
+const routeMatch = text.match(/(?:DEP\/DEST|ROUTE|FLT)[^\w]*([A-Z]{4})[^\w]*([A-Z]{4})/i) || text.match(/([A-Z]{4})\s*-\s*([A-Z]{4})/);
   let depPort = '', arrPort = '';
   if (routeMatch) { depPort = routeMatch[1]; arrPort = routeMatch[2]; }
+  
+  // ★ ICAO FPL形式（-RJTT0055 と -EGLL1344）から出発地・目的地を確実に抽出
+  const icaoMatches = [...text.matchAll(/-([A-Z]{4})\d{4}/g)];
+  if (icaoMatches.length >= 2) {
+    if (!depPort) depPort = icaoMatches[0][1];
+    if (!arrPort) arrPort = icaoMatches[1][1];
+  }
+  
+  // ETOPS用に目的地をdataオブジェクトに格納
+  if (arrPort) {
+    data.dest = arrPort.toUpperCase();
+  }
 
   // ★ T/O OAT の抽出 (出発地のMETARから探す)
   // ディスパッチャコメントは使わず、純粋にMETARから抽出します
@@ -168,6 +180,29 @@ export const parseFlightPlanText = (text) => {
     if (arrMetarMatch) {
       data.ldOat = parseInt(arrMetarMatch[1].replace('M', '-'), 10);
     }
+  }
+
+// ★ ETOPS判定用：PDFテキストから経路部分をざっくり抽出
+  let extractedRoute = "";
+  
+  // パターン1：ICAO FPLフォーマット (例: -N0503F290 INUBO ... -EGLL1344 のような場合)
+  // 非常に特徴的な文字列で誤爆が少ないため、こちらを【最優先】で探します
+  const icaoRouteMatch = text.match(/-(?:N\d{4}|M\d{3})[FSAM]\d{3}\s+([\s\S]+?)(?=\s*-[A-Z]{4}\d{4})/i);
+  
+  // パターン2：一般的なディスパッチフォーマット ("ROUTE" などの見出しがある場合)
+  // 見出しの誤爆（要約ルートなど）が多いため、バックアップとして使います
+  const releaseRouteMatch = text.match(/(?:ATC ROUTE|ROUTE|RTE)[\s:]*([\s\S]+?)(?:RTE RSVS|ALTN|AWY|FLT INFO|RMK|FIR|ATC|TIME|PLND|PROFIL|DISP|FUEL|$)/i);
+
+  // ★ 優先順位の変更：ICAOフォーマットを最優先で評価する！
+  if (icaoRouteMatch && icaoRouteMatch[1].length > 10) {
+    extractedRoute = icaoRouteMatch[1];
+  } else if (releaseRouteMatch && releaseRouteMatch[1].length > 10) {
+    extractedRoute = releaseRouteMatch[1];
+  }
+
+  if (extractedRoute) {
+    // 改行をスペースに変換し、連続する無駄なスペースも1つに圧縮する
+    data.route = extractedRoute.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim(); 
   }
 
   // フォールバック
@@ -268,6 +303,7 @@ export const PasteModal = ({ isOpen, onClose, onApply }) => {
               {parsedData.isa !== undefined && renderBadge("ISA", parsedData.isa > 0 ? `+${parsedData.isa}` : parsedData.isa, "text-orange-300 bg-orange-500/20 border-orange-500/40")}
               {parsedData.toOat !== undefined && renderBadge("T/O", `${parsedData.toOat}°C`, "text-amber-300 bg-amber-500/20 border-amber-500/40")}
               {parsedData.ldOat !== undefined && renderBadge("L/D", `${parsedData.ldOat}°C`, "text-amber-300 bg-amber-500/20 border-amber-500/40")}
+              {parsedData.route && renderBadge("ROUTE", parsedData.route.substring(0, 15) + "...", "text-violet-300 bg-violet-500/20 border-violet-500/40")}
             </div>
           ) : <span className="text-xs text-rose-400 italic px-1 font-bold">有効なデータが抽出できませんでした</span>}
         </div>

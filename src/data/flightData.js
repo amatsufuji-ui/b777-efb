@@ -5375,3 +5375,163 @@ export const BUDDYCOM_LINKS = {
   "JA797A": "https://buddycom.net/b/14148/dvuAyImD5yMrEKOAdGemd36odtrbefysgLkqzcT0RXQipNYH2.fLGS0gOGfruhVQX9IYQ8Ygw3.4MdmbrOkeiQ",
   "JA798A": "https://buddycom.net/b/14148/ed0aNtfqyvW0uqILaiqPC7IAjPtD7_U3CqDAR8KBJ3XA_6hUDCKtzK_IO.Imyqsug0SYr.L9vm63kFkHxgMAWA"
 };
+
+export const etopsData = {
+  "B787-9 1000K": {
+    "a": [
+      { altn: "CYFB-BIKF", dest: "Europe other than ESSA" },
+      { altn: "CYFB-ENBO", dest: "Europe other than ESSA" },
+      { altn: "CYFB-ENBR", dest: "Europe other than ESSA" },
+      { altn: "CYZF-BIKF", dest: "Europe other than EGLL/ESSA" },
+      { altn: "PAFA-BIKF", dest: "Europe other than EGLL/ESSA" },
+      { altn: "CYZF-ENBO", dest: "Europe other than EGLL/ESSA" },
+      { altn: "CYYR-ENBO", dest: "Europe other than ESSA" },
+      { altn: "CYYR-ENBR", dest: "Europe other than ESSA" }
+    ],
+    "b": [
+      { altn: "CYQX-Europe", dest: "Europe other than ESSA" },
+      { altn: "CYYR-Europe", dest: "Europe other than ESSA" }
+    ],
+    "c": [
+      { altn: "CYFB-BIKF", dest: "Europe other than ESSA" },
+      { altn: "CYFB-ENBO", dest: "Europe other than ESSA" },
+      { altn: "PAFA-BIKF", dest: "Europe other than ESSA" },
+      { altn: "CYXF-BIKF", dest: "Europe other than ESSA" },
+      { altn: "CYZF-BIKF", dest: "Europe other than ESSA" },
+      { altn: "CYZF-ENBO", dest: "Europe other than ESSA" }
+    ],
+    "d": [
+      { altn: "CYFB-BIKF", dest: "Europe other than ESSA" },
+      { altn: "CYFB-ENBO", dest: "Europe other than ESSA" },
+      { altn: "PAFA-BIKF", dest: "Europe other than ESSA" },
+      { altn: "CYZF-BIKF", dest: "Europe other than ESSA" },
+      { altn: "CYZF-ENBO", dest: "Europe other than ESSA" }
+    ],
+    "e": [
+      { altn: "CYFB-BIKF", dest: "Europe" },
+      { altn: "CYFB-ENBO", dest: "Europe" },
+      { altn: "CYFB-ENBR", dest: "LIMC" },
+      { altn: "PAFA-BIKF", dest: "Europe" },
+      { altn: "CYZF-BIKF", dest: "Europe" },
+      { altn: "CYZF-ENBO", dest: "Europe" }
+    ],
+    "f": [
+      { altn: "CYFB-BIKF", dest: "ESSA" },
+      { altn: "CYFB-ENBO", dest: "ESSA" },
+      { altn: "CYZF-BIKF", dest: "ESSA" },
+      { altn: "PAFA-BIKF", dest: "ESSA" },
+      { altn: "CYZF-ENBO", dest: "ESSA" }
+    ],
+    "g": [
+      { altn: "CYFB-ENBO", dest: "Europe other than ESSA" }
+    ],
+    "h": [
+      { altn: "CYYR-ENBR", dest: "Europe other than ESSA" },
+      { altn: "CYYR-EINN", dest: "Europe other than ESSA" },
+      { altn: "CYYR-EGLL", dest: "Europe other than ESSA" },
+      { altn: "CYYR-EBBR", dest: "Europe other than ESSA" }
+    ],
+    "i": [
+      { altn: "CYFB-BIKF", dest: "LOWW" },
+      { altn: "CYFB-ENBO", dest: "LOWW" },
+      { altn: "CYZF-BIKF", dest: "LOWW" },
+      { altn: "PAFA-BIKF", dest: "LOWW" },
+      { altn: "CYZF-ENBO", dest: "LOWW" }
+    ]
+  },
+  "B787-8 1000CE/L": {
+    "a": [
+      { altn: "CYFB-BIKF", dest: "Europe other than ESSA" },
+      { altn: "CYZF-BIKF", dest: "Europe other than EGLL/EBBR/ESSA" },
+      { altn: "CYZF-ENBO", dest: "Europe other than EGLL/ESSA" }
+    ],
+    "b": [
+      { altn: "CYQX-Europe", dest: "Europe other than ESSA" },
+      { altn: "CYYR-Europe", dest: "Europe other than ESSA" }
+    ],
+    "c": [
+      { altn: "CYFB-BIKF", dest: "Europe other than ESSA" },
+      { altn: "CYFB-ENBO", dest: "Europe other than ESSA" },
+      { altn: "CYZF-BIKF", dest: "Europe other than EGLL/ESSA" },
+      { altn: "CYZF-ENBO", dest: "EGLL" },
+      { altn: "PAFA-BIKF", dest: "Europe other than EGLL/ESSA" },
+      { altn: "CYXY-BIKF", dest: "Europe other than EGLL/ESSA" }
+    ],
+    "d": [
+      { altn: "CYFB-BIKF", dest: "Europe other than ESSA" },
+      { altn: "CYFB-ENBO", dest: "Europe other than ESSA" },
+      { altn: "CYZF-ENBO", dest: "Europe other than ESSA" }
+    ],
+    "e": [
+      { altn: "CYFB-BIKF", dest: "Europe" },
+      { altn: "CYFB-ENBO", dest: "Europe" },
+      { altn: "CYFB-ENBR", dest: "LIMC" },
+      { altn: "PAFA-BIKF", dest: "Europe other than ESSA" }
+    ],
+    "f": [
+      { altn: "CYZF-BIKF", dest: "Europe" },
+      { altn: "CYFB-BIKF", dest: "ESSA" },
+      { altn: "CYFB-ENBO", dest: "ESSA" }
+    ],
+    "g": [
+      { altn: "CYFB-ENBO", dest: "Europe other than ESSA" },
+      { altn: "CYYR-ENBR", dest: "Europe other than ESSA" },
+      { altn: "CYYR-EINN", dest: "Europe other than ESSA" },
+      { altn: "CYYR-EGLL", dest: "Europe other than ESSA" },
+      { altn: "CYYR-EBBR", dest: "Europe other than ESSA" }
+    ],
+    "h": [],
+    "i": [
+      { altn: "CYFB-BIKF", dest: "LOWW" },
+      { altn: "CYFB-ENBO", dest: "LOWW" },
+      { altn: "CYZF-BIKF", dest: "LOWW" },
+      { altn: "PAFA-BIKF", dest: "LOWW" },
+      { altn: "CYZF-ENBO", dest: "LOWW" }
+    ]
+  },
+  "B777-300ER/B777F": {
+    "a": [
+      { altn: "CYZF-BIKF", dest: "Europe" },
+      { altn: "CYFB-BIKF", dest: "Europe" },
+      { altn: "CYFB-ENBO", dest: "Europe" },
+      { altn: "CYFB-ENBR", dest: "Europe" },
+      { altn: "PAFA-BIKF", dest: "Europe" },
+      { altn: "CYYR-Europe", dest: "Europe" },
+      { altn: "CYZF-ENBO", dest: "Europe" },
+      { altn: "CYYR-ENBO", dest: "Europe" },
+      { altn: "CYYR-ENBR", dest: "Europe" }
+    ],
+    "b": [
+      { altn: "CYQX-Europe", dest: "Europe" },
+      { altn: "CYYR-Europe", dest: "Europe" }
+    ],
+    "c": [
+      { altn: "CYFB-BIKF", dest: "Europe" },
+      { altn: "CYFB-ENBO", dest: "EGLL" },
+      { altn: "CYFB-ENBO", dest: "Europe other than EGLL" },
+      { altn: "CYFB-ENBR", dest: "Europe other than EGLL" },
+      { altn: "PAFA-BIKF", dest: "Europe" },
+      { altn: "CYXY-BIKF", dest: "Europe" },
+      { altn: "CYZF-BIKF", dest: "Europe" },
+      { altn: "CYZF-ENBO", dest: "Europe" }
+    ],
+    "d": [
+      { altn: "CYFB-BIKF", dest: "Europe" },
+      { altn: "CYFB-ENBO", dest: "Europe" },
+      { altn: "PAFA-BIKF", dest: "Europe" },
+      { altn: "CYZF-BIKF", dest: "Europe" },
+      { altn: "CYZF-ENBO", dest: "Europe" }
+    ],
+    "g": [
+      { altn: "CYFB-ENBO", dest: "Europe" },
+      { altn: "CYYR-ENBR", dest: "Europe" },
+      { altn: "CYYR-EINN", dest: "Europe" },
+      { altn: "CYYR-EGLL", dest: "Europe" },
+      { altn: "CYYR-EBBR", dest: "Europe" }
+    ],
+    "e": [],
+    "f": [],
+    "h": [],
+    "i": []
+  }
+};

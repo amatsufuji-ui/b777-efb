@@ -8,6 +8,7 @@ import { formatNum, formatWeightDisplay, parseWeightInput, interpolateObjArray, 
 import { SafeIcon, DepTag, copyToClipboard, WifiButton, WifiPwdModal, DrmModal, PasteModal, SmartCatModal, Toast, SliderInput, TrafficPatternGraphic, CirclingPatternGraphic } from './components/SharedComponents';
 import { DashboardView } from './components/DashboardView';
 import { WxMnmReference } from './components/WxMnmReference';
+import { EtopsView } from './components/EtopsView';
 import { Docs2View } from './components/Docs2View';
 import { RestView } from './components/RestView';
 import { BuddyCommView } from './components/BuddyCommView';
@@ -64,7 +65,7 @@ import { XwindView } from './components/XwindView';
 // ==========================================
 export default function App() {
   const [activeTab, setActiveTab] = useState('DASHBOARD');
-  const tabs = ['DASHBOARD', 'TFC INFO', 'WX/MNM', 'DOCS', 'スマカタ', 'REST CALC', 'APP CALC', 'BUDDY COMM', 'XWIND'];
+  const tabs = ['DASHBOARD', 'TFC INFO', 'WX/MNM', 'ETOPS', 'DOCS', 'スマカタ', 'REST CALC', 'APP CALC', 'BUDDY COMM', 'XWIND'];
   const [isPasteModalOpen, setIsPasteModalOpen] = useState(false); const [flightId, setFlightId] = useState(""); const [isWifiModalOpen, setIsWifiModalOpen] = useState(false); const [isDrmModalOpen, setIsDrmModalOpen] = useState(false); const [isSmartCatModalOpen, setIsSmartCatModalOpen] = useState(false);
   const [restFlightHours3, setRestFlightHours3] = useState(8); const [restFlightMins3, setRestFlightMins3] = useState(0); const [restFlightHours4, setRestFlightHours4] = useState(12); const [restFlightMins4, setRestFlightMins4] = useState(0);
   const [stdHours, setStdHours] = useState(10); const [stdMins, setStdMins] = useState(0);
@@ -87,6 +88,11 @@ export default function App() {
   
   const [cruiseWtInputText, setCruiseWtInputText] = useState(formatWeightDisplay(state.cruiseWeight)); 
   const [ldgWtInputText, setLdgWtInputText] = useState(formatWeightDisplay(state.landingWeight));
+
+  // FPL ROUTEの読み込み
+const [globalRoute, setGlobalRoute] = useState("");
+const [globalDest, setGlobalDest] = useState("");
+
   
   useEffect(() => { setCruiseWtInputText(formatWeightDisplay(state.cruiseWeight)); }, [state.cruiseWeight]); 
   useEffect(() => { setLdgWtInputText(formatWeightDisplay(state.landingWeight)); }, [state.landingWeight]);
@@ -128,6 +134,7 @@ export default function App() {
       if (data.pldw !== undefined) { next.pldwOrig = data.pldw * 1000; }
       if (data.toElev !== undefined) { next.toElevOrig = Math.round(data.toElev / 100) * 100; }
       if (data.ldElev !== undefined) { next.ldElevOrig = Math.round(data.ldElev / 100) * 100; }
+     
       
       if (data.ptow !== undefined || data.pldw !== undefined) { 
         if (prev.landingCondition === "1 ENG INOP" && data.ptow !== undefined) {
@@ -146,6 +153,8 @@ export default function App() {
     if (data.fltTimeH !== undefined) { setRestFlightHours3(data.fltTimeH); setRestFlightHours4(data.fltTimeH); setRestFlightMins3(data.fltTimeM); setRestFlightMins4(data.fltTimeM); }
     if (data.stdH !== undefined) { setStdHours(data.stdH); setStdMins(data.stdM); setIsTakeoffAuto(true); }
     if (data.avgTaxi !== undefined) setTaxiOutMins(data.avgTaxi); else setTaxiOutMins(20);
+    if (data.route) { setGlobalRoute(data.route); }
+    if (data.dest) { setGlobalDest(data.dest); }
     window.dispatchEvent(new CustomEvent('show-toast', { detail: 'フライトデータをパフォーマンス計算と休憩計算に反映しました！' }));
   };
 
@@ -375,7 +384,7 @@ const acData = MAX_MAN_DATA[state.selectedType];
             </div>
             <div className="flex items-center gap-1">
               <span className="text-amber-400 font-mono text-[9px] border border-amber-500/30 px-1 rounded bg-amber-500/10 tracking-normal font-bold">
-                ver 1.3
+                ver 1.4
               </span>
               {flightId && (
                 <span className="text-slate-300 font-mono text-[9px] border border-slate-600 px-1 rounded bg-slate-800 tracking-normal font-bold">
@@ -424,17 +433,18 @@ const acData = MAX_MAN_DATA[state.selectedType];
         </div>
       </div>
 
-      {activeTab === 'DASHBOARD' && (
+   {activeTab === 'DASHBOARD' && (
         <div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden">
           {typeof DashboardView !== 'undefined' && (
             <DashboardView state={state} updateState={updateState} computed={computed} aircraftRegistrationList={typeof aircraftRegistrationList !== 'undefined' ? aircraftRegistrationList : []} handleRegChange={handleRegChange} setAircraftType={setAircraftType} cruiseWtInputText={cruiseWtInputText} setCruiseWtInputText={setCruiseWtInputText} ldgWtInputText={ldgWtInputText} setLdgWtInputText={setLdgWtInputText} />
           )}
         </div>
       )}
-      {activeTab === 'TFC INFO' && (<div className="flex flex-col gap-1 w-full flex-1 h-full">{typeof FltInfoView !== 'undefined' && <FltInfoView p={fltInfoProps} />}</div>)}
-      {activeTab === 'WX/MNM' && (<div className="flex flex-col gap-1 w-full flex-1 h-full">{typeof WxMnmReference !== 'undefined' && <WxMnmReference />}</div>)}
-      {activeTab === 'DOCS' && (<div className="flex flex-col gap-1 w-full flex-1 h-full">{typeof Docs2View !== 'undefined' && <Docs2View />}</div>)}
-      {activeTab === 'REST CALC' && (<div className="flex flex-col gap-1 w-full flex-1 h-full">
+      {activeTab === 'TFC INFO' && (<div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden">{typeof FltInfoView !== 'undefined' && <FltInfoView p={fltInfoProps} />}</div>)}
+      {activeTab === 'WX/MNM' && (<div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden">{typeof WxMnmReference !== 'undefined' && <WxMnmReference />}</div>)}
+      {activeTab === 'ETOPS' && (<div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden">{typeof EtopsView !== 'undefined' && <EtopsView globalRoute={globalRoute} globalDest={globalDest} />}</div>)} // ★ globalDest={globalDest} を追加！
+      {activeTab === 'DOCS' && (<div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden">{typeof Docs2View !== 'undefined' && <Docs2View />}</div>)}
+      {activeTab === 'REST CALC' && (<div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden">
         {typeof RestView !== 'undefined' && <RestView
         flightHours={restCrewSize === 3 ? restFlightHours3 : restFlightHours4} setFlightHours={restCrewSize === 3 ? setRestFlightHours3 : setRestFlightHours4}
         flightMins={restCrewSize === 3 ? restFlightMins3 : restFlightMins4} setFlightMins={restCrewSize === 3 ? setRestFlightMins3 : setRestFlightMins4}
@@ -451,9 +461,9 @@ const acData = MAX_MAN_DATA[state.selectedType];
         firstHalfMins={restFirstHalfMins} setFirstHalfMins={setRestFirstHalfMins}
         taxiOutMins={taxiOutMins} />}
       </div>)}
-      {activeTab === 'BUDDY COMM' && (<div className="flex flex-col gap-1 w-full flex-1 h-full">{typeof BuddyCommView !== 'undefined' && <BuddyCommView p={{ aircraftRegistrationList: typeof aircraftRegistrationList !== 'undefined' ? aircraftRegistrationList : [], selectedReg: state.selectedReg, handleRegChange }} />}</div>)}
+      {activeTab === 'BUDDY COMM' && (<div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden">{typeof BuddyCommView !== 'undefined' && <BuddyCommView p={{ aircraftRegistrationList: typeof aircraftRegistrationList !== 'undefined' ? aircraftRegistrationList : [], selectedReg: state.selectedReg, handleRegChange }} />}</div>)}
       {activeTab === 'APP CALC' && (<div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden">{typeof ApproachCalcView !== 'undefined' && <ApproachCalcView />}</div>)}
-      {activeTab === 'XWIND' && (<div className="flex flex-col gap-1 w-full flex-1 h-full mt-0.5">{typeof XwindView !== 'undefined' && <XwindView />}</div>)}
+      {activeTab === 'XWIND' && (<div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden mt-0.5">{typeof XwindView !== 'undefined' && <XwindView />}</div>)}
     </div>
   );
 }
