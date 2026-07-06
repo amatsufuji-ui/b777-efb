@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import * as LucideIcons from 'lucide-react';
 
-// アプリ化する場合は以下を有効化する
-// import * as importedPdfjsLib from 'pdfjs-dist/legacy/build/pdf.js';
-// import PdfWorker from 'pdfjs-dist/legacy/build/pdf.worker.js?worker&inline';
-// importedPdfjsLib.GlobalWorkerOptions.workerPort = new PdfWorker();
-// let localPdfjsLib = importedPdfjsLib;
+// ★ コメントアウトを外して、内部にダウンロードしたファイルを直接読み込みます
+import * as importedPdfjsLib from 'pdfjs-dist/legacy/build/pdf.js';
+import PdfWorker from 'pdfjs-dist/legacy/build/pdf.worker.js?worker&inline';
 
-let localPdfjsLib = null;
+importedPdfjsLib.GlobalWorkerOptions.workerPort = new PdfWorker();
+let localPdfjsLib = importedPdfjsLib; // ← null ではなく、読み込んだライブラリを代入
+
 
 // --- [2-1] SafeIcon ---
 export const SafeIcon = ({ name, ...props }) => {
