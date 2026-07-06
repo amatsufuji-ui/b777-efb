@@ -2,12 +2,18 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import * as LucideIcons from 'lucide-react';
 
 import { RAW_CSV_DATA, aircraftRegistrationList, BUDDYCOM_LINKS } from './data/flightData';
-import { aircraftPerformanceData, defaultCruiseWeights, defaultLandingWeights, modelKeyMap, AIRCRAFT_DIMENSIONS, SEAT_DATA, CRUISE_PERF_DATA, VREF_DATA, HOLD_SPD_DATA_RAW, MANEUVER_1_3G_MACH_DATA, TARGET_PITCH_N1_DATA_RAW, LANDING_DIST_DATA_RAW, B777_WIND_LIMITS } from './data/perfData';
+import { aircraftPerformanceData, defaultCruiseWeights, defaultLandingWeights, modelKeyMap, AIRCRAFT_DIMENSIONS, SEAT_DATA, CRUISE_PERF_DATA, VREF_DATA, HOLD_SPD_DATA_RAW, MANEUVER_1_3G_MACH_DATA, TARGET_PITCH_N1_DATA_RAW, LANDING_DIST_DATA_RAW, B777_WIND_LIMITS, MAX_MAN_DATA } from './data/perfData';
 import { DG_DATA, ISOLATION_COLS_FINAL, ISOLATION_MATRIX_FINAL, ERG_DRILLS_FINAL, ERG_LETTERS_LEFT_FINAL, ERG_LETTERS_RIGHT_FINAL, SPECIAL_PAX_DATA } from './data/docsData';
 import { formatNum, formatWeightDisplay, parseWeightInput, interpolateObjArray, interpolateDirectArray, kiasToMach, getHoldSpeed, getManeuverMach, calculateTAS, calculateHeadingAndGS, generateTurnPoints, calculateWindComponentRow } from './utils/flightCalc';
 import { SafeIcon, DepTag, copyToClipboard, WifiButton, WifiPwdModal, DrmModal, PasteModal, SmartCatModal, Toast, SliderInput, TrafficPatternGraphic, CirclingPatternGraphic } from './components/SharedComponents';
-import { WxMnmReference, Docs2View, RestView, BuddyCommView, FltInfoView, ApproachCalcView, XwindView } from './components/TabViews';
 import { DashboardView } from './components/DashboardView';
+import { WxMnmReference } from './components/WxMnmReference';
+import { Docs2View } from './components/Docs2View';
+import { RestView } from './components/RestView';
+import { BuddyCommView } from './components/BuddyCommView';
+import { FltInfoView } from './components/FltInfoView';
+import { ApproachCalcView } from './components/ApproachCalcView';
+import { XwindView } from './components/XwindView';
 // ==========================================
 // 📖 目次 (TABLE OF CONTENTS)   
 // ==========================================
@@ -52,55 +58,6 @@ import { DashboardView } from './components/DashboardView';
 //     [5-8] XwindView (XWIND)
 // [6] MAIN APP COMPONENT
 // ==========================================
-
-// ==========================================
-// [1] SETTINGS & IMPORTS
-// ==========================================
-
-// ==========================================
-// [2] COMMON & UI COMPONENTS
-// ==========================================
-
-
-// ==========================================
-// [3] DATA SECTION 
-// ==========================================
-// --- [3-1] FLIGHT DATA (RAW_CSV_DATA) ---
-
-// --- [3-2] AIRCRAFT & REGISTRATION ---
-// ★ 変更: AOM R72 (2026.03.23) に基づき最新の機番リスト・型式・エンジンを反映 (777-200ERを777-200に統合)
-
-// --- [3-3] LINKS (BUDDYCOM_LINKS) ---
-
-// --- [3-4] PERFORMANCE & WEIGHT DATA ---
-
-// --- [3-5] CRUISE PERF DATA ---
-
-// --- [3-6] VREF DATA ---
-
-// --- [3-7] HOLD & MANEUVER SPD DATA ---
-
-// --- [3-8] APPROACH & LANDING DATA ---
-
-
-// --- [3-9] WIND LIMITS ---
-
-// --- [3-10] DOCS: DG (DANGEROUS GOODS) DATA ---
-
-// --- [3-11] DOCS: ERG CODE DATA ---
-
-// --- [3-12] DOCS: SPECIAL PAX DATA ---
-
-
-// ==========================================
-// [4] UTILITY FUNCTIONS
-// ==========================================
-
-
-// ==========================================
-// [5] TAB COMPONENTS
-// ==========================================
-
 
 // ==========================================
 // [6] MAIN APP COMPONENT
@@ -313,51 +270,9 @@ export default function App() {
     let distMan1 = getAomDistance(isEngInop ? "FLAP 20" : "FLAP 25", "man");
     let distMan2 = getAomDistance("FLAP 30", "man");
 
-    // --- MAX MAN 専用 Actualオーバーライドロジック ---
-    const manDataAll = {
-      "777-200": {
-        f25_dry: { baseWt: 440, refDist: 4030, wt_abv: 90, wt_blw: 50, adj: { alt: 70, wind_hw: 140, wind_tw: 480, slp_down: 50, slp_up: 30, tmp_abv: 70, tmp_blw: 70, app: 130, rev_one: 70, rev_no: 160 } },
-        f25_wet: { baseWt: 440, refDist: 5050, wt_abv: 80, wt_blw: 80, adj: { alt: 120, wind_hw: 220, wind_tw: 770, slp_down: 130, slp_up: 110, tmp_abv: 120, tmp_blw: 120, app: 180, rev_one: 0, rev_no: 360 } },
-        f30_dry: { baseWt: 440, refDist: 3880, wt_abv: 80, wt_blw: 30, adj: { alt: 70, wind_hw: 140, wind_tw: 470, slp_down: 30, slp_up: 30, tmp_abv: 70, tmp_blw: 70, app: 130, rev_one: 60, rev_no: 140 } },
-        f30_wet: { baseWt: 440, refDist: 5080, wt_abv: 70, wt_blw: 60, adj: { alt: 120, wind_hw: 220, wind_tw: 790, slp_down: 120, slp_up: 90, tmp_abv: 100, tmp_blw: 100, app: 180, rev_one: 240, rev_no: 560 } },
-        inop_f20_dry: { baseWt: 440, refDist: 3670, wt_abv: 90, wt_blw: 50, adj: { alt: 70, wind_hw: 130, wind_tw: 440, slp_down: 40, slp_up: 40, tmp_abv: 70, tmp_blw: 70, app: 120, rev_one: 0, rev_no: 80 } },
-        inop_f20_wet: { baseWt: 440, refDist: 5050, wt_abv: 80, wt_blw: 80, adj: { alt: 120, wind_hw: 220, wind_tw: 770, slp_down: 130, slp_up: 110, tmp_abv: 120, tmp_blw: 120, app: 180, rev_one: 0, rev_no: 360 } },
-        inop_f30_dry: { baseWt: 440, refDist: 3400, wt_abv: 70, wt_blw: 30, adj: { alt: 60, wind_hw: 120, wind_tw: 410, slp_down: 40, slp_up: 30, tmp_abv: 60, tmp_blw: 60, app: 120, rev_one: 0, rev_no: 60 } },
-        inop_f30_wet: { baseWt: 440, refDist: 4580, wt_abv: 70, wt_blw: 50, adj: { alt: 100, wind_hw: 200, wind_tw: 730, slp_down: 110, slp_up: 100, tmp_abv: 100, tmp_blw: 100, app: 170, rev_one: 0, rev_no: 260 } }
-      },
-      "777-300": {
-        f25_dry: { baseWt: 520, refDist: 4600, wt_abv: 90, wt_blw: 60, adj: { alt: 90, wind_hw: 160, wind_tw: 550, slp_down: 60, slp_up: 60, tmp_abv: 90, tmp_blw: 90, app: 150, rev_one: 100, rev_no: 220 } },
-        f25_wet: { baseWt: 520, refDist: 5970, wt_abv: 80, wt_blw: 80, adj: { alt: 150, wind_hw: 250, wind_tw: 890, slp_down: 140, slp_up: 120, tmp_abv: 140, tmp_blw: 140, app: 200, rev_one: 310, rev_no: 720 } },
-        f30_dry: { baseWt: 520, refDist: 4400, wt_abv: 90, wt_blw: 50, adj: { alt: 90, wind_hw: 150, wind_tw: 530, slp_down: 60, slp_up: 50, tmp_abv: 80, tmp_blw: 80, app: 140, rev_one: 80, rev_no: 180 } },
-        f30_wet: { baseWt: 520, refDist: 5760, wt_abv: 80, wt_blw: 80, adj: { alt: 140, wind_hw: 240, wind_tw: 870, slp_down: 140, slp_up: 120, tmp_abv: 130, tmp_blw: 130, app: 210, rev_one: 280, rev_no: 620 } },
-        inop_f20_dry: { baseWt: 520, refDist: 4340, wt_abv: 100, wt_blw: 60, adj: { alt: 90, wind_hw: 150, wind_tw: 520, slp_down: 60, slp_up: 50, tmp_abv: 90, tmp_blw: 90, app: 140, rev_one: 0, rev_no: 120 } },
-        inop_f20_wet: { baseWt: 520, refDist: 5810, wt_abv: 80, wt_blw: 80, adj: { alt: 150, wind_hw: 240, wind_tw: 850, slp_down: 160, slp_up: 130, tmp_abv: 140, tmp_blw: 140, app: 200, rev_one: 0, rev_no: 400 } },
-        inop_f30_dry: { baseWt: 520, refDist: 3880, wt_abv: 80, wt_blw: 50, adj: { alt: 80, wind_hw: 140, wind_tw: 470, slp_down: 50, slp_up: 50, tmp_abv: 80, tmp_blw: 80, app: 130, rev_one: 0, rev_no: 80 } },
-        inop_f30_wet: { baseWt: 520, refDist: 5190, wt_abv: 70, wt_blw: 70, adj: { alt: 130, wind_hw: 230, wind_tw: 790, slp_down: 140, slp_up: 120, tmp_abv: 120, tmp_blw: 120, app: 190, rev_one: 0, rev_no: 290 } }
-      },
-      "777-300ER": {
-        f25_dry: { baseWt: 550, refDist: 4460, wt_abv: 80, wt_blw: 50, adj: { alt: 90, wind_hw: 150, wind_tw: 510, slp_down: 50, slp_up: 50, tmp_abv: 80, tmp_blw: 80, app: 140, rev_one: 90, rev_no: 210 } },
-        f25_wet: { baseWt: 550, refDist: 6120, wt_abv: 70, wt_blw: 80, adj: { alt: 150, wind_hw: 250, wind_tw: 890, slp_down: 140, slp_up: 120, tmp_abv: 140, tmp_blw: 140, app: 200, rev_one: 380, rev_no: 900 } },
-        f30_dry: { baseWt: 550, refDist: 4280, wt_abv: 90, wt_blw: 50, adj: { alt: 80, wind_hw: 150, wind_tw: 490, slp_down: 50, slp_up: 50, tmp_abv: 80, tmp_blw: 80, app: 140, rev_one: 80, rev_no: 180 } },
-        f30_wet: { baseWt: 550, refDist: 5810, wt_abv: 80, wt_blw: 70, adj: { alt: 140, wind_hw: 240, wind_tw: 860, slp_down: 130, slp_up: 120, tmp_abv: 130, tmp_blw: 130, app: 200, rev_one: 350, rev_no: 810 } },
-        inop_f20_dry: { baseWt: 550, refDist: 4220, wt_abv: 100, wt_blw: 50, adj: { alt: 90, wind_hw: 140, wind_tw: 480, slp_down: 50, slp_up: 50, tmp_abv: 90, tmp_blw: 90, app: 130, rev_one: 0, rev_no: 110 } },
-        inop_f20_wet: { baseWt: 550, refDist: 6070, wt_abv: 80, wt_blw: 80, adj: { alt: 160, wind_hw: 250, wind_tw: 860, slp_down: 160, slp_up: 140, tmp_abv: 150, tmp_blw: 150, app: 200, rev_one: 0, rev_no: 510 } },
-        inop_f30_dry: { baseWt: 550, refDist: 3750, wt_abv: 80, wt_blw: 40, adj: { alt: 70, wind_hw: 130, wind_tw: 440, slp_down: 40, slp_up: 40, tmp_abv: 70, tmp_blw: 70, app: 120, rev_one: 0, rev_no: 80 } },
-        inop_f30_wet: { baseWt: 550, refDist: 5250, wt_abv: 80, wt_blw: 60, adj: { alt: 130, wind_hw: 230, wind_tw: 790, slp_down: 130, slp_up: 120, tmp_abv: 120, tmp_blw: 120, app: 190, rev_one: 0, rev_no: 370 } }
-      },
-      "777F": {
-        f25_dry: { baseWt: 570, refDist: 4510, wt_abv: 80, wt_blw: 20, adj: { alt: 90, wind_hw: 150, wind_tw: 520, slp_down: 50, slp_up: 50, tmp_abv: 90, tmp_blw: 90, app: 140, rev_one: 80, rev_no: 200 } },
-        f25_wet: { baseWt: 570, refDist: 6210, wt_abv: 70, wt_blw: 60, adj: { alt: 160, wind_hw: 250, wind_tw: 900, slp_down: 140, slp_up: 130, tmp_abv: 150, tmp_blw: 150, app: 210, rev_one: 360, rev_no: 860 } },
-        f30_dry: { baseWt: 570, refDist: 4290, wt_abv: 90, wt_blw: 10, adj: { alt: 80, wind_hw: 150, wind_tw: 490, slp_down: 50, slp_up: 50, tmp_abv: 80, tmp_blw: 80, app: 140, rev_one: 80, rev_no: 170 } },
-        f30_wet: { baseWt: 570, refDist: 5870, wt_abv: 90, wt_blw: 30, adj: { alt: 150, wind_hw: 250, wind_tw: 870, slp_down: 140, slp_up: 120, tmp_abv: 140, tmp_blw: 140, app: 210, rev_one: 320, rev_no: 760 } },
-        inop_f20_dry: { baseWt: 570, refDist: 4200, wt_abv: 100, wt_blw: 40, adj: { alt: 90, wind_hw: 140, wind_tw: 480, slp_down: 50, slp_up: 50, tmp_abv: 90, tmp_blw: 90, app: 130, rev_one: 0, rev_no: 100 } },
-        inop_f20_wet: { baseWt: 570, refDist: 6060, wt_abv: 80, wt_blw: 70, adj: { alt: 160, wind_hw: 250, wind_tw: 860, slp_down: 160, slp_up: 140, tmp_abv: 150, tmp_blw: 150, app: 200, rev_one: 0, rev_no: 480 } },
-        inop_f30_dry: { baseWt: 570, refDist: 3750, wt_abv: 90, wt_blw: 10, adj: { alt: 70, wind_hw: 130, wind_tw: 440, slp_down: 40, slp_up: 40, tmp_abv: 70, tmp_blw: 70, app: 130, rev_one: 0, rev_no: 80 } },
-        inop_f30_wet: { baseWt: 570, refDist: 5270, wt_abv: 90, wt_blw: 30, adj: { alt: 130, wind_hw: 230, wind_tw: 800, slp_down: 140, slp_up: 120, tmp_abv: 120, tmp_blw: 120, app: 190, rev_one: 0, rev_no: 360 } }
-      }
-    };
 
-    const acData = manDataAll[state.selectedType];
+
+const acData = MAX_MAN_DATA[state.selectedType];
     if (acData) {
       const rwyCond = state.selectedRwyCond === "5-WET" ? "wet" : "dry";
       const wt1000Ldg = clampedLandingWeight / 1000;
