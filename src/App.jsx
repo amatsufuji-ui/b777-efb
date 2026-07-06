@@ -442,7 +442,7 @@ const acData = MAX_MAN_DATA[state.selectedType];
       )}
       {activeTab === 'TFC INFO' && (<div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden">{typeof FltInfoView !== 'undefined' && <FltInfoView p={fltInfoProps} />}</div>)}
       {activeTab === 'WX/MNM' && (<div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden">{typeof WxMnmReference !== 'undefined' && <WxMnmReference />}</div>)}
-      {activeTab === 'ETOPS' && (<div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden">{typeof EtopsView !== 'undefined' && <EtopsView globalRoute={globalRoute} globalDest={globalDest} />}</div>)} // ★ globalDest={globalDest} を追加！
+      {activeTab === 'ETOPS' && (<div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden">{typeof EtopsView !== 'undefined' && <EtopsView globalRoute={globalRoute} globalDest={globalDest} />}</div>)} 
       {activeTab === 'DOCS' && (<div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden">{typeof Docs2View !== 'undefined' && <Docs2View />}</div>)}
       {activeTab === 'REST CALC' && (<div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden">
         {typeof RestView !== 'undefined' && <RestView
