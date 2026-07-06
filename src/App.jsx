@@ -375,7 +375,7 @@ const acData = MAX_MAN_DATA[state.selectedType];
             </div>
             <div className="flex items-center gap-1">
               <span className="text-amber-400 font-mono text-[9px] border border-amber-500/30 px-1 rounded bg-amber-500/10 tracking-normal font-bold">
-                ver 1.2
+                ver 1.3
               </span>
               {flightId && (
                 <span className="text-slate-300 font-mono text-[9px] border border-slate-600 px-1 rounded bg-slate-800 tracking-normal font-bold">
@@ -403,20 +403,21 @@ const acData = MAX_MAN_DATA[state.selectedType];
           </div>
         </div>
 
-        {/* タブボタン部分：iPhone（縦画面）では指で横スクロール可能に、iPadでは普通に並べる */}
-        <div className="flex gap-1 py-1 overflow-x-auto hide-scrollbar scroll-smooth snap-x">
+       {/* タブボタン部分：iPhone（縦画面）では自動で折り返し、iPad等（横画面）では横一列に並べる */}
+        <div className="flex flex-wrap sm:flex-nowrap gap-1 py-1 w-full sm:overflow-x-auto sm:hide-scrollbar">
           {tabs.map(tab => {
             if (tab === 'スマカタ') {
               return (
-                <button key={tab} onClick={() => setIsSmartCatModalOpen(true)} className="px-2.5 py-1.5 text-[10px] sm:text-[11px] font-bold rounded-md whitespace-nowrap transition-all shadow-sm bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700/50 flex items-center gap-1 snap-numerator">
-                  <SafeIcon name="BookOpen" className="w-3 h-3" /> スマカタ
+                <button key={tab} onClick={() => setIsSmartCatModalOpen(true)} className="px-2 py-1.5 text-[10px] sm:text-[11px] font-bold rounded-md transition-all shadow-sm bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700/50 flex items-center justify-center gap-1 flex-grow sm:flex-grow-0 min-w-[22%] sm:min-w-0">
+                  <SafeIcon name="BookOpen" className="w-3 h-3" /> 
+                  <span className="leading-none">スマカタ</span>
                 </button>
               );
             }
             return (
-              <button key={tab} onClick={() => setActiveTab(tab)} className={`px-2.5 py-1.5 text-[10px] sm:text-[11px] font-bold rounded-md whitespace-nowrap transition-all shadow-sm flex items-center gap-1 snap-numerator ${activeTab === tab ? "bg-amber-600 text-white shadow-amber-900/50 scale-[1.02]" : "bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700/50"}`}>
+              <button key={tab} onClick={() => setActiveTab(tab)} className={`px-2 py-1.5 text-[10px] sm:text-[11px] font-bold rounded-md transition-all shadow-sm flex items-center justify-center gap-1 flex-grow sm:flex-grow-0 min-w-[22%] sm:min-w-0 ${activeTab === tab ? "bg-amber-600 text-white shadow-amber-900/50 scale-[1.01]" : "bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700/50"}`}>
                 {tab === 'XWIND' && <SafeIcon name="Wind" className="w-3 h-3" />}
-                {tab}
+                <span className="leading-none">{tab}</span>
               </button>
             );
           })}
