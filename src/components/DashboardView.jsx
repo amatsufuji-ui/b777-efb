@@ -199,7 +199,7 @@ export const DashboardView = ({ state, updateState, computed, aircraftRegistrati
             </div>
           </div>
 
-          {/* ROW 2: AUTO 3, AUTO 2, AUTO 1, M TO FT */}
+          {/* ROW 2: AUTO 3, AUTO 2, AUTO 1, M TO FT (2列化) */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-1 w-full mt-0.5">
             <div className="border border-slate-700 rounded flex flex-col bg-[#131c2f] overflow-hidden shadow-lg p-1 h-full">
               <div className="text-center text-[9px] sm:text-[10px] font-bold text-slate-300 pb-0.5 tracking-widest bg-[#1a2640]">AUTO 3</div>
@@ -228,14 +228,18 @@ export const DashboardView = ({ state, updateState, computed, aircraftRegistrati
               <div className="px-1 py-0.5 text-[6px] opacity-0 font-mono text-center flex justify-between mt-auto border-t border-transparent pt-0.5"><span>-</span><span>-</span></div>
             </div>
 
-            {/* M TO FT BADGE */}
-            <div className="border border-slate-700 rounded flex flex-col bg-[#0f172a] overflow-hidden shadow-lg p-1 h-full">
+            {/* M TO FT BADGE (2列化・文字拡大) */}
+            <div className="border border-slate-700 rounded flex flex-col bg-[#0f172a] overflow-hidden shadow-lg p-1 h-full col-span-2 md:col-span-1">
               <div className="text-center text-[9px] sm:text-[10px] font-bold text-slate-300 pb-0.5 tracking-widest bg-[#131c2f]">M TO FT</div>
-              <div className="flex-1 flex flex-col justify-around py-0.5 px-1 font-mono text-[9px] sm:text-[10px]">
-                <div className="flex justify-between items-baseline leading-none"><span className="text-slate-400 font-bold">3000m:</span><span className="text-xs sm:text-sm font-extrabold text-white tracking-tighter">9,843'</span></div>
-                <div className="flex justify-between items-baseline leading-none"><span className="text-slate-400 font-bold">2800m:</span><span className="text-xs sm:text-sm font-extrabold text-white tracking-tighter">9,186'</span></div>
-                <div className="flex justify-between items-baseline leading-none"><span className="text-slate-400 font-bold">2500m:</span><span className="text-xs sm:text-sm font-extrabold text-white tracking-tighter">8,202'</span></div>
-                <div className="flex justify-between items-baseline leading-none"><span className="text-slate-400 font-bold">2000m:</span><span className="text-xs sm:text-sm font-extrabold text-white tracking-tighter">6,562'</span></div>
+              <div className="flex-1 grid grid-cols-2 gap-x-2 py-0.5 px-1.5 font-mono items-center">
+                <div className="flex flex-col justify-around h-full border-r border-slate-700/50 pr-1 gap-1">
+                  <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[10px] text-slate-400 font-bold">3000m:</span><span className="text-sm sm:text-base font-extrabold text-white tracking-tighter">9,843'</span></div>
+                  <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[10px] text-slate-400 font-bold">2800m:</span><span className="text-sm sm:text-base font-extrabold text-white tracking-tighter">9,186'</span></div>
+                </div>
+                <div className="flex flex-col justify-around h-full pl-0.5 gap-1">
+                  <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[10px] text-slate-400 font-bold">2500m:</span><span className="text-sm sm:text-base font-extrabold text-white tracking-tighter">8,202'</span></div>
+                  <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[10px] text-slate-400 font-bold">2000m:</span><span className="text-sm sm:text-base font-extrabold text-white tracking-tighter">6,562'</span></div>
+                </div>
               </div>
               <div className="px-1 py-0.5 text-[6px] opacity-0 font-mono text-center flex justify-between mt-auto border-t border-transparent pt-0.5"><span>-</span><span>-</span></div>
             </div>
