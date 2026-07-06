@@ -367,6 +367,9 @@ const acData = MAX_MAN_DATA[state.selectedType];
         <div className="flex justify-between items-end px-1 pt-1 pb-0.5 border-b-2 border-slate-700/80">
           <div className="flex items-center gap-1.5 text-blue-400 font-black tracking-tighter text-[11px] sm:text-sm">
             <SafeIcon name="Plane" className="w-4 h-4" /> 7PT B777 PERFORMANCE TOOL
+            <span className="ml-1 text-amber-400 font-mono text-[9px] border border-amber-500/30 px-1 rounded bg-amber-500/10 tracking-normal font-bold">
+    ver 1.1
+  </span>
             {flightId && <span className="ml-1 text-slate-300 font-mono text-[9px] border border-slate-600 px-1 rounded bg-slate-800 tracking-normal font-bold">ANA{flightId}</span>}
           </div>
           <div className="flex items-center gap-2">
