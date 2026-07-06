@@ -363,42 +363,58 @@ const acData = MAX_MAN_DATA[state.selectedType];
       <DrmModal isOpen={isDrmModalOpen} onClose={() => setIsDrmModalOpen(false)} initialFlightNo={flightId} />
       <SmartCatModal isOpen={isSmartCatModalOpen} onClose={() => setIsSmartCatModalOpen(false)} />
 
-      <div className="flex flex-col gap-1 w-full flex-none mb-1">
-        <div className="flex justify-between items-end px-1 pt-1 pb-0.5 border-b-2 border-slate-700/80">
-          <div className="flex items-center gap-1.5 text-blue-400 font-black tracking-tighter text-[11px] sm:text-sm">
-            <SafeIcon name="Plane" className="w-4 h-4" /> 7PT B777 PERFORMANCE TOOL
-            <span className="ml-1 text-amber-400 font-mono text-[9px] border border-amber-500/30 px-1 rounded bg-amber-500/10 tracking-normal font-bold">
-    ver 1.1
-  </span>
-            {flightId && <span className="ml-1 text-slate-300 font-mono text-[9px] border border-slate-600 px-1 rounded bg-slate-800 tracking-normal font-bold">ANA{flightId}</span>}
+   <div className="flex flex-col gap-1.5 w-full flex-none mb-1 px-1">
+        {/* ヘッダー全体：iPhone（縦画面）の時は上下2段、iPad（横画面）の時は左右に並べる */}
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end pt-1 pb-1 border-b-2 border-slate-700/80 gap-1.5">
+          
+          {/* タイトル & 便名バッジ & バージョン */}
+          <div className="flex items-center flex-wrap gap-1 text-blue-400 font-black tracking-tighter text-[11px] sm:text-sm">
+            <div className="flex items-center gap-1">
+              <SafeIcon name="Plane" className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> 
+              <span>7PT B777 PERFORMANCE TOOL</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-amber-400 font-mono text-[9px] border border-amber-500/30 px-1 rounded bg-amber-500/10 tracking-normal font-bold">
+                ver 1.1
+              </span>
+              {flightId && (
+                <span className="text-slate-300 font-mono text-[9px] border border-slate-600 px-1 rounded bg-slate-800 tracking-normal font-bold">
+                  ANA{flightId}
+                </span>
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="flex items-center mb-0.5 gap-1">
-              <WifiButton type="INT" url="http://info.ana.co.jp/" label="INT" hoverClass="hover:bg-sky-600" colorClass="text-sky-400 border-sky-500/50" onLongPress={() => setIsWifiModalOpen(true)} />
-              <WifiButton type="DOM" url="http://www.ana.co.jp/wifi" label="DOM" hoverClass="hover:bg-emerald-600" colorClass="text-emerald-400 border-emerald-500/50" onLongPress={() => { }} />
 
-              <button onClick={() => setIsPasteModalOpen(true)} className="animate-glow-pulse bg-emerald-600 hover:bg-emerald-500 text-white px-1 py-0.5 md:px-1.5 md:py-0.5 rounded flex items-center justify-center gap-0.5 transition-colors border border-emerald-400 ml-1 mr-1" title="PDF/TXT 読込">
-                <SafeIcon name="ClipboardPaste" className="w-2.5 h-2.5 md:w-3 md:h-3 pointer-events-none" />
-                <span className="text-[8px] md:text-[9px] lg:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">LOAD</span>
+          {/* 右側のボタン群：iPhoneの時は横幅いっぱいに広げて均等配置、iPadでは右寄せ */}
+          <div className="flex items-center justify-between sm:justify-end gap-1 w-full sm:w-auto overflow-x-auto hide-scrollbar">
+            <div className="flex items-center gap-1 w-full sm:w-auto">
+              <WifiButton type="INT" url="http://info.ana.co.jp/" label="INT" hoverClass="hover:bg-sky-600" colorClass="text-sky-400 border-sky-500/50 text-[9px] sm:text-[10px]" onLongPress={() => setIsWifiModalOpen(true)} />
+              <WifiButton type="DOM" url="http://www.ana.co.jp/wifi" label="DOM" hoverClass="hover:bg-emerald-600" colorClass="text-emerald-400 border-emerald-500/50 text-[9px] sm:text-[10px]" onLongPress={() => { }} />
+
+              <button onClick={() => setIsPasteModalOpen(true)} className="animate-glow-pulse bg-emerald-600 hover:bg-emerald-500 text-white px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border border-emerald-400 flex-1 sm:flex-none" title="PDF/TXT 読込">
+                <SafeIcon name="ClipboardPaste" className="w-3 h-3 pointer-events-none" />
+                <span className="text-[9px] sm:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">LOAD</span>
               </button>
 
-              <button onClick={() => { if (!state.selectedReg || state.selectedReg === "N/A" || state.selectedReg === "") { window.dispatchEvent(new CustomEvent('show-toast', { detail: '機番を選択してください' })); return; } const buddycomUrl = typeof BUDDYCOM_LINKS !== 'undefined' ? BUDDYCOM_LINKS[state.selectedReg] : null; if (buddycomUrl) { const pastedFlightName = flightId ? `ANA${flightId}` : ""; if (pastedFlightName) { copyToClipboard(pastedFlightName); window.dispatchEvent(new CustomEvent('show-toast', { detail: `便名(${pastedFlightName})をコピーして起動しました` })); } else { window.dispatchEvent(new CustomEvent('show-toast', { detail: 'Buddycomを起動しました' })); } setTimeout(() => { window.open(buddycomUrl, '_blank'); }, 1000); } else { window.dispatchEvent(new CustomEvent('show-toast', { detail: 'この機番のBuddycomリンクは未登録です' })); } }} className={`px-1 py-0.5 md:px-1.5 md:py-0.5 rounded flex items-center justify-center gap-0.5 transition-colors border shadow-sm ${state.selectedReg && state.selectedReg !== "N/A" && state.selectedReg !== "" ? 'bg-slate-700 hover:bg-orange-600 text-orange-400 hover:text-white border-slate-500 hover:border-orange-400' : 'bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed'}`} title="Buddycomを開く"><SafeIcon name="Radio" className="w-2.5 h-2.5 md:w-3 md:h-3 pointer-events-none" /><span className="text-[8px] md:text-[9px] lg:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">BDYC</span></button>
-              <button onClick={() => { let flightQuery = ""; if (flightId) { flightQuery = `NH${flightId}`; } else if (selectedFlightId && selectedFlightId !== "N/A" && selectedFlightId !== "") { if (selectedAirlineCode && selectedAirlineCode !== "N/A" && selectedAirlineCode !== "") { flightQuery = `${selectedAirlineCode}${selectedFlightId}`; } else { flightQuery = `NH${selectedFlightId}`; } } if (flightQuery) { copyToClipboard(flightQuery); window.dispatchEvent(new CustomEvent('show-toast', { detail: `便名(${flightQuery})をコピーしました。検索窓にペーストしてください` })); } else { window.dispatchEvent(new CustomEvent('show-toast', { detail: 'FR24アプリを起動します' })); } setTimeout(() => { window.open('https://www.flightradar24.com', '_blank'); }, 1000); }} className="bg-slate-700 hover:bg-yellow-600 text-yellow-400 hover:text-white px-1 py-0.5 md:px-1.5 md:py-0.5 rounded flex items-center justify-center gap-0.5 transition-colors border border-slate-500 hover:border-yellow-400 shadow-sm" title="Flight Radar 24を開く"><SafeIcon name="Radar" className="w-2.5 h-2.5 md:w-3 md:h-3 pointer-events-none" /><span className="text-[8px] md:text-[9px] lg:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">FR24</span></button>
+              <button onClick={() => { if (!state.selectedReg || state.selectedReg === "N/A" || state.selectedReg === "") { window.dispatchEvent(new CustomEvent('show-toast', { detail: '機番を選択してください' })); return; } const buddycomUrl = typeof BUDDYCOM_LINKS !== 'undefined' ? BUDDYCOM_LINKS[state.selectedReg] : null; if (buddycomUrl) { const pastedFlightName = flightId ? `ANA${flightId}` : ""; if (pastedFlightName) { copyToClipboard(pastedFlightName); window.dispatchEvent(new CustomEvent('show-toast', { detail: `便名(${pastedFlightName})をコピーして起動しました` })); } else { window.dispatchEvent(new CustomEvent('show-toast', { detail: 'Buddycomを起動しました' })); } setTimeout(() => { window.open(buddycomUrl, '_blank'); }, 1000); } else { window.dispatchEvent(new CustomEvent('show-toast', { detail: 'この機番のBuddycomリンクは未登録です' })); } }} className={`px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border shadow-sm flex-1 sm:flex-none ${state.selectedReg && state.selectedReg !== "N/A" && state.selectedReg !== "" ? 'bg-slate-700 hover:bg-orange-600 text-orange-400 hover:text-white border-slate-500 hover:border-orange-400' : 'bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed'}`} title="Buddycomを開く"><SafeIcon name="Radio" className="w-3 h-3 pointer-events-none" /><span className="text-[9px] sm:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">BDYC</span></button>
+              
+              <button onClick={() => { let flightQuery = ""; if (flightId) { flightQuery = `NH${flightId}`; } else if (selectedFlightId && selectedFlightId !== "N/A" && selectedFlightId !== "") { if (selectedAirlineCode && selectedAirlineCode !== "N/A" && selectedAirlineCode !== "") { flightQuery = `${selectedAirlineCode}${selectedFlightId}`; } else { flightQuery = `NH${selectedFlightId}`; } } if (flightQuery) { copyToClipboard(flightQuery); window.dispatchEvent(new CustomEvent('show-toast', { detail: `便名(${flightQuery})をコピーしました。検索窓にペーストしてください` })); } else { window.dispatchEvent(new CustomEvent('show-toast', { detail: 'FR24アプリを起動します' })); } setTimeout(() => { window.open('https://www.flightradar24.com', '_blank'); }, 1000); }} className="bg-slate-700 hover:bg-yellow-600 text-yellow-400 hover:text-white px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border border-slate-500 hover:border-yellow-400 shadow-sm flex-1 sm:flex-none" title="Flight Radar 24を開く"><SafeIcon name="Radar" className="w-3 h-3 pointer-events-none" /><span className="text-[9px] sm:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">FR24</span></button>
             </div>
-            <div className="text-[10px] sm:text-xs font-black text-slate-300 tracking-widest bg-slate-800 px-2 py-0.5 rounded-t-md border border-slate-700 border-b-0">{activeTab}</div>
           </div>
         </div>
-        <div className="flex gap-1 px-0.5 pb-1 overflow-x-auto hide-scrollbar">
+
+        {/* タブボタン部分：iPhone（縦画面）では指で横スクロール可能に、iPadでは普通に並べる */}
+        <div className="flex gap-1 py-1 overflow-x-auto hide-scrollbar scroll-smooth snap-x">
           {tabs.map(tab => {
             if (tab === 'スマカタ') {
               return (
-                <button key={tab} onClick={() => setIsSmartCatModalOpen(true)} className="px-3 py-1.5 text-[9px] sm:text-[10px] font-bold rounded-md whitespace-nowrap transition-all shadow-sm bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700/50 flex items-center gap-1">
+                <button key={tab} onClick={() => setIsSmartCatModalOpen(true)} className="px-2.5 py-1.5 text-[10px] sm:text-[11px] font-bold rounded-md whitespace-nowrap transition-all shadow-sm bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700/50 flex items-center gap-1 snap-numerator">
                   <SafeIcon name="BookOpen" className="w-3 h-3" /> スマカタ
                 </button>
               );
             }
             return (
-              <button key={tab} onClick={() => setActiveTab(tab)} className={`px-3 py-1.5 text-[9px] sm:text-[10px] font-bold rounded-md whitespace-nowrap transition-all shadow-sm flex items-center gap-1 ${activeTab === tab ? "bg-amber-600 text-white shadow-amber-900/50 scale-[1.02]" : "bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700/50"}`}>
+              <button key={tab} onClick={() => setActiveTab(tab)} className={`px-2.5 py-1.5 text-[10px] sm:text-[11px] font-bold rounded-md whitespace-nowrap transition-all shadow-sm flex items-center gap-1 snap-numerator ${activeTab === tab ? "bg-amber-600 text-white shadow-amber-900/50 scale-[1.02]" : "bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700/50"}`}>
                 {tab === 'XWIND' && <SafeIcon name="Wind" className="w-3 h-3" />}
                 {tab}
               </button>
