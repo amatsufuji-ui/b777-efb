@@ -119,20 +119,9 @@ export default function App() {
   }, [stdHours, stdMins, isTakeoffAuto, taxiOutMins]);
 
   const [selectedDep, setSelectedDep] = useState(""); const [selectedArr, setSelectedArr] = useState(""); const [selectedFlightId, setSelectedFlightId] = useState(""); const [selectedAirlineCode, setSelectedAirlineCode] = useState(""); const [selectedAirline, setSelectedAirline] = useState(""); const [selectedCallsign, setSelectedCallsign] = useState(""); const [trafficTimeRange, setTrafficTimeRange] = useState(30); const [depTrafficMode, setDepTrafficMode] = useState("DEP"); const [arrTrafficMode, setArrTrafficMode] = useState("OFF");
-  
-  const [state, setState] = useState({ 
-    selectedReg: "", selectedType: "777-200", isaDev: 0, cruiseAltitude: 30000, 
-    landingCondition: "Normal", selectedRwyCond: "6-DRY", windComponent: 0, 
-    appSpeedAdditive: 5, pressureAlt: 0, rwSlope: 0, reverserConfig: "Both", 
-    factConfig: "1.00", aiConfig: "OFF", cruiseWeight: 400000, landingWeight: 400000, 
-    ptowOrig: null, pldwOrig: null, toElevOrig: null, ldElevOrig: null 
-  });
-  
-  const [cruiseWtInputText, setCruiseWtInputText] = useState(formatWeightDisplay(state.cruiseWeight)); 
-  const [ldgWtInputText, setLdgWtInputText] = useState(formatWeightDisplay(state.landingWeight));
-  
-  useEffect(() => { setCruiseWtInputText(formatWeightDisplay(state.cruiseWeight)); }, [state.cruiseWeight]); 
-  useEffect(() => { setLdgWtInputText(formatWeightDisplay(state.landingWeight)); }, [state.landingWeight]);
+  const [state, setState] = useState({ selectedReg: "", selectedType: "777-200", isaDev: 0, cruiseAltitude: 30000, landingCondition: "Normal", selectedRwyCond: "6-DRY", windComponent: 0, appSpeedAdditive: 5, pressureAlt: 0, rwSlope: 0, reverserConfig: "Both", factConfig: "1.00", aiConfig: "OFF", cruiseWeight: 400000, landingWeight: 400000, ptowOrig: null, pldwOrig: null, toElevOrig: null, ldElevOrig: null });
+  const [cruiseWtInputText, setCruiseWtInputText] = useState(formatWeightDisplay(state.cruiseWeight)); const [ldgWtInputText, setLdgWtInputText] = useState(formatWeightDisplay(state.landingWeight));
+  useEffect(() => { setCruiseWtInputText(formatWeightDisplay(state.cruiseWeight)); }, [state.cruiseWeight]); useEffect(() => { setLdgWtInputText(formatWeightDisplay(state.landingWeight)); }, [state.landingWeight]);
   
   const updateState = (key, value) => { 
     setState(prev => { 
@@ -150,21 +139,13 @@ export default function App() {
       return next; 
     }); 
   };
-  
-  const handleRegChange = (reg) => { 
-    const ac = typeof aircraftRegistrationList !== 'undefined' ? aircraftRegistrationList.find(a => a.reg === reg) : null; 
-    if (ac) setState(prev => ({ ...prev, selectedReg: reg, selectedType: ac.type, cruiseWeight: defaultCruiseWeights[ac.type] || 400000, landingWeight: defaultLandingWeights[ac.type] || 400000, landingCondition: "Normal" })); 
-    else setState(prev => ({ ...prev, selectedReg: reg })); 
-  };
-  
-  const setAircraftType = (type) => { 
-    setState(prev => ({ ...prev, selectedReg: "", selectedType: type, cruiseWeight: defaultCruiseWeights[type] || 400000, landingWeight: defaultLandingWeights[type] || 400000, landingCondition: "Normal" })); 
-  };
+  const handleRegChange = (reg) => { const ac = aircraftRegistrationList.find(a => a.reg === reg); if (ac) setState(prev => ({ ...prev, selectedReg: reg, selectedType: ac.type, cruiseWeight: defaultCruiseWeights[ac.type], landingWeight: defaultLandingWeights[ac.type], landingCondition: "Normal" })); else setState(prev => ({ ...prev, selectedReg: reg })); };
+  const setAircraftType = (type) => { setState(prev => ({ ...prev, selectedReg: "", selectedType: type, cruiseWeight: defaultCruiseWeights[type], landingWeight: defaultLandingWeights[type], landingCondition: "Normal" })); };
 
   const handleApplyFlightPlan = (data) => {
     setState(prev => {
       const next = { ...prev };
-      if (data.reg) { const ac = typeof aircraftRegistrationList !== 'undefined' ? aircraftRegistrationList.find(a => a.reg === data.reg) : null; if (ac) { next.selectedReg = data.reg; next.selectedType = ac.type; } else { next.selectedReg = data.reg; } }
+      if (data.reg) { const ac = aircraftRegistrationList.find(a => a.reg === data.reg); if (ac) { next.selectedReg = data.reg; next.selectedType = ac.type; } else { next.selectedReg = data.reg; } }
       if (data.isa !== undefined) next.isaDev = data.isa;
       if (data.alt !== undefined) next.cruiseAltitude = data.alt;
       if (data.ptow !== undefined) { next.cruiseWeight = data.ptow * 1000; next.ptowOrig = data.ptow * 1000; }
@@ -193,7 +174,6 @@ export default function App() {
   };
 
   const parsedFlightData = useMemo(() => {
-    if (typeof RAW_CSV_DATA === 'undefined' || !RAW_CSV_DATA) return [];
     const lines = RAW_CSV_DATA.trim().split('\n').slice(2);
     return lines.map(line => {
       const cols = line.split(','); if (cols.length < 15) return null;
@@ -228,19 +208,14 @@ export default function App() {
   const forceANASelection = () => { handleAirlineSelect('code', 'NH'); }; const handleTrafficSelect = (t) => { setSelectedAirlineCode(t.airlineCode); setSelectedAirline(t.airline); setSelectedCallsign(t.callsign); setSelectedFlightId(t.flightNo); }; const formatTime = (mins) => { if (mins == null) return "--:--"; const h = Math.floor(mins / 60) % 24, m = mins % 60; return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`; };
   const fltInfoProps = { currentFlightInfo: displayFlightInfo, selectedDep, selectedArr, formatTime, trafficTimeRange, setTrafficTimeRange, depTrafficMode, setDepTrafficMode, arrTrafficMode, setArrTrafficMode, relatedTraffic, handleAirlineSelect, setSelectedDep, setSelectedArr, setSelectedFlightId, selectedFlightId, selectedAirlineCode, selectedAirline, selectedCallsign, availableFlights, airlineCodes, airlines, callsigns, availableDeps, availableArrs, forceANASelection, handleTrafficSelect, onApplyFlightPlan: handleApplyFlightPlan };
 
-  // ==========================================
-  // [計算] 統合されたパフォーマンス計算ロジック
-  // ==========================================
   const computed = useMemo(() => {
     let engineStr = "GE"; if (state.selectedType === "777-200" || state.selectedType === "777-300") { engineStr = "PW"; } const isPW = engineStr === "PW";
-    const mKey = typeof modelKeyMap !== 'undefined' && modelKeyMap[state.selectedType] ? modelKeyMap[state.selectedType] : '772'; 
-    const perfTable = typeof CRUISE_PERF_DATA !== 'undefined' && CRUISE_PERF_DATA[mKey] ? CRUISE_PERF_DATA[mKey] : [[150, 41000, 43100, 0, 43100, 43100, 43100]];
+    const mKey = typeof modelKeyMap !== 'undefined' ? modelKeyMap[state.selectedType] : '772'; const perfTable = typeof CRUISE_PERF_DATA !== 'undefined' ? CRUISE_PERF_DATA[mKey] : [[150, 41000, 43100, 0, 43100, 43100, 43100]];
     const minCruiseWeight = perfTable ? perfTable[0][0] * 1000 : 150000; const maxCruiseWeight = perfTable ? perfTable[perfTable.length - 1][0] * 1000 : 350000; const clampedCruiseWeight = Math.max(minCruiseWeight, Math.min(state.cruiseWeight, maxCruiseWeight));
     
     let maxAvailableLdgWt = 800000; let landingMinWeight = 280000;
     if (mKey === "772") { maxAvailableLdgWt = 540000; landingMinWeight = 360000; } else if (mKey === "773") { maxAvailableLdgWt = 550000; landingMinWeight = 420000; } else if (mKey === "77W") { maxAvailableLdgWt = 800000; landingMinWeight = 460000; } else if (mKey === "77F") { maxAvailableLdgWt = 780000; landingMinWeight = 440000; }
     const clampedLandingWeight = Math.max(landingMinWeight, Math.min(state.landingWeight, maxAvailableLdgWt));
-    
     const isEngInop = state.landingCondition === "1 ENG INOP"; const appAdd = state.appSpeedAdditive;
     const wt1000 = clampedCruiseWeight / 1000; const optAltRaw = interpolateObjArray(wt1000, perfTable, 1) || 30000; const buf13Raw = interpolateObjArray(wt1000, perfTable, 2) || 40000; const isa10Raw = interpolateObjArray(wt1000, perfTable, 4) || 41000; const isa15Raw = interpolateObjArray(wt1000, perfTable, 5) || 40000; const isa20Raw = interpolateObjArray(wt1000, perfTable, 6) || 39000;
 
@@ -266,25 +241,21 @@ export default function App() {
       if (f25Data && wt1000Ldg <= f25Data[f25Data.length - 1][0]) { currentPchFlap25 = interpolateObjArray(wt1000Ldg, f25Data, 1); currentN1Flap25 = interpolateObjArray(wt1000Ldg, f25Data, 2); }
       if (f30Data && wt1000Ldg <= f30Data[f30Data.length - 1][0]) { currentPchFlap30 = interpolateObjArray(wt1000Ldg, f30Data, 1); currentN1Flap30 = interpolateObjArray(wt1000Ldg, f30Data, 2); }
     }
-    
-    // --- AUTOBRAKE のベース処理 ---
-    const scaleFactor = state.factConfig === "1.15" ? 1.0 : (1.0 / 1.15); 
-    const activeFlaps = isEngInop ? ["F20", "F30"] : ["F25", "F30"];
-    
-    const getAomDistance = (flapTagLong, brakeMode) => {
-      if (typeof LANDING_DIST_DATA_RAW === 'undefined' || !LANDING_DIST_DATA_RAW[mKey]) return null;
+    const scaleFactor = state.factConfig === "1.15" ? 1.0 : (1.0 / 1.15); const activeFlaps = isEngInop ? ["F20", "F30"] : ["F25", "F30"];
+ const getAomDistance = (flapTagLong, brakeMode) => {
+      if (typeof LANDING_DIST_DATA_RAW === 'undefined') return null;
       const tCat = isEngInop ? (flapTagLong === "FLAP 20" ? "inop_f20" : "inop_f30") : (flapTagLong === "FLAP 25" ? "f25" : "f30");
       const dbKey = tCat + "_" + (state.selectedRwyCond === "5-WET" ? "wet" : "dry");
       const aomData = LANDING_DIST_DATA_RAW[mKey]?.[dbKey];
       if (!aomData) return null;
       
       const bIdx = { "man": 1, "max": 2, "a4": 3, "a3": 4, "a2": 5, "a1": 6 }[brakeMode] || 2;
-      const wt1000Ldg = clampedLandingWeight / 1000;
-      let baseDist = interpolateObjArray(wt1000Ldg, aomData.dist, bIdx);
+      const wt1000 = clampedLandingWeight / 1000;
+      let baseDist = interpolateObjArray(wt1000, aomData.dist, bIdx);
       if (baseDist == null) return null;
 
       let adj = aomData.adj;
-      if (adj && adj.threshold) { adj = wt1000Ldg <= adj.threshold ? adj.light : adj.heavy; }
+      if (adj && adj.threshold) { adj = wt1000 <= adj.threshold ? adj.light : adj.heavy; }
 
       let correctedDist = baseDist;
       if (adj) {
@@ -295,112 +266,10 @@ export default function App() {
         if (state.reverserConfig === "None" && adj.nr) correctedDist += (adj.nr[bIdx - 1] || 0);
         else if (state.reverserConfig === "One" && adj.or) correctedDist += (adj.or[bIdx - 1] || 0);
       }
+
       return Math.round(correctedDist * scaleFactor);
     };
-
-    const distMax1 = getAomDistance(isEngInop ? "FLAP 20" : "FLAP 25", "max");
-    const distMax2 = getAomDistance("FLAP 30", "max");
-    const distAb41 = getAomDistance(isEngInop ? "FLAP 20" : "FLAP 25", "a4");
-    const distAb42 = getAomDistance("FLAP 30", "a4");
-    const distAb31 = getAomDistance(isEngInop ? "FLAP 20" : "FLAP 25", "a3");
-    const distAb32 = getAomDistance("FLAP 30", "a3");
-    const distAb21 = getAomDistance(isEngInop ? "FLAP 20" : "FLAP 25", "a2");
-    const distAb22 = getAomDistance("FLAP 30", "a2");
-    const distAb11 = getAomDistance(isEngInop ? "FLAP 20" : "FLAP 25", "a1");
-    const distAb12 = getAomDistance("FLAP 30", "a1");
     
-    // ベースとなるMAN距離
-    let distMan1 = getAomDistance(isEngInop ? "FLAP 20" : "FLAP 25", "man");
-    let distMan2 = getAomDistance("FLAP 30", "man");
-
-    // --- MAX MAN 専用 Actualオーバーライドロジック ---
-    const manDataAll = {
-      "777-200": {
-        f25_dry: { baseWt: 440, refDist: 4030, wt_abv: 90, wt_blw: 50, adj: { alt: 70, wind_hw: 140, wind_tw: 480, slp_down: 50, slp_up: 30, tmp_abv: 70, tmp_blw: 70, app: 130, rev_one: 70, rev_no: 160 } },
-        f25_wet: { baseWt: 440, refDist: 5050, wt_abv: 80, wt_blw: 80, adj: { alt: 120, wind_hw: 220, wind_tw: 770, slp_down: 130, slp_up: 110, tmp_abv: 120, tmp_blw: 120, app: 180, rev_one: 0, rev_no: 360 } },
-        f30_dry: { baseWt: 440, refDist: 3880, wt_abv: 80, wt_blw: 30, adj: { alt: 70, wind_hw: 140, wind_tw: 470, slp_down: 30, slp_up: 30, tmp_abv: 70, tmp_blw: 70, app: 130, rev_one: 60, rev_no: 140 } },
-        f30_wet: { baseWt: 440, refDist: 5080, wt_abv: 70, wt_blw: 60, adj: { alt: 120, wind_hw: 220, wind_tw: 790, slp_down: 120, slp_up: 90, tmp_abv: 100, tmp_blw: 100, app: 180, rev_one: 240, rev_no: 560 } },
-        inop_f20_dry: { baseWt: 440, refDist: 3670, wt_abv: 90, wt_blw: 50, adj: { alt: 70, wind_hw: 130, wind_tw: 440, slp_down: 40, slp_up: 40, tmp_abv: 70, tmp_blw: 70, app: 120, rev_one: 0, rev_no: 80 } },
-        inop_f20_wet: { baseWt: 440, refDist: 5050, wt_abv: 80, wt_blw: 80, adj: { alt: 120, wind_hw: 220, wind_tw: 770, slp_down: 130, slp_up: 110, tmp_abv: 120, tmp_blw: 120, app: 180, rev_one: 0, rev_no: 360 } },
-        inop_f30_dry: { baseWt: 440, refDist: 3400, wt_abv: 70, wt_blw: 30, adj: { alt: 60, wind_hw: 120, wind_tw: 410, slp_down: 40, slp_up: 30, tmp_abv: 60, tmp_blw: 60, app: 120, rev_one: 0, rev_no: 60 } },
-        inop_f30_wet: { baseWt: 440, refDist: 4580, wt_abv: 70, wt_blw: 50, adj: { alt: 100, wind_hw: 200, wind_tw: 730, slp_down: 110, slp_up: 100, tmp_abv: 100, tmp_blw: 100, app: 170, rev_one: 0, rev_no: 260 } }
-      },
-      "777-300": {
-        f25_dry: { baseWt: 520, refDist: 4600, wt_abv: 90, wt_blw: 60, adj: { alt: 90, wind_hw: 160, wind_tw: 550, slp_down: 60, slp_up: 60, tmp_abv: 90, tmp_blw: 90, app: 150, rev_one: 100, rev_no: 220 } },
-        f25_wet: { baseWt: 520, refDist: 5970, wt_abv: 80, wt_blw: 80, adj: { alt: 150, wind_hw: 250, wind_tw: 890, slp_down: 140, slp_up: 120, tmp_abv: 140, tmp_blw: 140, app: 200, rev_one: 310, rev_no: 720 } },
-        f30_dry: { baseWt: 520, refDist: 4400, wt_abv: 90, wt_blw: 50, adj: { alt: 90, wind_hw: 150, wind_tw: 530, slp_down: 60, slp_up: 50, tmp_abv: 80, tmp_blw: 80, app: 140, rev_one: 80, rev_no: 180 } },
-        f30_wet: { baseWt: 520, refDist: 5760, wt_abv: 80, wt_blw: 80, adj: { alt: 140, wind_hw: 240, wind_tw: 870, slp_down: 140, slp_up: 120, tmp_abv: 130, tmp_blw: 130, app: 210, rev_one: 280, rev_no: 620 } },
-        inop_f20_dry: { baseWt: 520, refDist: 4340, wt_abv: 100, wt_blw: 60, adj: { alt: 90, wind_hw: 150, wind_tw: 520, slp_down: 60, slp_up: 50, tmp_abv: 90, tmp_blw: 90, app: 140, rev_one: 0, rev_no: 120 } },
-        inop_f20_wet: { baseWt: 520, refDist: 5810, wt_abv: 80, wt_blw: 80, adj: { alt: 150, wind_hw: 240, wind_tw: 850, slp_down: 160, slp_up: 130, tmp_abv: 140, tmp_blw: 140, app: 200, rev_one: 0, rev_no: 400 } },
-        inop_f30_dry: { baseWt: 520, refDist: 3880, wt_abv: 80, wt_blw: 50, adj: { alt: 80, wind_hw: 140, wind_tw: 470, slp_down: 50, slp_up: 50, tmp_abv: 80, tmp_blw: 80, app: 130, rev_one: 0, rev_no: 80 } },
-        inop_f30_wet: { baseWt: 520, refDist: 5190, wt_abv: 70, wt_blw: 70, adj: { alt: 130, wind_hw: 230, wind_tw: 790, slp_down: 140, slp_up: 120, tmp_abv: 120, tmp_blw: 120, app: 190, rev_one: 0, rev_no: 290 } }
-      },
-      "777-300ER": {
-        f25_dry: { baseWt: 550, refDist: 4460, wt_abv: 80, wt_blw: 50, adj: { alt: 90, wind_hw: 150, wind_tw: 510, slp_down: 50, slp_up: 50, tmp_abv: 80, tmp_blw: 80, app: 140, rev_one: 90, rev_no: 210 } },
-        f25_wet: { baseWt: 550, refDist: 6120, wt_abv: 70, wt_blw: 80, adj: { alt: 150, wind_hw: 250, wind_tw: 890, slp_down: 140, slp_up: 120, tmp_abv: 140, tmp_blw: 140, app: 200, rev_one: 380, rev_no: 900 } },
-        f30_dry: { baseWt: 550, refDist: 4280, wt_abv: 90, wt_blw: 50, adj: { alt: 80, wind_hw: 150, wind_tw: 490, slp_down: 50, slp_up: 50, tmp_abv: 80, tmp_blw: 80, app: 140, rev_one: 80, rev_no: 180 } },
-        f30_wet: { baseWt: 550, refDist: 5810, wt_abv: 80, wt_blw: 70, adj: { alt: 140, wind_hw: 240, wind_tw: 860, slp_down: 130, slp_up: 120, tmp_abv: 130, tmp_blw: 130, app: 200, rev_one: 350, rev_no: 810 } },
-        inop_f20_dry: { baseWt: 550, refDist: 4220, wt_abv: 100, wt_blw: 50, adj: { alt: 90, wind_hw: 140, wind_tw: 480, slp_down: 50, slp_up: 50, tmp_abv: 90, tmp_blw: 90, app: 130, rev_one: 0, rev_no: 110 } },
-        inop_f20_wet: { baseWt: 550, refDist: 6070, wt_abv: 80, wt_blw: 80, adj: { alt: 160, wind_hw: 250, wind_tw: 860, slp_down: 160, slp_up: 140, tmp_abv: 150, tmp_blw: 150, app: 200, rev_one: 0, rev_no: 510 } },
-        inop_f30_dry: { baseWt: 550, refDist: 3750, wt_abv: 80, wt_blw: 40, adj: { alt: 70, wind_hw: 130, wind_tw: 440, slp_down: 40, slp_up: 40, tmp_abv: 70, tmp_blw: 70, app: 120, rev_one: 0, rev_no: 80 } },
-        inop_f30_wet: { baseWt: 550, refDist: 5250, wt_abv: 80, wt_blw: 60, adj: { alt: 130, wind_hw: 230, wind_tw: 790, slp_down: 130, slp_up: 120, tmp_abv: 120, tmp_blw: 120, app: 190, rev_one: 0, rev_no: 370 } }
-      },
-      "777F": {
-        f25_dry: { baseWt: 570, refDist: 4510, wt_abv: 80, wt_blw: 20, adj: { alt: 90, wind_hw: 150, wind_tw: 520, slp_down: 50, slp_up: 50, tmp_abv: 90, tmp_blw: 90, app: 140, rev_one: 80, rev_no: 200 } },
-        f25_wet: { baseWt: 570, refDist: 6210, wt_abv: 70, wt_blw: 60, adj: { alt: 160, wind_hw: 250, wind_tw: 900, slp_down: 140, slp_up: 130, tmp_abv: 150, tmp_blw: 150, app: 210, rev_one: 360, rev_no: 860 } },
-        f30_dry: { baseWt: 570, refDist: 4290, wt_abv: 90, wt_blw: 10, adj: { alt: 80, wind_hw: 150, wind_tw: 490, slp_down: 50, slp_up: 50, tmp_abv: 80, tmp_blw: 80, app: 140, rev_one: 80, rev_no: 170 } },
-        f30_wet: { baseWt: 570, refDist: 5870, wt_abv: 90, wt_blw: 30, adj: { alt: 150, wind_hw: 250, wind_tw: 870, slp_down: 140, slp_up: 120, tmp_abv: 140, tmp_blw: 140, app: 210, rev_one: 320, rev_no: 760 } },
-        inop_f20_dry: { baseWt: 570, refDist: 4200, wt_abv: 100, wt_blw: 40, adj: { alt: 90, wind_hw: 140, wind_tw: 480, slp_down: 50, slp_up: 50, tmp_abv: 90, tmp_blw: 90, app: 130, rev_one: 0, rev_no: 100 } },
-        inop_f20_wet: { baseWt: 570, refDist: 6060, wt_abv: 80, wt_blw: 70, adj: { alt: 160, wind_hw: 250, wind_tw: 860, slp_down: 160, slp_up: 140, tmp_abv: 150, tmp_blw: 150, app: 200, rev_one: 0, rev_no: 480 } },
-        inop_f30_dry: { baseWt: 570, refDist: 3750, wt_abv: 90, wt_blw: 10, adj: { alt: 70, wind_hw: 130, wind_tw: 440, slp_down: 40, slp_up: 40, tmp_abv: 70, tmp_blw: 70, app: 130, rev_one: 0, rev_no: 80 } },
-        inop_f30_wet: { baseWt: 570, refDist: 5270, wt_abv: 90, wt_blw: 30, adj: { alt: 130, wind_hw: 230, wind_tw: 800, slp_down: 140, slp_up: 120, tmp_abv: 120, tmp_blw: 120, app: 190, rev_one: 0, rev_no: 360 } }
-      }
-    };
-
-    const acData = manDataAll[state.selectedType];
-    if (acData) {
-      const rwyCond = state.selectedRwyCond === "5-WET" ? "wet" : "dry";
-      const wt1000Ldg = clampedLandingWeight / 1000;
-
-      const calculateOverride = (flapKey, originalDist) => {
-        const dbKey = flapKey + "_" + rwyCond;
-        const data = acData[dbKey];
-        if (!data) return originalDist; 
-
-        let d = data.refDist;
-        const baseWt = data.baseWt || 440;
-        const wDiff = wt1000Ldg - baseWt;
-        if (wDiff > 0) d += (wDiff / 10) * data.wt_abv;
-        else if (wDiff < 0) d -= (Math.abs(wDiff) / 10) * data.wt_blw;
-
-        const am = data.adj;
-        if (state.appSpeedAdditive > 0 && am.app) d += (state.appSpeedAdditive / 5) * am.app;
-        if (state.pressureAlt > 0 && am.alt) d += (state.pressureAlt / 1000) * am.alt;
-        
-        if (state.rwSlope > 0 && am.slp_down) d += state.rwSlope * am.slp_down;
-        else if (state.rwSlope < 0 && am.slp_up) d -= Math.abs(state.rwSlope) * am.slp_up;
-
-        if (state.windComponent > 0 && am.wind_tw) d += (state.windComponent / 10) * am.wind_tw;
-        else if (state.windComponent < 0 && am.wind_hw) d -= (Math.abs(state.windComponent) / 10) * am.wind_hw;
-
-        if (state.isaDev > 0 && am.tmp_abv) d += (state.isaDev / 10) * am.tmp_abv;
-        else if (state.isaDev < 0 && am.tmp_blw) d -= (Math.abs(state.isaDev) / 10) * am.tmp_blw;
-
-        if (state.reverserConfig === "None" && am.rev_no) d += am.rev_no;
-        else if (state.reverserConfig === "One" && am.rev_one) d += am.rev_one;
-
-        const multiplier = state.factConfig === "1.15" ? 1.15 : 1.0;
-        return Math.round(d * multiplier);
-      };
-
-      const flap1Key = isEngInop ? "inop_f20" : "f25";
-      const flap2Key = isEngInop ? "inop_f30" : "f30";
-
-      // 算出されたMAX MANの距離で distMan1 と distMan2 を上書き
-      distMan1 = calculateOverride(flap1Key, distMan1);
-      distMan2 = calculateOverride(flap2Key, distMan2);
-    }
-
     const washoutText = (mKey === "77W" || mKey === "77F") ? "10,000-30,000FT" : "10,000-12,000FT";
     const etops = mKey === "77F" ? "424NM" : "423NM";
     const toSetting = isPW ? "1.05EPR" : "55%N1";
@@ -411,24 +280,7 @@ export default function App() {
     const dgIso = mKey === "77F" ? "200単位 50単位/ULD" : "32単位 8単位/ULD";
     let dgDry = "800kg"; if (mKey === "772") dgDry = "600kg"; if (mKey === "77F") dgDry = "2,300kg(LOWER 500kg)";
 
-    return { 
-      engine: engineStr, minCruiseWeight, maxCruiseWeight, clampedCruiseWeight, landingMinWeight, maxAvailableLdgWt, clampedLandingWeight, 
-      optAlt, maxAlt, limitReason, vmo, mmo, flapUpManeuver, holdSpdJsx, minSpdTypeJsx, spdUnit, minSpdBorderClass, minSpdIconClass, 
-      holdSpdLabelWt: Math.round(clampedCruiseWeight / 1000) + "K", holdSpdLabelAlt: formatNum(state.cruiseAltitude) + "FT", 
-      windText: state.windComponent === 0 ? "0" : state.windComponent > 0 ? `T+${state.windComponent}` : `H${Math.abs(state.windComponent)}`, 
-      slopeText: state.rwSlope === 0 ? "0" : state.rwSlope > 0 ? `D+${state.rwSlope}` : `U${Math.abs(state.rwSlope)}`, 
-      activeFlaps, 
-      n1F1: isEngInop ? "N/A" : (currentN1Flap25 !== null ? currentN1Flap25.toFixed(1) : "N/A"), 
-      n1F2: isEngInop ? "N/A" : (currentN1Flap30 !== null ? currentN1Flap30.toFixed(1) : "N/A"), 
-      pchF1: isEngInop ? "N/A" : (currentPchFlap25 !== null ? `P:${currentPchFlap25.toFixed(1)}` : "N/A"), 
-      pchF2: isEngInop ? "N/A" : (currentPchFlap30 !== null ? `P:${currentPchFlap30.toFixed(1)}` : "N/A"), 
-      distMax1, distMax2, distAb41, distAb42, distAb31, distAb32, distAb21, distAb22, distAb11, distAb12, 
-      distMan1, distMan2, 
-      penaltyF25: "TW+1000", penaltyF30: "TW+1000", taxiFuelRate: (mKey === "77W" || mKey === "77F") ? 72 : 57, 
-      dim: typeof AIRCRAFT_DIMENSIONS !== 'undefined' ? AIRCRAFT_DIMENSIONS[mKey] : {}, 
-      configText: mKey === "77F" ? "Freighter" : (typeof SEAT_DATA !== 'undefined' && SEAT_DATA[mKey] ? `${SEAT_DATA[mKey][0].classes} (Total: ${SEAT_DATA[mKey][0].total})` : "N/A"), 
-      washout: washoutText, etops, toSetting, oxy, engOil, brakeTemp, dgExp, dgIso, dgDry 
-    };
+    return { engine: engineStr, minCruiseWeight, maxCruiseWeight, clampedCruiseWeight, landingMinWeight, maxAvailableLdgWt, clampedLandingWeight, optAlt, maxAlt, limitReason, vmo, mmo, flapUpManeuver, holdSpdJsx, minSpdTypeJsx, spdUnit, minSpdBorderClass, minSpdIconClass, holdSpdLabelWt: Math.round(clampedCruiseWeight / 1000) + "K", holdSpdLabelAlt: formatNum(state.cruiseAltitude) + "FT", windText: state.windComponent === 0 ? "0" : state.windComponent > 0 ? `T+${state.windComponent}` : `H${Math.abs(state.windComponent)}`, slopeText: state.rwSlope === 0 ? "0" : state.rwSlope > 0 ? `D+${state.rwSlope}` : `U${Math.abs(state.rwSlope)}`, activeFlaps, n1F1: isEngInop ? "N/A" : (currentN1Flap25 !== null ? currentN1Flap25.toFixed(1) : "N/A"), n1F2: isEngInop ? "N/A" : (currentN1Flap30 !== null ? currentN1Flap30.toFixed(1) : "N/A"), pchF1: isEngInop ? "N/A" : (currentPchFlap25 !== null ? `P:${currentPchFlap25.toFixed(1)}` : "N/A"), pchF2: isEngInop ? "N/A" : (currentPchFlap30 !== null ? `P:${currentPchFlap30.toFixed(1)}` : "N/A"), distMax1: getAomDistance(isEngInop ? "FLAP 20" : "FLAP 25", "max"), distMax2: getAomDistance("FLAP 30", "max"), distAb41: getAomDistance(isEngInop ? "FLAP 20" : "FLAP 25", "a4"), distAb42: getAomDistance("FLAP 30", "a4"), distAb31: getAomDistance(isEngInop ? "FLAP 20" : "FLAP 25", "a3"), distAb32: getAomDistance("FLAP 30", "a3"), distAb21: getAomDistance(isEngInop ? "FLAP 20" : "FLAP 25", "a2"), distAb22: getAomDistance("FLAP 30", "a2"), distAb11: getAomDistance(isEngInop ? "FLAP 20" : "FLAP 25", "a1"), distAb12: getAomDistance("FLAP 30", "a1"), distMan1: getAomDistance(isEngInop ? "FLAP 20" : "FLAP 25", "man"), distMan2: getAomDistance("FLAP 30", "man"), penaltyF25: "TW+1000", penaltyF30: "TW+1000", taxiFuelRate: (mKey === "77W" || mKey === "77F") ? 72 : 57, dim: typeof AIRCRAFT_DIMENSIONS !== 'undefined' ? AIRCRAFT_DIMENSIONS[mKey] : {}, configText: mKey === "77F" ? "Freighter" : (typeof SEAT_DATA !== 'undefined' && SEAT_DATA[mKey] ? `${SEAT_DATA[mKey][0].classes} (Total: ${SEAT_DATA[mKey][0].total})` : "N/A"), washout: washoutText, etops, toSetting, oxy, engOil, brakeTemp, dgExp, dgIso, dgDry };
   }, [state]);
 
   return (
