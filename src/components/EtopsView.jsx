@@ -50,7 +50,7 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
     setTodayInfo({ dateStr: `${String(day).padStart(2, '0')} ${months[d.getUTCMonth()]}`, isOdd: day % 2 !== 0 });
   }, []);
 
-  // ARINC Pacific から周波数を自動フェッチする関数（プロキシを二段構えにして安定化）
+  // ARINC Pacific から周波数を自動フェッチする関数（プロキシを3段構えにして安定化）
   const fetchHFData = async () => {
     if (!navigator.onLine) {
       setHfData(prev => ({ ...prev, status: "Offline (Cache)" }));
@@ -60,24 +60,41 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
     setIsFetchingHF(true);
     setHfData(prev => ({ ...prev, status: "Fetching..." }));
     
+    const targetUrl = 'https://radio.arinc.net/pacific/';
     let html = "";
-    try {
-      // プロキシ 1 (allorigins)
-      const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent('https://radio.arinc.net/pacific/')}`);
-      if (!response.ok) throw new Error('Proxy 1 failed');
-      const data = await response.json();
-      html = data.contents;
-    } catch (e1) {
+    
+    // プロキシのリスト（上から順に試行。Safariのキャッシュを回避するために no-cache を追加）
+    const fetchMethods = [
+      async () => {
+        const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`, { cache: 'no-cache' });
+        if (!res.ok) throw new Error('Proxy 1 failed');
+        const data = await res.json();
+        return data.contents;
+      },
+      async () => {
+        const res = await fetch(`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(targetUrl)}`, { cache: 'no-cache' });
+        if (!res.ok) throw new Error('Proxy 2 failed');
+        return await res.text();
+      },
+      async () => {
+        const res = await fetch(`https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}`, { cache: 'no-cache' });
+        if (!res.ok) throw new Error('Proxy 3 failed');
+        return await res.text();
+      }
+    ];
+
+    for (let i = 0; i < fetchMethods.length; i++) {
       try {
-        // プロキシ 2 (corsproxy.io) - フォールバック
-        const response2 = await fetch(`https://corsproxy.io/?url=${encodeURIComponent('https://radio.arinc.net/pacific/')}`);
-        if (!response2.ok) throw new Error('Proxy 2 failed');
-        html = await response2.text();
-      } catch (e2) {
-        console.error("HF fetch error:", e2);
-        setHfData(prev => ({ ...prev, status: "Proxy Error (Cache)" }));
-        setIsFetchingHF(false);
-        return;
+        html = await fetchMethods[i]();
+        if (html) break; // 成功したらループを抜ける
+      } catch (err) {
+        console.warn(`HF Proxy ${i + 1} error:`, err);
+        // 最後のプロキシでも失敗した場合
+        if (i === fetchMethods.length - 1) {
+          setHfData(prev => ({ ...prev, status: "Proxy Error (Cache)" }));
+          setIsFetchingHF(false);
+          return;
+        }
       }
     }
 
@@ -112,6 +129,7 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
         setHfData(prev => ({ ...prev, status: "Parse Error (Cache)" }));
       }
     } catch (error) {
+      console.error("HF parse error:", error);
       setHfData(prev => ({ ...prev, status: "Parse Error (Cache)" }));
     } finally {
       setIsFetchingHF(false);
