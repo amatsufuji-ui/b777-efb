@@ -8,35 +8,120 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
   const [destination, setDestination] = useState("EDDF");
   const [detectedRouteType, setDetectedRouteType] = useState("");
   const [manualRouteType, setManualRouteType] = useState("");
+  
+  // HF周波数用：今日の日付と奇数・偶数判定のステート
+  const [todayInfo, setTodayInfo] = useState({ dateStr: "", isOdd: true });
 
+  // HF周波数のスクレイピングとステート管理
+  const [hfData, setHfData] = useState({
+    asia: { pri: "11282", sec: "5547" },
+    alaska: { pri: "10048", sec: "6673" },
+    polar: { pri: "11342", sec: "8933", ter: "6640" },
+    lastUpdated: "Default Cache",
+    isOnlineData: false,
+    status: "Offline / Error"
+  });
+  const [isFetchingHF, setIsFetchingHF] = useState(false);
+
+  // PDFから新しいルートが読み込まれたら自動更新
   useEffect(() => {
-    if (globalRoute) {
-      setRouteInput(globalRoute);
-    }
+    if (globalRoute) setRouteInput(globalRoute);
   }, [globalRoute]);
 
-// ★ PDFから新しい目的地が読み込まれたら、セレクトボックスを自動更新する
+  // PDFから新しい目的地が読み込まれたら自動更新
   useEffect(() => {
     if (globalDest) {
       const upperDest = globalDest.toUpperCase();
-      // 選択肢に存在する主要ヨーロッパ空港のリスト
       const validDests = ["EDDF", "EGLL", "ESSA", "EBBR", "LFPG", "LIMC", "LOWW", "EDDM"];
-      
-      if (validDests.includes(upperDest)) {
-        setDestination(upperDest);
-      } else {
-        setDestination("Other"); // リストにない場合は自動的に「Other Europe」にする
-      }
+      if (validDests.includes(upperDest)) setDestination(upperDest);
+      else setDestination("Other");
     }
   }, [globalDest]);
-
-  // 入力が変更されるたびにリアルタイムでルート種別を判定
-
 
   useEffect(() => {
     const type = detectRouteType(routeInput);
     setDetectedRouteType(type);
   }, [routeInput]);
+
+  useEffect(() => {
+    const d = new Date();
+    const day = d.getUTCDate();
+    const months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+    setTodayInfo({ dateStr: `${String(day).padStart(2, '0')} ${months[d.getUTCMonth()]}`, isOdd: day % 2 !== 0 });
+  }, []);
+
+  // ARINC Pacific から周波数を自動フェッチする関数（プロキシを二段構えにして安定化）
+  const fetchHFData = async () => {
+    if (!navigator.onLine) {
+      setHfData(prev => ({ ...prev, status: "Offline (Cache)" }));
+      return;
+    }
+    
+    setIsFetchingHF(true);
+    setHfData(prev => ({ ...prev, status: "Fetching..." }));
+    
+    let html = "";
+    try {
+      // プロキシ 1 (allorigins)
+      const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent('https://radio.arinc.net/pacific/')}`);
+      if (!response.ok) throw new Error('Proxy 1 failed');
+      const data = await response.json();
+      html = data.contents;
+    } catch (e1) {
+      try {
+        // プロキシ 2 (corsproxy.io) - フォールバック
+        const response2 = await fetch(`https://corsproxy.io/?url=${encodeURIComponent('https://radio.arinc.net/pacific/')}`);
+        if (!response2.ok) throw new Error('Proxy 2 failed');
+        html = await response2.text();
+      } catch (e2) {
+        console.error("HF fetch error:", e2);
+        setHfData(prev => ({ ...prev, status: "Proxy Error (Cache)" }));
+        setIsFetchingHF(false);
+        return;
+      }
+    }
+
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      const text = doc.body.textContent.replace(/\s+/g, ' ');
+
+      const newHfData = { ...hfData };
+      let updated = false;
+
+      const asiaMatch = text.match(/North America.*?Asia.*?(\d{4,5})\s*kHz.*?(\d{4,5})\s*kHz/i);
+      if (asiaMatch) { newHfData.asia.pri = asiaMatch[1]; newHfData.asia.sec = asiaMatch[2]; updated = true; }
+
+      const alaskaMatch = text.match(/Alaska\/North Pacific.*?(\d{4,5})\s*kHz.*?(\d{4,5})\s*kHz/i);
+      if (alaskaMatch) { newHfData.alaska.pri = alaskaMatch[1]; newHfData.alaska.sec = alaskaMatch[2]; updated = true; }
+
+      const polarMatch = text.match(/Polar Route.*?(\d{4,5})\s*kHz.*?(\d{4,5})\s*kHz(?:.*?(\d{4,5})\s*kHz)?/i);
+      if (polarMatch) {
+        newHfData.polar.pri = polarMatch[1]; newHfData.polar.sec = polarMatch[2];
+        if (polarMatch[3]) newHfData.polar.ter = polarMatch[3];
+        updated = true;
+      }
+
+      if (updated) {
+        const validMatch = text.match(/Valid from (.*?Z)/i) || text.match(/Valid from (.*?) Notes/i);
+        const validStr = validMatch ? validMatch[1].trim() : "Live Data";
+        
+        setHfData({ ...newHfData, lastUpdated: validStr, isOnlineData: true, status: "LIVE" });
+        window.dispatchEvent(new CustomEvent('show-toast', { detail: 'ARINC HF周波数を最新データに更新しました' }));
+      } else {
+        setHfData(prev => ({ ...prev, status: "Parse Error (Cache)" }));
+      }
+    } catch (error) {
+      setHfData(prev => ({ ...prev, status: "Parse Error (Cache)" }));
+    } finally {
+      setIsFetchingHF(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchHFData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const detectRouteType = (route) => {
     if (!route) return "";
@@ -64,10 +149,7 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
       const excluded = destRule.split("except")[1].replace(/[()]/g, "").trim().split("/");
       return !excluded.includes(selectedDest);
     }
-    if (destRule.includes("/")) {
-      const included = destRule.split("/");
-      return included.includes(selectedDest);
-    }
+    if (destRule.includes("/")) return destRule.split("/").includes(selectedDest);
     return false;
   };
 
@@ -80,21 +162,15 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
   }, [aircraft, destination, activeRouteType]);
 
   const routeLabels = {
-    a: "a) ADREW ... SINVU/75N130W ...",
-    b: "b) ADREW ... NADMA/IKNOG ...",
-    c: "c) AGMIF ...",
-    d: "d) OMEKA ...",
-    e: "e) 80N060W ... 69N000E ...",
-    f: "f) SINVU 77N060W ...",
-    g: "g) アイスランド東迂回",
-    h: "h) アイスランド西迂回",
-    i: "i) BUDUM ... ABGUN"
+    a: "a) ADREW ... SINVU/75N130W ...", b: "b) ADREW ... NADMA/IKNOG ...", c: "c) AGMIF ...", d: "d) OMEKA ...",
+    e: "e) 80N060W ... 69N000E ...", f: "f) SINVU 77N060W ...", g: "g) アイスランド東迂回", h: "h) アイスランド西迂回", i: "i) BUDUM ... ABGUN"
   };
 
   return (
     <div className="w-full h-full p-2 overflow-y-auto hide-scrollbar text-slate-800">
       <div className="max-w-4xl mx-auto space-y-4">
         
+        {/* ヘッダーセクション */}
         <div className="bg-slate-800 rounded-xl shadow-sm border border-slate-700 p-4">
           <div className="flex items-center space-x-2 mb-3 text-slate-200">
             <SafeIcon name="Plane" className="w-5 h-5 text-blue-400" />
@@ -105,114 +181,134 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
             <label htmlFor="route" className="block text-xs font-medium text-slate-400">
               フライトプランのルート (PDFから自動読込、または手動ペースト)
             </label>
-            <textarea
-              id="route"
-              value={routeInput}
-              onChange={(e) => setRouteInput(e.target.value)}
-              className="w-full h-24 p-3 bg-slate-900 border border-slate-700 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all font-mono text-xs text-slate-300 resize-none"
-              placeholder="例: ... ADREW 75N130W 76N120W ... RATSU ..."
-            />
+            <textarea id="route" value={routeInput} onChange={(e) => setRouteInput(e.target.value)} className="w-full h-24 p-3 bg-slate-900 border border-slate-700 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all font-mono text-xs text-slate-300 resize-none" placeholder="例: ... ADREW 75N130W 76N120W ... RATSU ..." />
             <div className="flex items-start space-x-2 text-xs text-slate-400 bg-slate-900/50 p-2 rounded border border-slate-800">
               <SafeIcon name="AlertCircle" className="w-3.5 h-3.5 mt-0.5 text-blue-400 flex-shrink-0" />
-              <p>ルート内の特徴的なポイント（ADREW, OMEKAなど）から山岳迂回ルート a) 〜 i) を自動判定します。</p>
+              <div className="flex flex-col gap-1">
+                <p>ルート内の特徴的なポイント（ADREW, OMEKAなど）から山岳迂回ルート a) 〜 i) を自動判定します。</p>
+                <p className="text-amber-400/90 font-bold">※現在の Additional Fuel ALTN 判定機能は欧州線のみに対応しています。</p>
+              </div>
             </div>
           </div>
         </div>
 
+        {/* ETOPS ALTN 計算セクション */}
         <div className="bg-slate-800 rounded-xl shadow-sm border border-slate-700 p-4">
           <h2 className="text-sm font-bold text-slate-200 mb-3 flex items-center">
             <SafeIcon name="Fuel" className="w-4 h-4 mr-1.5 text-blue-400" />
             Additional Fuel 不要 ALTN (北太平洋航路)
           </h2>
-          
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
             <div>
               <label className="block text-xs font-medium text-slate-400 mb-1">機種・エンジン</label>
-              <select 
-                value={aircraft}
-                onChange={(e) => setAircraft(e.target.value)}
-                className="w-full p-1.5 border border-slate-700 rounded bg-slate-900 text-slate-200 text-xs focus:ring-1 focus:ring-blue-500"
-              >
-                <option value="B777-300ER/B777F">B777-300ER/B777F</option>
-                <option value="B787-9 1000K">B787-9 1000K</option>
-                <option value="B787-8 1000CE/L">B787-8 1000CE/L</option>
+              <select value={aircraft} onChange={(e) => setAircraft(e.target.value)} className="w-full p-1.5 border border-slate-700 rounded bg-slate-900 text-slate-200 text-xs focus:ring-1 focus:ring-blue-500">
+                <option value="B777-300ER/B777F">B777-300ER/B777F</option><option value="B787-9 1000K">B787-9 1000K</option><option value="B787-8 1000CE/L">B787-8 1000CE/L</option>
               </select>
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-400 mb-1">目的地</label>
-              <select
-                value={destination}
-                onChange={(e) => setDestination(e.target.value)}
-                className="w-full p-1.5 border border-slate-700 rounded bg-slate-900 text-slate-200 text-xs focus:ring-1 focus:ring-blue-500"
-              >
-                <option value="EDDF">EDDF (Frankfurt)</option>
-                <option value="EGLL">EGLL (London Heathrow)</option>
-                <option value="ESSA">ESSA (Stockholm Arlanda)</option>
-                <option value="EBBR">EBBR (Brussels)</option>
-                <option value="LFPG">LFPG (Paris CDG)</option>
-                <option value="LIMC">LIMC (Milan Malpensa)</option>
-                <option value="LOWW">LOWW (Vienna)</option>
-                <option value="EDDM">EDDM (Munich)</option>
-                <option value="Other">Other Europe</option>
+              <select value={destination} onChange={(e) => setDestination(e.target.value)} className="w-full p-1.5 border border-slate-700 rounded bg-slate-900 text-slate-200 text-xs focus:ring-1 focus:ring-blue-500">
+                <option value="EDDF">EDDF (Frankfurt)</option><option value="EGLL">EGLL (London Heathrow)</option><option value="ESSA">ESSA (Stockholm Arlanda)</option><option value="EBBR">EBBR (Brussels)</option><option value="LFPG">LFPG (Paris CDG)</option><option value="LIMC">LIMC (Milan Malpensa)</option><option value="LOWW">LOWW (Vienna)</option><option value="EDDM">EDDM (Munich)</option><option value="Other">Other Europe</option>
               </select>
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-400 mb-1 flex items-center">
-                山岳迂回ルート
-                <span className="ml-1.5 text-[10px] text-slate-500">(自動判定結果:</span>
-                {detectedRouteType ? (
-                  <span className="ml-1 text-amber-400 font-black text-[10px] sm:text-[11px] bg-amber-500/20 px-1.5 py-0.5 rounded border border-amber-500/30 leading-none truncate max-w-[120px] sm:max-w-none">
-                    {routeLabels[detectedRouteType]}
-                  </span>
-                ) : (
-                  <span className="ml-1 text-[10px] text-slate-500">なし</span>
-                )}
+                山岳迂回ルート<span className="ml-1.5 text-[10px] text-slate-500">(自動判定結果:</span>
+                {detectedRouteType ? (<span className="ml-1 text-amber-400 font-black text-[10px] sm:text-[11px] bg-amber-500/20 px-1.5 py-0.5 rounded border border-amber-500/30 leading-none truncate max-w-[120px] sm:max-w-none">{routeLabels[detectedRouteType]}</span>) : (<span className="ml-1 text-[10px] text-slate-500">なし</span>)}
                 <span className="text-[10px] text-slate-500 ml-0.5">)</span>
               </label>
-              
-              {/* ★ プルダウン自体の値を activeRouteType に直結させました ★ */}
-              <select
-                value={activeRouteType}
-                onChange={(e) => setManualRouteType(e.target.value)}
-                className="w-full p-1.5 border border-slate-700 rounded bg-slate-900 text-slate-200 text-xs focus:ring-1 focus:ring-blue-500"
-              >
+              <select value={activeRouteType} onChange={(e) => setManualRouteType(e.target.value)} className="w-full p-1.5 border border-slate-700 rounded bg-slate-900 text-slate-200 text-xs focus:ring-1 focus:ring-blue-500">
                 <option value="">-- 手動選択をクリア --</option>
-                <option value="a">a) ADREW ... SINVU/75N130W ...</option>
-                <option value="b">b) ADREW ... NADMA/IKNOG ...</option>
-                <option value="c">c) AGMIF ...</option>
-                <option value="d">d) OMEKA ...</option>
-                <option value="e">e) 80N060W ... 69N000E ...</option>
-                <option value="f">f) SINVU 77N060W ...</option>
-                <option value="g">g) アイスランド東迂回</option>
-                <option value="h">h) アイスランド西迂回</option>
-                <option value="i">i) BUDUM ... ABGUN</option>
+                <option value="a">a) ADREW ... SINVU/75N130W ...</option><option value="b">b) ADREW ... NADMA/IKNOG ...</option><option value="c">c) AGMIF ...</option><option value="d">d) OMEKA ...</option><option value="e">e) 80N060W ... 69N000E ...</option><option value="f">f) SINVU 77N060W ...</option><option value="g">g) アイスランド東迂回</option><option value="h">h) アイスランド西迂回</option><option value="i">i) BUDUM ... ABGUN</option>
               </select>
             </div>
           </div>
-
           <div className="bg-slate-900 p-3 rounded border border-slate-700">
-            <h3 className="font-semibold text-slate-300 text-xs mb-2 flex items-center">
-              <SafeIcon name="CheckCircle" className="w-3.5 h-3.5 mr-1.5 text-emerald-500" />
-              Additional Fuel 不要の ETOPS ALTN 組み合わせ
-            </h3>
-            {activeRouteType ? (
-              noAdditionalFuelAltns.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {noAdditionalFuelAltns.map((item, idx) => (
-                    <span key={idx} className="px-2 py-1 bg-emerald-900/30 text-emerald-400 rounded font-mono text-[11px] border border-emerald-700/50">
-                      {item.altn}
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-xs text-red-400">条件に合致する「追加燃料不要」のALTNはありません。</p>
-              )
-            ) : (
-              <p className="text-xs text-slate-500">ルートを入力するか、手動で選択してください。</p>
-            )}
+            <h3 className="font-semibold text-slate-300 text-xs mb-2 flex items-center"><SafeIcon name="CheckCircle" className="w-3.5 h-3.5 mr-1.5 text-emerald-500" />Additional Fuel 不要の ETOPS ALTN 組み合わせ</h3>
+            {activeRouteType ? (noAdditionalFuelAltns.length > 0 ? (<div className="flex flex-wrap gap-2">{noAdditionalFuelAltns.map((item, idx) => (<span key={idx} className="px-2 py-1 bg-emerald-900/30 text-emerald-400 rounded font-mono text-[11px] border border-emerald-700/50">{item.altn}</span>))}</div>) : (<p className="text-xs text-red-400">条件に合致する「追加燃料不要」のALTNはありません。</p>)) : (<p className="text-xs text-slate-500">ルートを入力するか、手動で選択してください。</p>)}
           </div>
         </div>
 
+        {/* ★ ARINC Pacific HF & VHF 周波数表示セクション ★ */}
+        <div className="bg-slate-800 rounded-xl shadow-sm border border-slate-700 p-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 border-b border-slate-700 pb-2 gap-2">
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-bold text-slate-200 flex items-center">
+                <SafeIcon name="Radio" className="w-4 h-4 mr-1.5 text-amber-400" />
+                ARINC Pacific Frequencies
+              </h2>
+              <button onClick={fetchHFData} disabled={isFetchingHF} className={`px-2 py-0.5 rounded text-[9px] font-bold border transition-colors ${hfData.isOnlineData ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/30' : 'bg-slate-700 text-slate-300 border-slate-600 hover:bg-slate-600'} flex items-center gap-1`} title={hfData.isOnlineData ? `Valid: ${hfData.lastUpdated}` : "タップして最新データを取得"}>
+                <SafeIcon name="RefreshCw" className={`w-2.5 h-2.5 ${isFetchingHF ? 'animate-spin' : ''}`} />{hfData.status}
+              </button>
+            </div>
+            <div className="flex items-center gap-1.5 bg-slate-900 px-2.5 py-1 rounded-md border border-slate-700 text-xs font-mono font-bold">
+              <span className="text-slate-400">Today(UTC):</span>
+              <span className="text-blue-400">{todayInfo.dateStr}</span>
+              <span className={`ml-1 px-1.5 py-0.5 rounded text-[10px] ${todayInfo.isOdd ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'}`}>
+                {todayInfo.isOdd ? '奇数日 (Odd)' : '偶数日 (Even)'}
+              </span>
+            </div>
+          </div>
+
+          {/* HF Frequencies */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/60 flex flex-col justify-between">
+              <div className="text-[11px] font-black text-slate-300 border-l-2 border-amber-400 pl-2 mb-1.5 leading-none">North America &rarr; Asia</div>
+              <div className="flex items-center justify-between text-xs font-mono text-slate-400 pt-1">
+                <div>Pri: <span className="text-white font-bold">{hfData.asia.pri}</span></div>
+                <div>Sec: <span className="text-slate-300">{hfData.asia.sec}</span></div>
+              </div>
+            </div>
+            <div className="bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/60 flex flex-col justify-between">
+              <div className="text-[11px] font-black text-slate-300 border-l-2 border-amber-400 pl-2 mb-1.5 leading-none">Alaska / North Pacific <span className="text-[9px] text-slate-500 font-normal">(West of 150W)</span></div>
+              <div className="flex items-center justify-between text-xs font-mono text-slate-400 pt-1">
+                <div>Pri: <span className="text-white font-bold">{hfData.alaska.pri}</span></div>
+                <div>Sec: <span className="text-slate-300">{hfData.alaska.sec}</span></div>
+              </div>
+            </div>
+            <div className="bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/60 flex flex-col justify-between">
+              <div className="text-[11px] font-black text-slate-300 border-l-2 border-amber-400 pl-2 mb-1.5 leading-none">Polar Route</div>
+              <div className="flex items-center justify-between text-xs font-mono text-slate-400 pt-1">
+                <div>Pri: <span className="text-white font-bold">{hfData.polar.pri}</span></div>
+                <div>Sec: <span className="text-slate-300">{hfData.polar.sec}</span></div>
+                {hfData.polar.ter && <div>Ter: <span className="text-slate-400">{hfData.polar.ter}</span></div>}
+              </div>
+            </div>
+          </div>
+
+          {/* VHF & SatVoice Frequencies */}
+          <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/60">
+              <div className="text-[11px] font-black text-slate-300 border-l-2 border-sky-400 pl-2 mb-1.5 leading-none">VHF Extended Range & SatVoice</div>
+              <div className="flex flex-col gap-1 text-xs font-mono text-slate-400 pt-1">
+                <div className="flex justify-between">LAX/SFO/ACV/HI/GUM: <span className="text-white font-bold">131.95</span></div>
+                <div className="flex justify-between border-t border-slate-700/50 pt-1 mt-0.5">SFO ARINC SatVoice: <span className="text-white font-bold">436625</span></div>
+              </div>
+            </div>
+            <div className="bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/60">
+              <div className="text-[11px] font-black text-slate-300 border-l-2 border-sky-400 pl-2 mb-1.5 leading-none">VHF On-Ground</div>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs font-mono text-slate-400 pt-1">
+                <div className="flex justify-between">LAX: <span className="text-white font-bold">131.95</span></div>
+                <div className="flex justify-between">SFO: <span className="text-white font-bold">130.40</span></div>
+                <div className="flex justify-between border-t border-slate-700/50 pt-1 mt-0.5">SEA/PDX: <span className="text-white font-bold">131.80</span></div>
+                <div className="flex justify-between border-t border-slate-700/50 pt-1 mt-0.5">YVR: <span className="text-white font-bold">129.40</span></div>
+              </div>
+            </div>
+          </div>
+          
+          <div className="mt-2.5 text-[10px] text-slate-400 bg-slate-900/40 p-2 rounded border border-slate-800 leading-relaxed flex items-start gap-1.5">
+            <SafeIcon name="Info" className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
+            <div>
+              {todayInfo.isOdd ? (
+                <p>【奇数日運用】電離層状況による周波数移行（昼間波/夜間波）のタイミングにご注意ください。詳細は太平洋HFアサインメント規定を参照。</p>
+              ) : (
+                <p>【偶数日運用】本日は偶数日スケジュールです。航空局指定のプライマリ波での初期呼び出しを原則とします。</p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* 🚚 ここから引っ越してきたETOPSルール 🚚 */}
         <div className="bg-slate-800 rounded-xl shadow-sm border border-slate-700 p-4 mb-4">
           <div className="mb-3 shrink-0">
             <div className="table-container w-full">
@@ -236,30 +332,10 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
                     </tr>
                   </thead>
                   <tbody>
-                    <tr>
-                      <td className="border border-slate-600 p-1 text-center">—</td>
-                      <td className="border border-slate-600 p-1">CATⅢ運航</td>
-                      <td className="border border-slate-600 p-1 text-center">200ft</td>
-                      <td className="border border-slate-600 p-1 text-center">RVR 550m <br />or<br /> VIS 800m</td>
-                    </tr>
-                    <tr>
-                      <td className="border border-slate-600 p-1 text-center">—</td>
-                      <td className="border border-slate-600 p-1">CATⅡ運航</td>
-                      <td className="border border-slate-600 p-1 text-center">300ft</td>
-                      <td className="border border-slate-600 p-1 text-center">RVR/VIS 1200m</td>
-                    </tr>
-                    <tr>
-                      <td className="border border-slate-600 p-1 text-center">複数(※)</td>
-                      <td className="border border-slate-600 p-1">滑走路ごとに直線進入方式が設定されており利用可能な場合</td>
-                      <td className="border border-slate-600 p-1 text-center">最低のMNMに対して<br /><span className="text-pink-400 font-bold">DH/MDH + 200ft</span></td>
-                      <td className="border border-slate-600 p-1 text-center">最低のMNMに対して<br /><span className="text-pink-400 font-bold">RVR/VIS + 800m</span></td>
-                    </tr>
-                    <tr>
-                      <td className="border border-slate-600 p-1 text-center">単一</td>
-                      <td className="border border-slate-600 p-1">CATⅠ、非精密(直線)、計器進入からの周回</td>
-                      <td className="border border-slate-600 p-1 text-center">最低のMNMに対して<br /><span className="text-pink-400 font-bold">DH/MDH + 400ft</span></td>
-                      <td className="border border-slate-600 p-1 text-center">最低のMNMに対して<br /><span className="text-pink-400 font-bold">RVR/VIS + 1600m</span></td>
-                    </tr>
+                    <tr><td className="border border-slate-600 p-1 text-center">—</td><td className="border border-slate-600 p-1">CATⅢ運航</td><td className="border border-slate-600 p-1 text-center">200ft</td><td className="border border-slate-600 p-1 text-center">RVR 550m <br />or<br /> VIS 800m</td></tr>
+                    <tr><td className="border border-slate-600 p-1 text-center">—</td><td className="border border-slate-600 p-1">CATⅡ運航</td><td className="border border-slate-600 p-1 text-center">300ft</td><td className="border border-slate-600 p-1 text-center">RVR/VIS 1200m</td></tr>
+                    <tr><td className="border border-slate-600 p-1 text-center">複数(※)</td><td className="border border-slate-600 p-1">滑走路ごとに直線進入方式が設定されており利用可能な場合</td><td className="border border-slate-600 p-1 text-center">最低のMNMに対して<br /><span className="text-pink-400 font-bold">DH/MDH + 200ft</span></td><td className="border border-slate-600 p-1 text-center">最低のMNMに対して<br /><span className="text-pink-400 font-bold">RVR/VIS + 800m</span></td></tr>
+                    <tr><td className="border border-slate-600 p-1 text-center">単一</td><td className="border border-slate-600 p-1">CATⅠ、非精密(直線)、計器進入からの周回</td><td className="border border-slate-600 p-1 text-center">最低のMNMに対して<br /><span className="text-pink-400 font-bold">DH/MDH + 400ft</span></td><td className="border border-slate-600 p-1 text-center">最低のMNMに対して<br /><span className="text-pink-400 font-bold">RVR/VIS + 1600m</span></td></tr>
                   </tbody>
                 </table>
                 <div className="table-notes text-slate-500 text-[10px]">
