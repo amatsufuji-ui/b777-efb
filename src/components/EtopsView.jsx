@@ -9,10 +9,8 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
   const [detectedRouteType, setDetectedRouteType] = useState("");
   const [manualRouteType, setManualRouteType] = useState("");
   
-  // HF周波数用：今日の日付と奇数・偶数判定のステート
   const [todayInfo, setTodayInfo] = useState({ dateStr: "", isOdd: true });
 
-  // HF周波数のスクレイピングとステート管理
   const [hfData, setHfData] = useState({
     asia: { pri: "11282", sec: "5547" },
     alaska: { pri: "10048", sec: "6673" },
@@ -23,12 +21,10 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
   });
   const [isFetchingHF, setIsFetchingHF] = useState(false);
 
-  // PDFから新しいルートが読み込まれたら自動更新
   useEffect(() => {
     if (globalRoute) setRouteInput(globalRoute);
   }, [globalRoute]);
 
-  // PDFから新しい目的地が読み込まれたら自動更新
   useEffect(() => {
     if (globalDest) {
       const upperDest = globalDest.toUpperCase();
@@ -50,7 +46,7 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
     setTodayInfo({ dateStr: `${String(day).padStart(2, '0')} ${months[d.getUTCMonth()]}`, isOdd: day % 2 !== 0 });
   }, []);
 
-  // ARINC Pacific から周波数を自動フェッチする関数（プロキシを3段構えにして安定化）
+  // ★ 強化版：iPadのキャッシュ回避＆エラー時のハンドリングを追加
   const fetchHFData = async () => {
     if (!navigator.onLine) {
       setHfData(prev => ({ ...prev, status: "Offline (Cache)" }));
@@ -61,23 +57,24 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
     setHfData(prev => ({ ...prev, status: "Fetching..." }));
     
     const targetUrl = 'https://radio.arinc.net/pacific/';
+    // Safariの強烈なキャッシュを騙すためのランダムな数字（Cache Buster）
+    const cb = Date.now(); 
     let html = "";
     
-    // プロキシのリスト（上から順に試行。Safariのキャッシュを回避するために no-cache を追加）
     const fetchMethods = [
       async () => {
-        const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`, { cache: 'no-cache' });
+        const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}&t=${cb}`, { cache: 'no-store' });
         if (!res.ok) throw new Error('Proxy 1 failed');
+        return await res.text();
+      },
+      async () => {
+        const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}&t=${cb}`, { cache: 'no-store' });
+        if (!res.ok) throw new Error('Proxy 2 failed');
         const data = await res.json();
         return data.contents;
       },
       async () => {
-        const res = await fetch(`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(targetUrl)}`, { cache: 'no-cache' });
-        if (!res.ok) throw new Error('Proxy 2 failed');
-        return await res.text();
-      },
-      async () => {
-        const res = await fetch(`https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}`, { cache: 'no-cache' });
+        const res = await fetch(`https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}&t=${cb}`, { cache: 'no-store' });
         if (!res.ok) throw new Error('Proxy 3 failed');
         return await res.text();
       }
@@ -86,12 +83,10 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
     for (let i = 0; i < fetchMethods.length; i++) {
       try {
         html = await fetchMethods[i]();
-        if (html) break; // 成功したらループを抜ける
+        if (html) break; 
       } catch (err) {
-        console.warn(`HF Proxy ${i + 1} error:`, err);
-        // 最後のプロキシでも失敗した場合
         if (i === fetchMethods.length - 1) {
-          setHfData(prev => ({ ...prev, status: "Proxy Error (Cache)" }));
+          setHfData(prev => ({ ...prev, status: "Proxy Error" })); // エラー判定
           setIsFetchingHF(false);
           return;
         }
@@ -126,11 +121,10 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
         setHfData({ ...newHfData, lastUpdated: validStr, isOnlineData: true, status: "LIVE" });
         window.dispatchEvent(new CustomEvent('show-toast', { detail: 'ARINC HF周波数を最新データに更新しました' }));
       } else {
-        setHfData(prev => ({ ...prev, status: "Parse Error (Cache)" }));
+        setHfData(prev => ({ ...prev, status: "Parse Error" }));
       }
     } catch (error) {
-      console.error("HF parse error:", error);
-      setHfData(prev => ({ ...prev, status: "Parse Error (Cache)" }));
+      setHfData(prev => ({ ...prev, status: "Parse Error" }));
     } finally {
       setIsFetchingHF(false);
     }
@@ -250,15 +244,24 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
         {/* ★ ARINC Pacific HF & VHF 周波数表示セクション ★ */}
         <div className="bg-slate-800 rounded-xl shadow-sm border border-slate-700 p-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 border-b border-slate-700 pb-2 gap-2">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center flex-wrap gap-2">
               <h2 className="text-sm font-bold text-slate-200 flex items-center">
                 <SafeIcon name="Radio" className="w-4 h-4 mr-1.5 text-amber-400" />
                 ARINC Pacific Frequencies
               </h2>
               <button onClick={fetchHFData} disabled={isFetchingHF} className={`px-2 py-0.5 rounded text-[9px] font-bold border transition-colors ${hfData.isOnlineData ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/30' : 'bg-slate-700 text-slate-300 border-slate-600 hover:bg-slate-600'} flex items-center gap-1`} title={hfData.isOnlineData ? `Valid: ${hfData.lastUpdated}` : "タップして最新データを取得"}>
-                <SafeIcon name="RefreshCw" className={`w-2.5 h-2.5 ${isFetchingHF ? 'animate-spin' : ''}`} />{hfData.status}
+                <SafeIcon name="RefreshCw" className={`w-2.5 h-2.5 ${isFetchingHF ? 'animate-spin' : ''}`} />
+                {hfData.status.includes("Error") ? "Error (Cache)" : hfData.status}
               </button>
+              
+              {/* 万が一iPadで全部エラーになった場合の「直接サイトを開く」リンク */}
+              {hfData.status.includes("Error") && (
+                <a href="https://radio.arinc.net/pacific/" target="_blank" rel="noopener noreferrer" className="ml-1 text-[10px] text-blue-400 hover:text-blue-300 underline flex items-center gap-0.5 transition-colors">
+                  <SafeIcon name="ExternalLink" className="w-3 h-3" />公式サイトを開く
+                </a>
+              )}
             </div>
+            
             <div className="flex items-center gap-1.5 bg-slate-900 px-2.5 py-1 rounded-md border border-slate-700 text-xs font-mono font-bold">
               <span className="text-slate-400">Today(UTC):</span>
               <span className="text-blue-400">{todayInfo.dateStr}</span>
