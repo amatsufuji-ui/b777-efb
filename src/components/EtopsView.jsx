@@ -17,7 +17,7 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
     polar: { pri: "11342", sec: "8933", ter: "6640" },
     lastUpdated: "Default Cache",
     isOnlineData: false,
-    status: "Offline / Error"
+    status: "Not Updated" 
   });
   const [isFetchingHF, setIsFetchingHF] = useState(false);
 
@@ -46,10 +46,9 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
     setTodayInfo({ dateStr: `${String(day).padStart(2, '0')} ${months[d.getUTCMonth()]}`, isOdd: day % 2 !== 0 });
   }, []);
 
-  // ★ 究極版：iPad (Safari/PWA) のセキュリティを回避する4段構えフェッチ
   const fetchHFData = async () => {
     if (!navigator.onLine) {
-      setHfData(prev => ({ ...prev, status: "Offline (Cache)" }));
+      setHfData(prev => ({ ...prev, status: "Not Updated" }));
       return;
     }
     
@@ -57,18 +56,15 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
     setHfData(prev => ({ ...prev, status: "Fetching..." }));
     
     const targetUrl = 'https://radio.arinc.net/pacific/';
-    const cb = Date.now(); // Safariのキャッシュ回避用パラメータ
+    const cb = Date.now(); 
     let html = "";
     
-    // オプションを空にしてシンプルなGETリクエストに偽装する
     const fetchMethods = [
-      // 1. codetabs (PWA環境でも通りやすい)
       async () => {
         const res = await fetch(`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(targetUrl)}&_t=${cb}`);
         if (!res.ok) throw new Error('Proxy 1 failed');
         return await res.text();
       },
-      // 2. allorigins (JSONでラップしてCORSの壁を越える)
       async () => {
         const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}&_t=${cb}`);
         if (!res.ok) throw new Error('Proxy 2 failed');
@@ -76,13 +72,11 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
         if (!data.contents) throw new Error('No content');
         return data.contents;
       },
-      // 3. thingproxy (代替サーバー)
       async () => {
         const res = await fetch(`https://thingproxy.freeboard.io/fetch/${targetUrl}?_t=${cb}`);
         if (!res.ok) throw new Error('Proxy 3 failed');
         return await res.text();
       },
-      // 4. corsproxy.io
       async () => {
         const res = await fetch(`https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}&_t=${cb}`);
         if (!res.ok) throw new Error('Proxy 4 failed');
@@ -93,16 +87,14 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
     for (let i = 0; i < fetchMethods.length; i++) {
       try {
         html = await fetchMethods[i]();
-        // プロキシのエラー画面を弾くため、ARINCの文字が含まれているかチェック
         if (html && html.includes("Pacific HF")) {
-          break; // 成功！ループを抜ける
+          break; 
         } else {
           throw new Error('Invalid content');
         }
       } catch (err) {
-        console.warn(`HF Proxy ${i + 1} error:`, err);
         if (i === fetchMethods.length - 1) {
-          setHfData(prev => ({ ...prev, status: "Proxy Error" }));
+          setHfData(prev => ({ ...prev, status: "Not Updated" })); 
           setIsFetchingHF(false);
           return;
         }
@@ -137,10 +129,10 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
         setHfData({ ...newHfData, lastUpdated: validStr, isOnlineData: true, status: "LIVE" });
         window.dispatchEvent(new CustomEvent('show-toast', { detail: 'ARINC HF周波数を最新データに更新しました' }));
       } else {
-        setHfData(prev => ({ ...prev, status: "Parse Error" }));
+        setHfData(prev => ({ ...prev, status: "Not Updated" }));
       }
     } catch (error) {
-      setHfData(prev => ({ ...prev, status: "Parse Error" }));
+      setHfData(prev => ({ ...prev, status: "Not Updated" }));
     } finally {
       setIsFetchingHF(false);
     }
@@ -265,45 +257,49 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
                 <SafeIcon name="Radio" className="w-4 h-4 mr-1.5 text-amber-400" />
                 ARINC Pacific Frequencies
               </h2>
-              <button onClick={fetchHFData} disabled={isFetchingHF} className={`px-2 py-0.5 rounded text-[9px] font-bold border transition-colors ${hfData.isOnlineData ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/30' : 'bg-slate-700 text-slate-300 border-slate-600 hover:bg-slate-600'} flex items-center gap-1`} title={hfData.isOnlineData ? `Valid: ${hfData.lastUpdated}` : "タップして最新データを取得"}>
-                <SafeIcon name="RefreshCw" className={`w-2.5 h-2.5 ${isFetchingHF ? 'animate-spin' : ''}`} />
-                {hfData.status.includes("Error") ? "Error (Cache)" : hfData.status}
+              
+              <button onClick={fetchHFData} disabled={isFetchingHF} className={`px-2 py-0.5 rounded text-[9px] font-bold border transition-colors ${hfData.status === "LIVE" ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/30' : hfData.status === "Not Updated" ? 'bg-red-500/20 text-red-400 border-red-500/30 hover:bg-red-500/30' : 'bg-slate-700 text-slate-300 border-slate-600 hover:bg-slate-600'} flex items-center gap-1`} title={hfData.isOnlineData ? `Valid: ${hfData.lastUpdated}` : "タップして最新データを取得"}>
+                <SafeIcon name={hfData.status === "Not Updated" ? "AlertTriangle" : "RefreshCw"} className={`w-2.5 h-2.5 ${isFetchingHF ? 'animate-spin' : ''}`} />
+                {hfData.status === "Not Updated" ? "⚠️ Not Updated" : hfData.status}
               </button>
               
-              {/* 万が一iPadで全部エラーになった場合の「直接サイトを開く」リンク */}
-              {hfData.status.includes("Error") && (
-                <a href="https://radio.arinc.net/pacific/" target="_blank" rel="noopener noreferrer" className="ml-1 text-[10px] text-blue-400 hover:text-blue-300 underline flex items-center gap-0.5 transition-colors">
-                  <SafeIcon name="ExternalLink" className="w-3 h-3" />公式サイトを開く
-                </a>
-              )}
+              <a href="https://radio.arinc.net/pacific/" target="_blank" rel="noopener noreferrer" className="ml-1 text-[10px] text-blue-400 hover:text-blue-300 underline flex items-center gap-0.5 transition-colors">
+                <SafeIcon name="ExternalLink" className="w-3 h-3" />公式サイトを開く
+              </a>
             </div>
             
             <div className="flex items-center gap-1.5 bg-slate-900 px-2.5 py-1 rounded-md border border-slate-700 text-xs font-mono font-bold">
               <span className="text-slate-400">Today(UTC):</span>
               <span className="text-blue-400">{todayInfo.dateStr}</span>
-              <span className={`ml-1 px-1.5 py-0.5 rounded text-[10px] ${todayInfo.isOdd ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'}`}>
-                {todayInfo.isOdd ? '奇数日 (Odd)' : '偶数日 (Even)'}
-              </span>
             </div>
           </div>
 
+          {hfData.status === "Not Updated" && (
+            <div className="mb-3 bg-red-900/20 border border-red-500/40 p-2 rounded flex items-start gap-2 text-red-400 text-[10px]">
+              <SafeIcon name="AlertTriangle" className="w-4 h-4 shrink-0 mt-0.5" />
+              <p className="leading-relaxed font-bold">
+                自動取得がブロックされました。現在表示されている周波数は「過去の基本データ（キャッシュ）」であり、最新ではない可能性があります。必ず上の「公式サイトを開く」リンクから最新のアサインメントを確認してください。
+              </p>
+            </div>
+          )}
+
           {/* HF Frequencies */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/60 flex flex-col justify-between">
+            <div className={`bg-slate-900/60 p-2.5 rounded-lg border ${hfData.status === "Not Updated" ? "border-red-500/30" : "border-slate-700/60"} flex flex-col justify-between`}>
               <div className="text-[11px] font-black text-slate-300 border-l-2 border-amber-400 pl-2 mb-1.5 leading-none">North America &rarr; Asia</div>
               <div className="flex items-center justify-between text-xs font-mono text-slate-400 pt-1">
                 <div>Pri: <span className="text-white font-bold">{hfData.asia.pri}</span></div>
                 <div>Sec: <span className="text-slate-300">{hfData.asia.sec}</span></div>
               </div>
             </div>
-            <div className="bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/60 flex flex-col justify-between">
+            <div className={`bg-slate-900/60 p-2.5 rounded-lg border ${hfData.status === "Not Updated" ? "border-red-500/30" : "border-slate-700/60"} flex flex-col justify-between`}>
               <div className="text-[11px] font-black text-slate-300 border-l-2 border-amber-400 pl-2 mb-1.5 leading-none">Alaska / North Pacific <span className="text-[9px] text-slate-500 font-normal">(West of 150W)</span></div>
               <div className="flex items-center justify-between text-xs font-mono text-slate-400 pt-1">
                 <div>Pri: <span className="text-white font-bold">{hfData.alaska.pri}</span></div>
                 <div>Sec: <span className="text-slate-300">{hfData.alaska.sec}</span></div>
               </div>
             </div>
-            <div className="bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/60 flex flex-col justify-between">
+            <div className={`bg-slate-900/60 p-2.5 rounded-lg border ${hfData.status === "Not Updated" ? "border-red-500/30" : "border-slate-700/60"} flex flex-col justify-between`}>
               <div className="text-[11px] font-black text-slate-300 border-l-2 border-amber-400 pl-2 mb-1.5 leading-none">Polar Route</div>
               <div className="flex items-center justify-between text-xs font-mono text-slate-400 pt-1">
                 <div>Pri: <span className="text-white font-bold">{hfData.polar.pri}</span></div>
@@ -333,16 +329,6 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
             </div>
           </div>
           
-          <div className="mt-2.5 text-[10px] text-slate-400 bg-slate-900/40 p-2 rounded border border-slate-800 leading-relaxed flex items-start gap-1.5">
-            <SafeIcon name="Info" className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
-            <div>
-              {todayInfo.isOdd ? (
-                <p>【奇数日運用】電離層状況による周波数移行（昼間波/夜間波）のタイミングにご注意ください。詳細は太平洋HFアサインメント規定を参照。</p>
-              ) : (
-                <p>【偶数日運用】本日は偶数日スケジュールです。航空局指定のプライマリ波での初期呼び出しを原則とします。</p>
-              )}
-            </div>
-          </div>
         </div>
 
         {/* 🚚 ここから引っ越してきたETOPSルール 🚚 */}
