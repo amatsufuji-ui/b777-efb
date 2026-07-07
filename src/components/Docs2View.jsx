@@ -388,18 +388,19 @@ export const Docs2View = () => {
                   <table className="w-full text-left border-collapse min-w-[1100px]">
                     <thead>
                       <tr className="bg-slate-700 text-slate-200 border-b border-slate-500 text-[10px] lg:text-[11px]">
-                        <th className="p-2 border-r border-slate-600 text-center whitespace-nowrap w-36 lg:w-48">コード</th>
-                        <th className="p-2 border-r border-slate-600 whitespace-nowrap w-32 lg:w-40">旅客種別</th>
-                        <th className="p-2 border-r border-slate-600 w-1/3">定義 / 主な条件</th>
-                        <th className="p-2 border-r border-slate-600 w-1/4">同伴者 / 付添者の要否</th>
-                        <th className="p-2 border-r border-slate-600 whitespace-nowrap w-28 lg:w-32 text-center">非常口座席</th>
-                        <th className="p-2 w-1/4">搭乗人数制限</th>
+                        {/* ★ セルの内容量に合わせたバランス調整 ★ */}
+                        <th className="p-2 border-r border-slate-600 text-center whitespace-nowrap w-[8%] min-w-[50px]">コード</th>
+                        <th className="p-2 border-r border-slate-600 whitespace-nowrap w-[14%] min-w-[90px]">旅客種別</th>
+                        <th className="p-2 border-r border-slate-600 w-[33%] min-w-[220px]">定義 / 主な条件</th>
+                        <th className="p-2 border-r border-slate-600 w-[15%] min-w-[100px]">同伴者 / 付添者の要否</th>
+                        <th className="p-2 border-r border-slate-600 w-[15%] min-w-[100px] text-center">非常口座席</th>
+                        <th className="p-2 w-[15%] min-w-[100px]">搭乗人数制限</th>
                       </tr>
                     </thead>
                     <tbody>
                       {SPECIAL_PAX_DATA.map((pax, idx) => (
                         <tr key={idx} className="border-b border-slate-600/50 hover:bg-slate-700/30 transition-colors text-[10px] lg:text-[11px] leading-relaxed text-slate-300">
-                          <td className="p-2 border-r border-slate-600/50 text-center align-middle font-black text-indigo-300 text-sm lg:text-base bg-slate-800/40">
+                          <td className="p-2 border-r border-slate-600/50 text-center align-middle font-black text-indigo-300 text-sm lg:text-base bg-slate-800/40 whitespace-pre-wrap">
                             {renderCellText(pax.code)}
                           </td>
                           <td className="p-2 border-r border-slate-600/50 align-middle font-bold text-slate-200">
@@ -428,13 +429,13 @@ export const Docs2View = () => {
                   {/* 付添者 */}
                   <div className="bg-slate-800/80 border border-slate-600 rounded-xl p-3 shadow-lg">
                     <h4 className="text-indigo-300 font-black text-xs mb-2 border-b border-slate-700 pb-1 flex items-center gap-1.5">
-                      付添者 <span className="text-[9px] text-slate-400 font-normal">(AT/Qualified Escort)</span>
+                      付添者 <span className="text-[9px] text-slate-400 font-normal">(Qualified Escort)</span>
                     </h4>
                     <ul className="text-slate-300 text-[10px] lg:text-[11px] space-y-1 list-disc list-inside leading-relaxed">
                       <li><strong>12歳以上</strong>であること</li>
                       <li>緊急時に付添い対象者の<strong>脱出援助</strong>ができること</li>
                       <li>対象者<strong>以外</strong>の者の脱出援助の必要がないこと</li>
-                      <li>対象者の状態を把握し、身の回りの世話ができること</li>
+                      <li><span className="text-emerald-400 font-bold">対象者の状態を把握し、身の回りの世話ができること</span></li>
                       <li>対象者の<strong>隣席</strong>に着席すること</li>
                       <li><span className="text-sky-300 font-bold">視覚障がい旅客(BLND)の盲導犬</span>は付添者とみなす</li>
                     </ul>
