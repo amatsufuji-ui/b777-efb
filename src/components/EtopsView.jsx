@@ -194,7 +194,10 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
         <div className="bg-slate-800 rounded-xl shadow-sm border border-slate-700 p-4">
           <div className="flex items-center space-x-2 mb-3 text-slate-200">
             <SafeIcon name="Plane" className="w-5 h-5 text-blue-400" />
-            <h1 className="text-lg font-bold">ETOPS Additional Fuel ALTN判定</h1>
+            <h1 className="text-lg font-bold flex items-center flex-wrap gap-2">
+              ETOPS Additional Fuel ALTN判定
+              <span className="text-[10px] sm:text-xs font-black text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded tracking-wider shadow-sm leading-none">欧州線のみ</span>
+            </h1>
           </div>
           
           <div className="space-y-2">
@@ -206,7 +209,6 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
               <SafeIcon name="AlertCircle" className="w-3.5 h-3.5 mt-0.5 text-blue-400 flex-shrink-0" />
               <div className="flex flex-col gap-1">
                 <p>ルート内の特徴的なポイント（ADREW, OMEKAなど）から山岳迂回ルート a) 〜 i) を自動判定します。</p>
-                <p className="text-amber-400/90 font-bold">※現在の Additional Fuel ALTN 判定機能は欧州線のみに対応しています。</p>
               </div>
             </div>
           </div>
