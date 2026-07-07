@@ -46,7 +46,7 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
     setTodayInfo({ dateStr: `${String(day).padStart(2, '0')} ${months[d.getUTCMonth()]}`, isOdd: day % 2 !== 0 });
   }, []);
 
-  // ★ 強化版：iPadのキャッシュ回避＆エラー時のハンドリングを追加
+  // ★ 究極版：iPad (Safari/PWA) のセキュリティを回避する4段構えフェッチ
   const fetchHFData = async () => {
     if (!navigator.onLine) {
       setHfData(prev => ({ ...prev, status: "Offline (Cache)" }));
@@ -57,25 +57,35 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
     setHfData(prev => ({ ...prev, status: "Fetching..." }));
     
     const targetUrl = 'https://radio.arinc.net/pacific/';
-    // Safariの強烈なキャッシュを騙すためのランダムな数字（Cache Buster）
-    const cb = Date.now(); 
+    const cb = Date.now(); // Safariのキャッシュ回避用パラメータ
     let html = "";
     
+    // オプションを空にしてシンプルなGETリクエストに偽装する
     const fetchMethods = [
+      // 1. codetabs (PWA環境でも通りやすい)
       async () => {
-        const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}&t=${cb}`, { cache: 'no-store' });
+        const res = await fetch(`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(targetUrl)}&_t=${cb}`);
         if (!res.ok) throw new Error('Proxy 1 failed');
         return await res.text();
       },
+      // 2. allorigins (JSONでラップしてCORSの壁を越える)
       async () => {
-        const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}&t=${cb}`, { cache: 'no-store' });
+        const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}&_t=${cb}`);
         if (!res.ok) throw new Error('Proxy 2 failed');
         const data = await res.json();
+        if (!data.contents) throw new Error('No content');
         return data.contents;
       },
+      // 3. thingproxy (代替サーバー)
       async () => {
-        const res = await fetch(`https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}&t=${cb}`, { cache: 'no-store' });
+        const res = await fetch(`https://thingproxy.freeboard.io/fetch/${targetUrl}?_t=${cb}`);
         if (!res.ok) throw new Error('Proxy 3 failed');
+        return await res.text();
+      },
+      // 4. corsproxy.io
+      async () => {
+        const res = await fetch(`https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}&_t=${cb}`);
+        if (!res.ok) throw new Error('Proxy 4 failed');
         return await res.text();
       }
     ];
@@ -83,10 +93,16 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
     for (let i = 0; i < fetchMethods.length; i++) {
       try {
         html = await fetchMethods[i]();
-        if (html) break; 
+        // プロキシのエラー画面を弾くため、ARINCの文字が含まれているかチェック
+        if (html && html.includes("Pacific HF")) {
+          break; // 成功！ループを抜ける
+        } else {
+          throw new Error('Invalid content');
+        }
       } catch (err) {
+        console.warn(`HF Proxy ${i + 1} error:`, err);
         if (i === fetchMethods.length - 1) {
-          setHfData(prev => ({ ...prev, status: "Proxy Error" })); // エラー判定
+          setHfData(prev => ({ ...prev, status: "Proxy Error" }));
           setIsFetchingHF(false);
           return;
         }
