@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { SafeIcon, SliderInput, TrafficPatternGraphic, CirclingPatternGraphic } from './SharedComponents';
 import { calculateTAS, calculateHeadingAndGS, generateTurnPoints } from '../utils/flightCalc';
 
-
 // --- [5-7] ApproachCalcView (APP CALC) ---
 export const ApproachCalcView = () => {
   const [activeTab, setActiveTab] = useState('path');
@@ -767,6 +766,28 @@ export const ApproachCalcView = () => {
     return Math.atan(heightDiff / distFt) * (180 / Math.PI);
   };
 
+  const calcHndIlsZ34LAngle = (oat) => {
+    const fafAltInd = 5000, distNM = 14.9, elev = 18, tch = 50;
+    const hndIsaTempAtElev = 15 - 1.98 * (elev / 1000);
+    const hndIsaD = oat - hndIsaTempAtElev;
+    const fafTempCorrection = 4 * hndIsaD * ((fafAltInd - elev) / 1000);
+    const trueFafAlt = fafAltInd + fafTempCorrection;
+    const heightDiff = trueFafAlt - (elev + tch);
+    const distFt = distNM * 6076.1154;
+    return Math.atan(heightDiff / distFt) * (180 / Math.PI);
+  };
+
+  const calcRjooIls32LAngle = (oat) => {
+    const fafAltInd = 3500, distNM = 10.4, elev = 31, tch = 50;
+    const rjooIsaTempAtElev = 15 - 1.98 * (elev / 1000);
+    const rjooIsaD = oat - rjooIsaTempAtElev;
+    const fafTempCorrection = 4 * rjooIsaD * ((fafAltInd - elev) / 1000);
+    const trueFafAlt = fafAltInd + fafTempCorrection;
+    const heightDiff = trueFafAlt - (elev + tch);
+    const distFt = distNM * 6076.1154;
+    return Math.atan(heightDiff / distFt) * (180 / Math.PI);
+  };
+
   const calcR22FafAngle = (mapAltInd, oat) => {
     if (!mapAltInd) return 0;
     const fafAltInd = 5000, distNM = 11.6, elev = 35;
@@ -805,6 +826,8 @@ export const ApproachCalcView = () => {
   const r23Angle5 = calcR23FafAngle(r23Data5.alt, numOat);
   const roahAngle = calcRoahRnp18RAngle(numOat);
   const mmmxAngle = calcMmmxAngle(numOat);
+  const hndIlsZ34LAngle = calcHndIlsZ34LAngle(numOat);
+  const rjooIls32LAngle = calcRjooIls32LAngle(numOat);
 
   const renderPathAdjustment = (diff) => {
     if (Math.abs(diff) < 0.05) {
@@ -1035,7 +1058,7 @@ export const ApproachCalcView = () => {
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-0.5 mb-1">
                 <h3 className="text-xs lg:text-sm font-black text-slate-500 uppercase tracking-widest leading-none">Representative Approaches</h3>
               </div>
-              <div className="grid grid-cols-2 lg:grid-cols-6 gap-1 lg:gap-1.5">
+              <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-1 lg:gap-1.5">
                 {/* Card 1: RJTT LDA R22 Bank 5 */}
                 <div
                   onClick={() => { setFafAlt(5000); setDistMapFaf(11.6); setDistThrMap(3.9); setElev(35); }}
@@ -1110,6 +1133,30 @@ export const ApproachCalcView = () => {
                   <span className="text-[11px] lg:text-[13px] font-black text-emerald-300 leading-none mb-0.5">CDA ANGLE {mmmxAngle.toFixed(2)}°</span>
                   <span className="text-[9.5px] lg:text-[10.5px] font-bold text-slate-400 leading-none mb-0.5">FAF 8,900 FT</span>
                   <span className="text-[9.5px] lg:text-[10.5px] font-bold text-slate-400 leading-none mb-0.5">DIST 4.7 NM</span>
+                  <span className="text-[8px] lg:text-[9px] font-bold text-slate-500 leading-none">※降下角確立を含まず</span>
+                </div>
+                {/* Card 7: RJTT ILS Z 34L */}
+                <div
+                  onClick={() => { setFafAlt(5000); setDistMapFaf(14.9); setDistThrMap(0); setElev(18); }}
+                  className="bg-slate-800 p-1 lg:p-1.5 rounded-xl border border-slate-600 shadow-inner flex flex-col items-center justify-center text-center relative overflow-hidden transition-colors cursor-pointer hover:border-emerald-400 hover:bg-slate-700 group"
+                >
+                  <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500/50 group-hover:bg-emerald-400 transition-colors"></div>
+                  <span className="text-[10px] lg:text-[11px] text-slate-400 font-bold mb-0.5 tracking-widest leading-none mt-1 group-hover:text-slate-300 transition-colors">RJTT ILS Z 34L</span>
+                  <span className="text-[11px] lg:text-[13px] font-black text-emerald-300 leading-none mb-0.5">CDA ANGLE {hndIlsZ34LAngle.toFixed(2)}°</span>
+                  <span className="text-[9.5px] lg:text-[10.5px] font-bold text-slate-400 leading-none mb-0.5">FAF 5,000 FT</span>
+                  <span className="text-[9.5px] lg:text-[10.5px] font-bold text-slate-400 leading-none mb-0.5">DIST 14.9 NM</span>
+                  <span className="text-[8px] lg:text-[9px] font-bold text-slate-500 leading-none">※降下角確立を含まず</span>
+                </div>
+                {/* Card 8: RJOO ILS 32L */}
+                <div
+                  onClick={() => { setFafAlt(3500); setDistMapFaf(10.4); setDistThrMap(0); setElev(31); }}
+                  className="bg-slate-800 p-1 lg:p-1.5 rounded-xl border border-slate-600 shadow-inner flex flex-col items-center justify-center text-center relative overflow-hidden transition-colors cursor-pointer hover:border-emerald-400 hover:bg-slate-700 group"
+                >
+                  <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500/50 group-hover:bg-emerald-400 transition-colors"></div>
+                  <span className="text-[10px] lg:text-[11px] text-slate-400 font-bold mb-0.5 tracking-widest leading-none mt-1 group-hover:text-slate-300 transition-colors">RJOO ILS 32L</span>
+                  <span className="text-[11px] lg:text-[13px] font-black text-emerald-300 leading-none mb-0.5">CDA ANGLE {rjooIls32LAngle.toFixed(2)}°</span>
+                  <span className="text-[9.5px] lg:text-[10.5px] font-bold text-slate-400 leading-none mb-0.5">FAF 3,500 FT</span>
+                  <span className="text-[9.5px] lg:text-[10.5px] font-bold text-slate-400 leading-none mb-0.5">DIST 10.4 NM</span>
                   <span className="text-[8px] lg:text-[9px] font-bold text-slate-500 leading-none">※降下角確立を含まず</span>
                 </div>
               </div>
