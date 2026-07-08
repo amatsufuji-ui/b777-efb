@@ -22,7 +22,16 @@ export const XwindView = () => {
         </div>
         <div className="grid grid-cols-6 md:grid-cols-9 gap-2 md:gap-3 w-full max-w-4xl">
           {runways.map(rwy => (
-            <button key={rwy} onClick={() => setSelectedRwy(rwy)} className="bg-slate-700/80 hover:bg-amber-600 border border-slate-500 hover:border-amber-400 text-white font-bold py-2 md:py-3 rounded-xl transition-all shadow-md text-center text-xs md:text-sm tracking-widest">{rwy}</button>
+            <button 
+              key={rwy} 
+              onClick={() => {
+                setSelectedRwy(rwy);
+                setTwLimit(15); // ★ 新たに滑走路を選んだときにデフォルトの15にリセット
+              }} 
+              className="bg-slate-700/80 hover:bg-amber-600 border border-slate-500 hover:border-amber-400 text-white font-bold py-2 md:py-3 rounded-xl transition-all shadow-md text-center text-xs md:text-sm tracking-widest"
+            >
+              {rwy}
+            </button>
           ))}
         </div>
       </div>
