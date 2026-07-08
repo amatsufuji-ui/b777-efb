@@ -135,11 +135,19 @@ export const XwindView = () => {
                     
                     {/* Crosswind Cells */}
                     {activeCols.map((col, cIdx) => {
-                      const cellVal = row.vals[col.val] || '-'; const isUnderlined = typeof cellVal === 'string' && cellVal.startsWith('_') && cellVal.endsWith('_'); const displayVal = isUnderlined ? cellVal.replace(/_/g, '') : cellVal;
+                      const rawVal = row.vals[col.val] || '-'; 
+                      // 既存計算ロジックによって付与されているかもしれない "_" を無効化して純粋な値を取得
+                      const displayVal = typeof rawVal === 'string' ? rawVal.replace(/_/g, '') : rawVal;
+                      
+                      // ★ 超過(>) ではなく、ピッタリ達した場合(>=) にもアンダーラインを引くように変更
+                      const isUnderlined = row.isTailwind && row.twLimitVal !== '-' && displayVal !== '-' && Number(displayVal) >= row.twLimitVal;
+                      
                       const isColHighlighted = selectedCell.col === cIdx; const isTargetCell = isRowHighlighted && isColHighlighted; let cellBg = isCopMode && col.isCopHalf ? 'bg-sky-900/10' : '';
                       if (isTargetCell) cellBg = 'bg-sky-500/60 ring-inset ring-1 ring-sky-300 shadow-[0_0_10px_rgba(56,189,248,0.5)] z-0 relative'; else if (isRowHighlighted || isColHighlighted) cellBg = 'bg-sky-800/40';
                       return (
-                        <td key={cIdx} onClick={() => { if (selectedCell.row === idx && selectedCell.col === cIdx) { setSelectedCell({ row: null, col: null }); } else { setSelectedCell({ row: idx, col: cIdx }); } }} className={`text-white font-black text-[10px] md:text-xs p-1.5 md:p-2 border border-slate-600 transition-all cursor-pointer hover:bg-sky-700/50 ${cellBg}`}><span className={isUnderlined ? 'underline underline-offset-4 decoration-2 decoration-amber-500 text-amber-100' : ''}>{displayVal}</span></td>
+                        <td key={cIdx} onClick={() => { if (selectedCell.row === idx && selectedCell.col === cIdx) { setSelectedCell({ row: null, col: null }); } else { setSelectedCell({ row: idx, col: cIdx }); } }} className={`text-white font-black text-[10px] md:text-xs p-1.5 md:p-2 border border-slate-600 transition-all cursor-pointer hover:bg-sky-700/50 ${cellBg}`}>
+                          <span className={isUnderlined ? 'underline underline-offset-4 decoration-2 decoration-amber-500 text-amber-100' : ''}>{displayVal}</span>
+                        </td>
                       );
                     })}
 
