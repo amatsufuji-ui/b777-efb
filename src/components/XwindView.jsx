@@ -139,10 +139,10 @@ export const XwindView = () => {
                       // 既存計算ロジックによって付与されているかもしれない "_" を無効化して純粋な値を取得
                       const displayVal = typeof rawVal === 'string' ? rawVal.replace(/_/g, '') : rawVal;
                       
-                      // ★ Tailwind Limit に達しているか判定
+                      // ★ 選択された Tailwind Limit に基づいて動的に超過を判定
                       const isTwLimited = row.isTailwind && row.twLimitVal !== '-' && displayVal !== '-' && Number(displayVal) >= row.twLimitVal;
                       
-                      // ★ TWで制限されている場合は、表示値をTW側の限界値に置き換える
+                      // TWで制限されている場合は、表示値をTW側の限界値に置き換える
                       const finalDisplayVal = isTwLimited ? row.twLimitVal : displayVal;
                       
                       const isColHighlighted = selectedCell.col === cIdx; const isTargetCell = isRowHighlighted && isColHighlighted; let cellBg = isCopMode && col.isCopHalf ? 'bg-sky-900/10' : '';
@@ -181,7 +181,8 @@ export const XwindView = () => {
             </tbody>
           </table>
           <div className="flex flex-wrap justify-center gap-4 mt-3 text-[10px] font-bold text-slate-400">
-            <div className="flex items-center gap-1"><span className="text-amber-100 underline underline-offset-4 decoration-2 decoration-amber-500">{twLimit}</span> = Tail Wind Limit Exceeded</div>
+            {/* ★ 凡例テキストを "Limited by Tailwind" に変更 ★ */}
+            <div className="flex items-center gap-1"><span className="text-amber-100 underline underline-offset-4 decoration-2 decoration-amber-500">{twLimit}</span> = Limited by Tailwind</div>
           </div>
         </div>
       </div>
