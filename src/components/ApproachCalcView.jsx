@@ -15,7 +15,7 @@ export const ApproachCalcView = () => {
   const [gs, setGs] = useState(145);
 
   const [wind, setWind] = useState(0);
-  const [crossWind, setCrossWind] = useState(0);
+  const [baseWind, setBaseWind] = useState(0); // ★ BASE TAILWIND (KT) に変更
   const [rwyTrk, setRwyTrk] = useState(360);
 
   const [tfpAlt, setTfpAlt] = useState(1500);
@@ -39,7 +39,7 @@ export const ApproachCalcView = () => {
   const numGs = Number(gs) || 0;
 
   const numWind = Number(wind) || 0;
-  const numCrossWind = Number(crossWind) || 0;
+  const numBaseWind = Number(baseWind) || 0; // ★ 
   const numRwyTrk = Number(rwyTrk) || 0;
   const numBankBase = Number(bankBase) || 25;
   const numBankFinal = Number(bankFinal) || 20;
@@ -104,7 +104,7 @@ export const ApproachCalcView = () => {
   const tfpTempCorrection = 4 * currentIsaDev * ((numTfpAlt - numElev) / 1000);
   const trueTfpAlt = numTfpAlt + tfpTempCorrection;
 
-  const calculateDescentStart = (isLeftTraffic) => {
+  const calculateDescentStart = () => {
     if (numTfpGsDw <= 0) return { angle: 0, text: "N/A", reqDist: 0, drawData: null, trueTfpAlt, shortenedSeconds: null, advanceSeconds: null, advanceDist: null, abeamSeconds: -1, tas_dw: 0, tas_final_base: 0 };
     if (numTfpGsDw <= 40) return { angle: 0, text: "SPD LOW", reqDist: 0, drawData: null, trueTfpAlt, shortenedSeconds: null, advanceSeconds: null, advanceDist: null, abeamSeconds: -1, tas_dw: 0, tas_final_base: 0 };
 
@@ -119,8 +119,9 @@ export const ApproachCalcView = () => {
     const tas_final_base = calculateTAS(ias_final_base, numTfpAlt, numOat);
     const tas_dw = calculateTAS(ias_dw, numTfpAlt, numOat);
 
+    // ★ Base Tailwind に基づく風ベクトルの設定
     const windVx = -numWind;
-    const windVy = isLeftTraffic ? -numCrossWind : numCrossWind;
+    const windVy = -numBaseWind;
 
     const angleDW = Math.PI;
     const angleBase = Math.PI * 1.5;
@@ -409,8 +410,9 @@ export const ApproachCalcView = () => {
     const ias = Math.max(120, numTfpGsDw - 20);
     const tas = calculateTAS(ias, numTfpAlt, numOat);
 
+    // ★ Base Tailwind に基づく風ベクトルの設定
     const windVx = -numWind;
-    const windVy = numCrossWind;
+    const windVy = -numBaseWind;
 
     const startAngle = Math.PI / 2;
     const endAngle = 0;
@@ -507,7 +509,7 @@ export const ApproachCalcView = () => {
   // ----------------------------------------------------
   // --- 3. MIN CIRCLING CALCULATION ---
   // ----------------------------------------------------
-  const calculateCirclingStart = (isLeftTraffic) => {
+  const calculateCirclingStart = () => {
     if (numCirclingAppSpd <= 0) return { angle: 0, text: "N/A", reqDist: 0, drawData: null, trueMda: 0, reqBankDeg: 0, abeamSeconds: -1, tas_app: 0 };
     if (numCirclingAppSpd <= 40) return { angle: 0, text: "SPD LOW", reqDist: 0, drawData: null, trueMda: 0, reqBankDeg: 0, abeamSeconds: -1, tas_app: 0 };
 
@@ -521,8 +523,9 @@ export const ApproachCalcView = () => {
 
     const tas_app = calculateTAS(numCirclingAppSpd, numMda, numOat);
 
+    // ★ Base Tailwind に基づく風ベクトルの設定
     const windVx = -numWind;
-    const windVy = isLeftTraffic ? -numCrossWind : numCrossWind;
+    const windVy = -numBaseWind;
 
     const { headingRad: hdgDW, gs: v_dw } = calculateHeadingAndGS(Math.PI, tas_app, windVx, windVy);
     const { headingRad: hdgFinal, gs: v_final_straight } = calculateHeadingAndGS(Math.PI * 2, tas_app, windVx, windVy);
@@ -702,12 +705,13 @@ export const ApproachCalcView = () => {
     };
   };
 
-  const tfpDataLT = calculateDescentStart(true);
-  const tfpDataRT = calculateDescentStart(false);
+  // 左旋回・右旋回で風の影響が対称になるように共通計算を使用
+  const tfpDataLT = calculateDescentStart();
+  const tfpDataRT = calculateDescentStart();
   const directBaseData = calculateDirectBase();
 
-  const circlingDataLT = calculateCirclingStart(true);
-  const circlingDataRT = calculateCirclingStart(false);
+  const circlingDataLT = calculateCirclingStart();
+  const circlingDataRT = calculateCirclingStart();
 
   const formatHdg = (hdg) => Math.round((hdg + 360) % 360).toString().padStart(3, '0');
 
@@ -1291,7 +1295,7 @@ export const ApproachCalcView = () => {
                     }
                   />
                   <SliderInput label="DW TAILWIND (KT)" subLabel="Headwind on RWY" value={wind} setter={setWind} min={-20} max={40} step={1} colorClass="text-sky-400" accentClass="accent-sky-400" />
-                  <SliderInput label="CROSS WIND @ DW (KT)" subLabel="<0: Left / >0: Right" value={crossWind} setter={setCrossWind} min={-40} max={40} step={1} colorClass="text-teal-400" accentClass="accent-teal-400" />
+                  <SliderInput label="BASE TAILWIND (KT)" subLabel="<0: Headwind" value={baseWind} setter={setBaseWind} min={-40} max={40} step={1} colorClass="text-teal-400" accentClass="accent-teal-400" />
                 </div>
               </div>
 
@@ -1572,7 +1576,7 @@ export const ApproachCalcView = () => {
                     }
                   />
                   <SliderInput label="DW TAILWIND (KT)" subLabel="Headwind on RWY" value={wind} setter={setWind} min={-20} max={40} step={1} colorClass="text-sky-400" accentClass="accent-sky-400" />
-                  <SliderInput label="CROSS WIND @ DW (KT)" subLabel="<0: Left / >0: Right" value={crossWind} setter={setCrossWind} min={-40} max={40} step={1} colorClass="text-teal-400" accentClass="accent-teal-400" />
+                  <SliderInput label="BASE TAILWIND (KT)" subLabel="<0: Headwind" value={baseWind} setter={setBaseWind} min={-40} max={40} step={1} colorClass="text-teal-400" accentClass="accent-teal-400" />
                 </div>
               </div>
 
