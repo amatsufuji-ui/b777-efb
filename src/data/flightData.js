@@ -5381,20 +5381,23 @@ export const etopsData = {
     "a": [
       { altn: "CYFB-BIKF", dest: "Europe other than ESSA", etops: "180/207" },
       { altn: "CYFB-ENBO", dest: "Europe other than ESSA", etops: "180/207" },
-      { altn: "CYZF-BIKF", dest: "Europe other than ESSA", etops: "180/207" },
-      { altn: "PAFA-BIKF", dest: "Europe other than ESSA", etops: "180/207" },
+      { altn: "CYFB-ENBR", dest: "Europe other than ESSA", etops: "180/207" },
+      { altn: "CYZF-BIKF", dest: "Europe other than EGLL/ESSA", etops: "180/207" },
+      { altn: "PAFA-BIKF", dest: "Europe other than EGLL/ESSA", etops: "207" },
       { altn: "CYZF-ENBO", dest: "Europe other than EGLL/ESSA", etops: "207" },
       { altn: "CYYR-ENBO", dest: "Europe other than ESSA", etops: "207" },
       { altn: "CYYR-ENBR", dest: "Europe other than ESSA", etops: "180" }
     ],
     "b": [
-      { altn: "CYQX-Europe", dest: "Europe", etops: "180" },
-      { altn: "CYYR-Europe", dest: "Europe", etops: "180" }
+      { altn: "CYQX-Europe", dest: "Europe other than ESSA", etops: "180" },
+      { altn: "CYYR-Europe", dest: "Europe other than ESSA", etops: "180" }
     ],
     "c": [
-      { altn: "PAFA-BIKF", dest: "Europe other than ESSA" },
-      { altn: "CYXF-BIKF", dest: "Europe other than ESSA" },
-      { altn: "CYZF-BIKF", dest: "Europe other than ESSA" },
+      { altn: "CYFB-BIKF", dest: "Europe other than ESSA" },
+      { altn: "CYFB-ENBO", dest: "Europe other than ESSA", etops: "180/207" },
+      { altn: "PAFA-BIKF", dest: "Europe other than ESSA" , etops: "207" },
+      { altn: "CYXF-BIKF", dest: "Europe other than ESSA", etops: "207"  },
+      { altn: "CYZF-BIKF", dest: "Europe other than ESSA", etops: "207"  },
       { altn: "CYZF-ENBO", dest: "Europe other than ESSA", etops: "207" }
     ],
     "d": [
@@ -5408,21 +5411,27 @@ export const etopsData = {
       { altn: "CYFB-BIKF", dest: "Europe", etops: "180/207" },
       { altn: "CYFB-ENBO", dest: "Europe", etops: "180/207" },
       { altn: "CYFB-ENBR", dest: "LIMC", etops: "180/207" },
-      { altn: "PAFA-BIKF", dest: "Europe" },
-      { altn: "CYZF-BIKF", dest: "Europe" },
+      { altn: "PAFA-BIKF", dest: "Europe" , etops: "207" },
+      { altn: "CYZF-BIKF", dest: "Europe", etops: "207" },
       { altn: "CYZF-ENBO", dest: "Europe", etops: "207" }
     ],
     "f": [
-      { altn: "CYFB-BIKF", dest: "ESSA" }
+      { altn: "CYFB-BIKF", dest: "ESSA" },
+      { altn: "CYFB-ENBO", dest: "ESSA" },
+      { altn: "CYZF-BIKF", dest: "ESSA" },
+      { altn: "PAFA-BIKF", dest: "ESSA" , etops: "207" },
+      { altn: "CYZF-ENBO", dest: "ESSA" , etops: "207" }
     ],
     "g": [
       { altn: "CYFB-ENBO", dest: "Europe other than ESSA" },
+      
+    ],
+    "h": [
       { altn: "CYYR-ENBR", dest: "Europe other than ESSA" },
       { altn: "CYYR-EINN", dest: "Europe other than ESSA" },
       { altn: "CYYR-EGLL", dest: "Europe other than ESSA" },
-      { altn: "CYYR-EBBR", dest: "Europe other than ESSA", etops: "180/207" }
-    ],
-    "h": [],
+      { altn: "CYYR-EBBR", dest: "Europe other than ESSA"}],
+
     "i": [
       { altn: "CYFB-BIKF", dest: "LOWW", etops: "180/207" },
       { altn: "CYFB-ENBO", dest: "LOWW", etops: "180/207" },
@@ -5431,9 +5440,10 @@ export const etopsData = {
       { altn: "CYZF-ENBO", dest: "LOWW", etops: "207" }
     ]
   },
+
   "B787-8 1000CE/L": {
     "a": [
-      { altn: "CYFB-BIKF", dest: "Europe other than ESSA", etops: "180/207" },
+      { altn: "CYFB-BIKF", dest: "Europe other than ESSA"},
       { altn: "CYZF-BIKF", dest: "Europe other than EGLL/EBBR/ESSA", etops: "180/207" },
       { altn: "CYZF-ENBO", dest: "Europe other than EGLL/ESSA", etops: "207" }
     ],
@@ -5442,8 +5452,10 @@ export const etopsData = {
       { altn: "CYYR-Europe", dest: "Europe other than ESSA", etops: "180" }
     ],
     "c": [
-      { altn: "CYZF-BIKF", dest: "Europe other than EGLL/ESSA", etops: "207" },
-      { altn: "CYZF-ENBO", dest: "EGLL", etops: "207" },
+      { altn: "CYFB-BIKF", dest: "Europe other than ESSA"},
+      { altn: "CYFB-ENBO", dest: "Europe other than ESSA"},
+      { altn: "CYZF-BIKF", dest: "Europe other than EGLL/ESSA"},
+      { altn: "CYZF-ENBO", dest: "Europe other than EGLL", etops: "207" },
       { altn: "PAFA-BIKF", dest: "Europe other than EGLL/ESSA", etops: "207" },
       { altn: "CYXY-BIKF", dest: "Europe other than EGLL/ESSA", etops: "207" }
     ],
@@ -5456,22 +5468,25 @@ export const etopsData = {
       { altn: "CYFB-BIKF", dest: "Europe", etops: "180/207" },
       { altn: "CYFB-ENBO", dest: "Europe", etops: "180/207" },
       { altn: "CYFB-ENBR", dest: "LIMC", etops: "180/207" },
-      { altn: "PAFA-BIKF", dest: "Europe other than ESSA", etops: "207" }
+      { altn: "PAFA-BIKF", dest: "Europe other than ESSA", etops: "207" },
+      { altn: "CYZF-BIKF", dest: "Europe", etops: "207" },
+      { altn: "CYZF-ENBO", dest: "Europe", etops: "207" },
     ],
+
     "f": [
-      { altn: "CYZF-BIKF", dest: "Europe" },
-      { altn: "CYFB-BIKF", dest: "ESSA" },
-      { altn: "CYFB-ENBO", dest: "ESSA" },
-      { altn: "CYZF-ENBO", dest: "Europe", etops: "207" }
-    ],
+      { altn: "CYFB-BIKF", dest: "ESSA" }
+        ],
+
     "g": [
       { altn: "CYFB-ENBO", dest: "Europe other than ESSA" },
+     
+    ],
+    "h": [
       { altn: "CYYR-ENBR", dest: "Europe other than ESSA" },
       { altn: "CYYR-EINN", dest: "Europe other than ESSA" },
       { altn: "CYYR-EGLL", dest: "Europe other than ESSA" },
-      { altn: "CYYR-EBBR", dest: "Europe other than ESSA", etops: "180/207" }
+      { altn: "CYYR-EBBR", dest: "Europe other than ESSA" }
     ],
-    "h": [],
     "i": [
       { altn: "CYFB-BIKF", dest: "LOWW", etops: "180/207" },
       { altn: "CYFB-ENBO", dest: "LOWW", etops: "180/207" },
@@ -5480,49 +5495,51 @@ export const etopsData = {
       { altn: "CYZF-ENBO", dest: "LOWW", etops: "207" }
     ]
   },
+
   "B777-300ER/B777F": {
     "a": [
       { altn: "CYZF-BIKF", dest: "Europe" },
-      { altn: "CYFB-BIKF", dest: "Europe", etops: "180/207" },
+      { altn: "CYFB-BIKF", dest: "Europe" },
       { altn: "CYFB-ENBO", dest: "Europe" },
       { altn: "CYFB-ENBR", dest: "Europe" },
-      { altn: "PAFA-BIKF", dest: "Europe" },
+      { altn: "PAFA-BIKF", dest: "Europe", etops: "207" },
       { altn: "CYYR-Europe", dest: "Europe", etops: "207" },
-      { altn: "CYZF-ENBO", dest: "Europe" },
+      { altn: "CYZF-ENBO", dest: "Europe" , etops: "207"},
       { altn: "CYYR-ENBO", dest: "Europe", etops: "207" },
       { altn: "CYYR-ENBR", dest: "Europe", etops: "207" }
     ],
     "b": [
-      { altn: "CYQX-Europe", dest: "Europe", etops: "180" },
-      { altn: "CYYR-Europe", dest: "Europe", etops: "180" }
+      { altn: "CYQX-Europe", dest: "Europe" },
+      { altn: "CYYR-Europe", dest: "Europe" }
     ],
     "c": [
-      { altn: "CYFB-BIKF", dest: "Europe", etops: "180/207" },
+      { altn: "CYFB-BIKF", dest: "Europe"},
       { altn: "CYFB-ENBO", dest: "EGLL" },
-      { altn: "CYFB-ENBO", dest: "Europe other than EGLL", etops: "180/207" },
-      { altn: "CYFB-ENBR", dest: "Europe other than EGLL", etops: "180/207" },
+      { altn: "CYFB-ENBO", dest: "Europe other than EGLL"},
+      { altn: "CYFB-ENBR", dest: "Europe other than EGLL"},
       { altn: "PAFA-BIKF", dest: "Europe", etops: "207" },
       { altn: "CYXY-BIKF", dest: "Europe", etops: "207" },
       { altn: "CYZF-BIKF", dest: "Europe", etops: "207" },
-      { altn: "CYZF-ENBO", dest: "Europe" }
+      { altn: "CYZF-ENBO", dest: "Europe", etops: "207"  }
     ],
     "d": [
       { altn: "CYFB-BIKF", dest: "Europe" },
-      { altn: "CYFB-ENBO", dest: "Europe", etops: "180/207" },
-      { altn: "PAFA-BIKF", dest: "Europe" },
-      { altn: "CYZF-BIKF", dest: "Europe" },
+      { altn: "CYFB-ENBO", dest: "Europe"},
+      { altn: "PAFA-BIKF", dest: "Europe" , etops: "207" },
+      { altn: "CYZF-BIKF", dest: "Europe" , etops: "207" },
       { altn: "CYZF-ENBO", dest: "Europe", etops: "207" }
     ],
     "e": [],
     "f": [],
     "g": [
       { altn: "CYFB-ENBO", dest: "Europe" },
-      { altn: "CYYR-ENBR", dest: "Europe" },
-      { altn: "CYYR-EINN", dest: "Europe" },
-      { altn: "CYYR-EGLL", dest: "Europe" }
+    
     ],
     "h": [
-      { altn: "CYYR-EBBR", dest: "Europe", etops: "180/207" }
+      { altn: "CYYR-ENBR", dest: "Europe" },
+      { altn: "CYYR-EINN", dest: "Europe" },
+      { altn: "CYYR-EGLL", dest: "Europe" },
+      { altn: "CYYR-EBBR", dest: "Europe"}
     ],
     "i": []
   }
