@@ -58,28 +58,25 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
     const targetUrl = 'https://radio.arinc.net/pacific/';
     const cb = Date.now(); 
     let html = "";
+    let success = false;
     
     const fetchMethods = [
+      // 1: allorigins (rawテキストを返す安定したプロキシ)
       async () => {
-        const res = await fetch(`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(targetUrl)}&_t=${cb}`);
+        const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}&_t=${cb}`);
         if (!res.ok) throw new Error('Proxy 1 failed');
         return await res.text();
       },
+      // 2: corsproxy.io
       async () => {
-        const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}&_t=${cb}`);
+        const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(targetUrl)}`);
         if (!res.ok) throw new Error('Proxy 2 failed');
-        const data = await res.json();
-        if (!data.contents) throw new Error('No content');
-        return data.contents;
-      },
-      async () => {
-        const res = await fetch(`https://thingproxy.freeboard.io/fetch/${targetUrl}?_t=${cb}`);
-        if (!res.ok) throw new Error('Proxy 3 failed');
         return await res.text();
       },
+      // 3: codetabs
       async () => {
-        const res = await fetch(`https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}&_t=${cb}`);
-        if (!res.ok) throw new Error('Proxy 4 failed');
+        const res = await fetch(`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(targetUrl)}&_t=${cb}`);
+        if (!res.ok) throw new Error('Proxy 3 failed');
         return await res.text();
       }
     ];
@@ -87,18 +84,20 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
     for (let i = 0; i < fetchMethods.length; i++) {
       try {
         html = await fetchMethods[i]();
-        if (html && html.includes("Pacific HF")) {
+        // サイトのレイアウト変更に備え、より緩い条件で取得成功を判定
+        if (html && (html.includes("Pacific") || html.includes("ARINC")) && html.match(/\d{4,5}/)) {
+          success = true;
           break; 
-        } else {
-          throw new Error('Invalid content');
         }
       } catch (err) {
-        if (i === fetchMethods.length - 1) {
-          setHfData(prev => ({ ...prev, status: "Not Updated" })); 
-          setIsFetchingHF(false);
-          return;
-        }
+        console.warn(`Proxy ${i + 1} failed`);
       }
+    }
+
+    if (!success) {
+      setHfData(prev => ({ ...prev, status: "Not Updated" })); 
+      setIsFetchingHF(false);
+      return;
     }
 
     try {
@@ -109,13 +108,14 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
       const newHfData = { ...hfData };
       let updated = false;
 
-      const asiaMatch = text.match(/North America.*?Asia.*?(\d{4,5})\s*kHz.*?(\d{4,5})\s*kHz/i);
+      // kHz表記がなくてもマッチするように柔軟な正規表現に変更
+      const asiaMatch = text.match(/North America.*?Asia.*?(\d{4,5})\s*(?:kHz)?.*?(\d{4,5})\s*(?:kHz)?/i);
       if (asiaMatch) { newHfData.asia.pri = asiaMatch[1]; newHfData.asia.sec = asiaMatch[2]; updated = true; }
 
-      const alaskaMatch = text.match(/Alaska\/North Pacific.*?(\d{4,5})\s*kHz.*?(\d{4,5})\s*kHz/i);
+      const alaskaMatch = text.match(/Alaska.*?Pacific.*?(\d{4,5})\s*(?:kHz)?.*?(\d{4,5})\s*(?:kHz)?/i);
       if (alaskaMatch) { newHfData.alaska.pri = alaskaMatch[1]; newHfData.alaska.sec = alaskaMatch[2]; updated = true; }
 
-      const polarMatch = text.match(/Polar Route.*?(\d{4,5})\s*kHz.*?(\d{4,5})\s*kHz(?:.*?(\d{4,5})\s*kHz)?/i);
+      const polarMatch = text.match(/Polar.*?(\d{4,5})\s*(?:kHz)?.*?(\d{4,5})\s*(?:kHz)?(?:.*?(\d{4,5})\s*(?:kHz)?)?/i);
       if (polarMatch) {
         newHfData.polar.pri = polarMatch[1]; newHfData.polar.sec = polarMatch[2];
         if (polarMatch[3]) newHfData.polar.ter = polarMatch[3];
