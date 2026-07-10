@@ -13,13 +13,11 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
   
   const [todayInfo, setTodayInfo] = useState({ dateStr: "", isOdd: true });
 
-  // ★ 初期値を localStorage (ブラウザの保存領域) から読み込む
   const [hfData, setHfData] = useState(() => {
     try {
       const cached = localStorage.getItem(HF_CACHE_KEY);
       if (cached) {
         const parsed = JSON.parse(cached);
-        // 保存データから読み込んだ直後は "CACHED" ステータスにする
         return { ...parsed, status: "CACHED" };
       }
     } catch (e) {
@@ -63,7 +61,6 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
   }, []);
 
   const fetchHFData = async () => {
-    // 厳密にfalseの時だけネットワークオフラインとみなす
     if (navigator.onLine === false) {
       setHfData(prev => ({ ...prev, status: prev.isOnlineData ? "CACHED" : "Not Updated" }));
       return;
@@ -73,25 +70,44 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
     setHfData(prev => ({ ...prev, status: "Fetching..." }));
     
     const targetUrl = 'https://radio.arinc.net/pacific/';
+    
+    // ★ 解決策: 10分単位で切り替わる固定キーを生成（ミリ秒の乱数をやめる）
+    // これにより、無料プロキシサーバーから「連続したスパム攻撃」とみなされるのを防ぎます。
+    const timeKey = Math.floor(Date.now() / 600000); 
+    
     let html = null;
     let success = false;
     
-    // ★ 知人のコードの手法を採用：
-    // URLを配列にしてシンプルな fetch でループする。
-    // 複雑なオプション(credentials等)を省くことで、iPadの厳しいPreflightチェックをすり抜ける。
+    // iPadで一度だけ成功した、最も安定している「JSON取得方式」を最優先に設定し、
+    // オプションをご友人のコードと同じく極力シンプルにしました。
     const apiUrls = [
-      targetUrl, // 1. 直接取得（もし将来的にCORSが許可された場合のため最優先）
-      `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`, // 2. allorigins (知人コードと同じ形式)
-      `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(targetUrl)}`, // 3. codetabs
-      `https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}` // 4. corsproxy
+      { url: `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}&_t=${timeKey}`, type: 'json' },
+      { url: `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(targetUrl)}&_t=${timeKey}`, type: 'text' },
+      { url: `https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}&_t=${timeKey}`, type: 'text' },
+      { url: `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}&_t=${timeKey}`, type: 'text' }
     ];
 
-    for (const url of apiUrls) {
+    for (const api of apiUrls) {
       try {
-        const response = await fetch(url, { cache: 'no-store' });
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        
+        const response = await fetch(api.url, { 
+          cache: 'no-store',
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+
         if (response.ok) {
-          const text = await response.text();
-          // サイトのレイアウト変更に備え、より緩い条件で取得成功を判定
+          let text = "";
+          if (api.type === 'json') {
+            const data = await response.json();
+            text = data.contents || "";
+          } else {
+            text = await response.text();
+          }
+
           if (text && (text.includes("Pacific") || text.includes("ARINC")) && text.match(/\d{4,5}/)) {
             html = text;
             success = true;
@@ -99,12 +115,11 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
           }
         }
       } catch (e) {
-        console.log(`[API Fetch] ${url} failed:`, e);
+        console.log(`[HF API Fetch] ${api.url} failed:`, e);
       }
     }
 
     if (!success || !html) {
-      // 取得失敗時は、過去の成功データがあれば CACHED に戻す
       setHfData(prev => ({ ...prev, status: prev.isOnlineData ? "CACHED" : "Not Updated" })); 
       setIsFetchingHF(false);
       return;
@@ -118,7 +133,6 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
       const newHfData = { ...hfData };
       let updated = false;
 
-      // kHz表記がなくてもマッチするように柔軟な正規表現
       const asiaMatch = text.match(/North America.*?Asia.*?(\d{4,5})\s*(?:kHz)?.*?(\d{4,5})\s*(?:kHz)?/i);
       if (asiaMatch) { newHfData.asia.pri = asiaMatch[1]; newHfData.asia.sec = asiaMatch[2]; updated = true; }
 
@@ -136,7 +150,6 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
         const validMatch = text.match(/Valid from (.*?Z)/i) || text.match(/Valid from (.*?) Notes/i);
         const validStr = validMatch ? validMatch[1].trim() : "Live Data";
         
-        // ★ 最新データを localStorage に保存
         const finalData = { ...newHfData, lastUpdated: validStr, isOnlineData: true, status: "LIVE" };
         setHfData(finalData);
         localStorage.setItem(HF_CACHE_KEY, JSON.stringify(finalData));
