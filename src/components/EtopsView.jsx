@@ -77,41 +77,56 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
     let html = "";
     let success = false;
     
-    // iPadOS特有のCORSやキャッシュ問題を回避するための通信手段
+    // ★ iPad (iOS Safari) のトラッキング防止機能 (ITP) によるブロックを回避するための設定
+    // credentials: 'omit' を明示して、サードパーティCookie等を一切送らないようにする
+    const fetchOptions = { 
+      cache: 'no-store', 
+      credentials: 'omit',
+      mode: 'cors'
+    };
+    
     const fetchMethods = [
       async () => {
-        const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}&_t=${cb}`, { cache: 'no-store' });
-        if (!res.ok) throw new Error('Proxy 1 failed');
-        const data = await res.json();
-        if (!data || !data.contents) throw new Error('No content');
-        return data.contents;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        try {
+          const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}&_t=${cb}`, { ...fetchOptions, signal: controller.signal });
+          if (!res.ok) throw new Error('Proxy 1 failed');
+          const data = await res.json();
+          if (!data || !data.contents) throw new Error('No content');
+          return data.contents;
+        } finally { clearTimeout(timeoutId); }
       },
       async () => {
-        const res = await fetch(`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(targetUrl)}&_t=${cb}`, { cache: 'no-store' });
-        if (!res.ok) throw new Error('Proxy 2 failed');
-        return await res.text();
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        try {
+          const res = await fetch(`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(targetUrl)}&_t=${cb}`, { ...fetchOptions, signal: controller.signal });
+          if (!res.ok) throw new Error('Proxy 2 failed');
+          return await res.text();
+        } finally { clearTimeout(timeoutId); }
       },
       async () => {
-        const res = await fetch(`https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}&_t=${cb}`, { cache: 'no-store' });
-        if (!res.ok) throw new Error('Proxy 3 failed');
-        return await res.text();
-      },
-      async () => {
-        const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}&_t=${cb}`, { cache: 'no-store' });
-        if (!res.ok) throw new Error('Proxy 4 failed');
-        return await res.text();
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        try {
+          const res = await fetch(`https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}&_t=${cb}`, { ...fetchOptions, signal: controller.signal });
+          if (!res.ok) throw new Error('Proxy 3 failed');
+          return await res.text();
+        } finally { clearTimeout(timeoutId); }
       }
     ];
 
     for (let i = 0; i < fetchMethods.length; i++) {
       try {
         html = await fetchMethods[i]();
+        // サイトのレイアウト変更に備え、より緩い条件で取得成功を判定
         if (html && (html.includes("Pacific") || html.includes("ARINC")) && html.match(/\d{4,5}/)) {
           success = true;
           break; 
         }
       } catch (err) {
-        console.warn(`Proxy ${i + 1} failed:`, err);
+        console.warn(`Fetch method ${i + 1} failed:`, err);
       }
     }
 
@@ -130,6 +145,7 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
       const newHfData = { ...hfData };
       let updated = false;
 
+      // kHz表記がなくてもマッチするように柔軟な正規表現
       const asiaMatch = text.match(/North America.*?Asia.*?(\d{4,5})\s*(?:kHz)?.*?(\d{4,5})\s*(?:kHz)?/i);
       if (asiaMatch) { newHfData.asia.pri = asiaMatch[1]; newHfData.asia.sec = asiaMatch[2]; updated = true; }
 
