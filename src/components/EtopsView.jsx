@@ -73,64 +73,37 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
     setHfData(prev => ({ ...prev, status: "Fetching..." }));
     
     const targetUrl = 'https://radio.arinc.net/pacific/';
-    const cb = Date.now(); 
-    let html = "";
+    let html = null;
     let success = false;
     
-    // ★ iPad (iOS Safari) のトラッキング防止機能 (ITP) によるブロックを回避するための設定
-    // credentials: 'omit' を明示して、サードパーティCookie等を一切送らないようにする
-    const fetchOptions = { 
-      cache: 'no-store', 
-      credentials: 'omit',
-      mode: 'cors'
-    };
-    
-    const fetchMethods = [
-      async () => {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000);
-        try {
-          const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}&_t=${cb}`, { ...fetchOptions, signal: controller.signal });
-          if (!res.ok) throw new Error('Proxy 1 failed');
-          const data = await res.json();
-          if (!data || !data.contents) throw new Error('No content');
-          return data.contents;
-        } finally { clearTimeout(timeoutId); }
-      },
-      async () => {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000);
-        try {
-          const res = await fetch(`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(targetUrl)}&_t=${cb}`, { ...fetchOptions, signal: controller.signal });
-          if (!res.ok) throw new Error('Proxy 2 failed');
-          return await res.text();
-        } finally { clearTimeout(timeoutId); }
-      },
-      async () => {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000);
-        try {
-          const res = await fetch(`https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}&_t=${cb}`, { ...fetchOptions, signal: controller.signal });
-          if (!res.ok) throw new Error('Proxy 3 failed');
-          return await res.text();
-        } finally { clearTimeout(timeoutId); }
-      }
+    // ★ 知人のコードの手法を採用：
+    // URLを配列にしてシンプルな fetch でループする。
+    // 複雑なオプション(credentials等)を省くことで、iPadの厳しいPreflightチェックをすり抜ける。
+    const apiUrls = [
+      targetUrl, // 1. 直接取得（もし将来的にCORSが許可された場合のため最優先）
+      `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`, // 2. allorigins (知人コードと同じ形式)
+      `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(targetUrl)}`, // 3. codetabs
+      `https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}` // 4. corsproxy
     ];
 
-    for (let i = 0; i < fetchMethods.length; i++) {
+    for (const url of apiUrls) {
       try {
-        html = await fetchMethods[i]();
-        // サイトのレイアウト変更に備え、より緩い条件で取得成功を判定
-        if (html && (html.includes("Pacific") || html.includes("ARINC")) && html.match(/\d{4,5}/)) {
-          success = true;
-          break; 
+        const response = await fetch(url, { cache: 'no-store' });
+        if (response.ok) {
+          const text = await response.text();
+          // サイトのレイアウト変更に備え、より緩い条件で取得成功を判定
+          if (text && (text.includes("Pacific") || text.includes("ARINC")) && text.match(/\d{4,5}/)) {
+            html = text;
+            success = true;
+            break; 
+          }
         }
-      } catch (err) {
-        console.warn(`Fetch method ${i + 1} failed:`, err);
+      } catch (e) {
+        console.log(`[API Fetch] ${url} failed:`, e);
       }
     }
 
-    if (!success) {
+    if (!success || !html) {
       // 取得失敗時は、過去の成功データがあれば CACHED に戻す
       setHfData(prev => ({ ...prev, status: prev.isOnlineData ? "CACHED" : "Not Updated" })); 
       setIsFetchingHF(false);
