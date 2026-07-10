@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { SafeIcon } from './SharedComponents';
 import { etopsData } from '../data/flightData';
 
+const HF_CACHE_KEY = 'efb_arinc_hf_data';
+
 export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
   const [routeInput, setRouteInput] = useState(globalRoute);
   const [aircraft, setAircraft] = useState("B777-300ER/B777F");
@@ -11,14 +13,28 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
   
   const [todayInfo, setTodayInfo] = useState({ dateStr: "", isOdd: true });
 
-  const [hfData, setHfData] = useState({
-    asia: { pri: "11282", sec: "5547" },
-    alaska: { pri: "10048", sec: "6673" },
-    polar: { pri: "11342", sec: "8933", ter: "6640" },
-    lastUpdated: "Default Cache",
-    isOnlineData: false,
-    status: "Not Updated" 
+  // ★ 初期値を localStorage (ブラウザの保存領域) から読み込む
+  const [hfData, setHfData] = useState(() => {
+    try {
+      const cached = localStorage.getItem(HF_CACHE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        // 保存データから読み込んだ直後は "CACHED" ステータスにする
+        return { ...parsed, status: "CACHED" };
+      }
+    } catch (e) {
+      console.warn("HF Data cache read failed");
+    }
+    return {
+      asia: { pri: "11282", sec: "5547" },
+      alaska: { pri: "10048", sec: "6673" },
+      polar: { pri: "11342", sec: "8933", ter: "6640" },
+      lastUpdated: "Default Info",
+      isOnlineData: false,
+      status: "Not Updated" 
+    };
   });
+  
   const [isFetchingHF, setIsFetchingHF] = useState(false);
 
   useEffect(() => {
@@ -49,7 +65,7 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
   const fetchHFData = async () => {
     // 厳密にfalseの時だけネットワークオフラインとみなす
     if (navigator.onLine === false) {
-      setHfData(prev => ({ ...prev, status: "Not Updated" }));
+      setHfData(prev => ({ ...prev, status: prev.isOnlineData ? "CACHED" : "Not Updated" }));
       return;
     }
     
@@ -63,7 +79,6 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
     
     // iPadOS特有のCORSやキャッシュ問題を回避するための通信手段
     const fetchMethods = [
-      // 1: allorigins (JSON API) - iOSの厳格なCORSポリシーを回避しやすい
       async () => {
         const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}&_t=${cb}`, { cache: 'no-store' });
         if (!res.ok) throw new Error('Proxy 1 failed');
@@ -71,19 +86,16 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
         if (!data || !data.contents) throw new Error('No content');
         return data.contents;
       },
-      // 2: codetabs - 比較的安定
       async () => {
         const res = await fetch(`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(targetUrl)}&_t=${cb}`, { cache: 'no-store' });
         if (!res.ok) throw new Error('Proxy 2 failed');
         return await res.text();
       },
-      // 3: corsproxy.io
       async () => {
         const res = await fetch(`https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}&_t=${cb}`, { cache: 'no-store' });
         if (!res.ok) throw new Error('Proxy 3 failed');
         return await res.text();
       },
-      // 4: allorigins (raw) - バックアップ
       async () => {
         const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}&_t=${cb}`, { cache: 'no-store' });
         if (!res.ok) throw new Error('Proxy 4 failed');
@@ -94,7 +106,6 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
     for (let i = 0; i < fetchMethods.length; i++) {
       try {
         html = await fetchMethods[i]();
-        // サイトのレイアウト変更に備え、より緩い条件で取得成功を判定
         if (html && (html.includes("Pacific") || html.includes("ARINC")) && html.match(/\d{4,5}/)) {
           success = true;
           break; 
@@ -105,7 +116,8 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
     }
 
     if (!success) {
-      setHfData(prev => ({ ...prev, status: "Not Updated" })); 
+      // 取得失敗時は、過去の成功データがあれば CACHED に戻す
+      setHfData(prev => ({ ...prev, status: prev.isOnlineData ? "CACHED" : "Not Updated" })); 
       setIsFetchingHF(false);
       return;
     }
@@ -118,7 +130,6 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
       const newHfData = { ...hfData };
       let updated = false;
 
-      // kHz表記がなくてもマッチするように柔軟な正規表現
       const asiaMatch = text.match(/North America.*?Asia.*?(\d{4,5})\s*(?:kHz)?.*?(\d{4,5})\s*(?:kHz)?/i);
       if (asiaMatch) { newHfData.asia.pri = asiaMatch[1]; newHfData.asia.sec = asiaMatch[2]; updated = true; }
 
@@ -136,13 +147,16 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
         const validMatch = text.match(/Valid from (.*?Z)/i) || text.match(/Valid from (.*?) Notes/i);
         const validStr = validMatch ? validMatch[1].trim() : "Live Data";
         
-        setHfData({ ...newHfData, lastUpdated: validStr, isOnlineData: true, status: "LIVE" });
-        window.dispatchEvent(new CustomEvent('show-toast', { detail: 'ARINC HF周波数を最新データに更新しました' }));
+        // ★ 最新データを localStorage に保存
+        const finalData = { ...newHfData, lastUpdated: validStr, isOnlineData: true, status: "LIVE" };
+        setHfData(finalData);
+        localStorage.setItem(HF_CACHE_KEY, JSON.stringify(finalData));
+        window.dispatchEvent(new CustomEvent('show-toast', { detail: 'ARINC HF周波数を最新データに更新・保存しました' }));
       } else {
-        setHfData(prev => ({ ...prev, status: "Not Updated" }));
+        setHfData(prev => ({ ...prev, status: prev.isOnlineData ? "CACHED" : "Not Updated" }));
       }
     } catch (error) {
-      setHfData(prev => ({ ...prev, status: "Not Updated" }));
+      setHfData(prev => ({ ...prev, status: prev.isOnlineData ? "CACHED" : "Not Updated" }));
     } finally {
       setIsFetchingHF(false);
     }
@@ -270,9 +284,19 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
                 ARINC Pacific Frequencies
               </h2>
               
-              <button onClick={fetchHFData} disabled={isFetchingHF} className={`px-2 py-0.5 rounded text-[9px] font-bold border transition-colors ${hfData.status === "LIVE" ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/30' : hfData.status === "Not Updated" ? 'bg-red-500/20 text-red-400 border-red-500/30 hover:bg-red-500/30' : 'bg-slate-700 text-slate-300 border-slate-600 hover:bg-slate-600'} flex items-center gap-1`} title={hfData.isOnlineData ? `Valid: ${hfData.lastUpdated}` : "タップして最新データを取得"}>
-                <SafeIcon name={hfData.status === "Not Updated" ? "AlertTriangle" : "RefreshCw"} className={`w-2.5 h-2.5 ${isFetchingHF ? 'animate-spin' : ''}`} />
-                {hfData.status === "Not Updated" ? "⚠️ Not Updated" : hfData.status}
+              <button 
+                onClick={fetchHFData} 
+                disabled={isFetchingHF} 
+                className={`px-2 py-0.5 rounded text-[9px] font-bold border transition-colors ${
+                  hfData.status === "LIVE" ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/30' : 
+                  hfData.status === "CACHED" ? 'bg-amber-500/20 text-amber-400 border-amber-500/30 hover:bg-amber-500/30' : 
+                  hfData.status === "Not Updated" ? 'bg-red-500/20 text-red-400 border-red-500/30 hover:bg-red-500/30' : 
+                  'bg-slate-700 text-slate-300 border-slate-600 hover:bg-slate-600'
+                } flex items-center gap-1`} 
+                title={hfData.isOnlineData ? `Valid: ${hfData.lastUpdated}` : "タップして最新データを取得"}
+              >
+                <SafeIcon name={hfData.status === "Not Updated" ? "AlertTriangle" : hfData.status === "CACHED" ? "Database" : "RefreshCw"} className={`w-2.5 h-2.5 ${isFetchingHF ? 'animate-spin' : ''}`} />
+                {hfData.status === "Not Updated" ? "⚠️ Not Updated" : hfData.status === "CACHED" ? "📦 CACHED" : hfData.status}
               </button>
               
               <a href="https://radio.arinc.net/pacific/" target="_blank" rel="noopener noreferrer" className="ml-1 text-[10px] text-blue-400 hover:text-blue-300 underline flex items-center gap-0.5 transition-colors">
@@ -286,32 +310,35 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
             </div>
           </div>
 
-          {hfData.status === "Not Updated" && (
-            <div className="mb-3 bg-red-900/20 border border-red-500/40 p-2 rounded flex items-start gap-2 text-red-400 text-[10px]">
-              <SafeIcon name="AlertTriangle" className="w-4 h-4 shrink-0 mt-0.5" />
+          {(hfData.status === "Not Updated" || hfData.status === "CACHED") && (
+            <div className={`mb-3 border p-2 rounded flex items-start gap-2 text-[10px] ${hfData.status === "CACHED" ? 'bg-amber-900/20 border-amber-500/40 text-amber-400' : 'bg-red-900/20 border-red-500/40 text-red-400'}`}>
+              <SafeIcon name={hfData.status === "CACHED" ? "Database" : "AlertTriangle"} className="w-4 h-4 shrink-0 mt-0.5" />
               <p className="leading-relaxed font-bold">
-                自動取得がブロックされました。現在表示されている周波数は「過去の基本データ（キャッシュ）」であり、最新ではない可能性があります。必ず上の「公式サイトを開く」リンクから最新のアサインメントを確認してください。
+                {hfData.status === "CACHED" ? 
+                  `自動取得に失敗したかオフラインです。現在表示されている周波数は前回取得時 (${hfData.lastUpdated}) に保存された「キャッシュデータ」であり、最新ではない可能性があります。` :
+                  `自動取得がブロックされました。現在表示されている周波数は「アプリ内蔵の初期データ」であり、最新ではない可能性があります。必ず上の「公式サイトを開く」リンクから最新のアサインメントを確認してください。`
+                }
               </p>
             </div>
           )}
 
           {/* HF Frequencies */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className={`bg-slate-900/60 p-2.5 rounded-lg border ${hfData.status === "Not Updated" ? "border-red-500/30" : "border-slate-700/60"} flex flex-col justify-between`}>
+            <div className={`bg-slate-900/60 p-2.5 rounded-lg border ${hfData.status === "Not Updated" ? "border-red-500/30" : hfData.status === "CACHED" ? "border-amber-500/30" : "border-slate-700/60"} flex flex-col justify-between`}>
               <div className="text-[11px] font-black text-slate-300 border-l-2 border-amber-400 pl-2 mb-1.5 leading-none">North America &rarr; Asia</div>
               <div className="flex items-center justify-between text-xs font-mono text-slate-400 pt-1">
                 <div>Pri: <span className="text-white font-bold">{hfData.asia.pri}</span></div>
                 <div>Sec: <span className="text-slate-300">{hfData.asia.sec}</span></div>
               </div>
             </div>
-            <div className={`bg-slate-900/60 p-2.5 rounded-lg border ${hfData.status === "Not Updated" ? "border-red-500/30" : "border-slate-700/60"} flex flex-col justify-between`}>
+            <div className={`bg-slate-900/60 p-2.5 rounded-lg border ${hfData.status === "Not Updated" ? "border-red-500/30" : hfData.status === "CACHED" ? "border-amber-500/30" : "border-slate-700/60"} flex flex-col justify-between`}>
               <div className="text-[11px] font-black text-slate-300 border-l-2 border-amber-400 pl-2 mb-1.5 leading-none">Alaska / North Pacific <span className="text-[9px] text-slate-500 font-normal">(West of 150W)</span></div>
               <div className="flex items-center justify-between text-xs font-mono text-slate-400 pt-1">
                 <div>Pri: <span className="text-white font-bold">{hfData.alaska.pri}</span></div>
                 <div>Sec: <span className="text-slate-300">{hfData.alaska.sec}</span></div>
               </div>
             </div>
-            <div className={`bg-slate-900/60 p-2.5 rounded-lg border ${hfData.status === "Not Updated" ? "border-red-500/30" : "border-slate-700/60"} flex flex-col justify-between`}>
+            <div className={`bg-slate-900/60 p-2.5 rounded-lg border ${hfData.status === "Not Updated" ? "border-red-500/30" : hfData.status === "CACHED" ? "border-amber-500/30" : "border-slate-700/60"} flex flex-col justify-between`}>
               <div className="text-[11px] font-black text-slate-300 border-l-2 border-amber-400 pl-2 mb-1.5 leading-none">Polar Route</div>
               <div className="flex items-center justify-between text-xs font-mono text-slate-400 pt-1">
                 <div>Pri: <span className="text-white font-bold">{hfData.polar.pri}</span></div>
