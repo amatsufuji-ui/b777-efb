@@ -70,25 +70,29 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
     setHfData(prev => ({ ...prev, status: "Fetching..." }));
 
     const GAS_URL = "https://script.google.com/macros/s/AKfycbz8_qiZlFNdgo1wlgYTL6b3E70U5emNbBWlMTRyeBb6JLjfL07ii34ZIonFA_oCYaHaZw/exec"; 
-    const targetUrl = 'https://radio.arinc.net/pacific/';
     
+    const targetUrl = 'https://radio.arinc.net/pacific/';
     let html = null;
     let success = false;
+    
     const fetchMethods = [];
 
-    // 1. GAS (iPadのPreflightエラーを防ぐため、fetchオプションを極限までシンプル化)
+    // 1. Google Apps Script 経由
     if (GAS_URL) {
       fetchMethods.push(async () => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 12000);
         try {
-          // URLに乱数をつけてブラウザキャッシュを回避 (headersのcache:no-storeは使わない)
-          const fetchUrl = GAS_URL + "?_t=" + Date.now();
+          // ★ iPadの「リダイレクト先の強力なキャッシュ」を完全に防ぐ魔法
+          // ミリ秒の現在時刻をくっつけることで、Safariに毎回新しい通信だと認識させます
+          const fetchUrl = `${GAS_URL}?_t=${Date.now()}`;
+          
+          // iPadが警戒しないよう、オプションは極限までシンプルに
           const res = await fetch(fetchUrl, { 
-            signal: controller.signal, 
-            redirect: 'follow' 
-            // credentialsやcacheオプションを削除し、「単純なGETリクエスト」として送信
+            signal: controller.signal,
+            cache: 'no-store'
           });
+          
           if (!res.ok) throw new Error('GAS Fetch failed');
           return await res.text();
         } finally {
@@ -97,14 +101,14 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
       });
     }
 
-    // 2. 予備プロキシ
-    const timeKey = Math.floor(Date.now() / 600000); 
+    // 2. パブリックプロキシ (予備)
+    const timeKey = Math.floor(Date.now() / 600000); // 予備サーバーは弾かれないよう10分固定
     fetchMethods.push(
       async () => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000);
         try {
-          const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}&_t=${timeKey}`, { signal: controller.signal });
+          const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}&_t=${timeKey}`, { signal: controller.signal, cache: 'no-store' });
           if (!res.ok) throw new Error('Proxy 1 failed');
           const data = await res.json();
           return data.contents || "";
@@ -114,13 +118,14 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000);
         try {
-          const res = await fetch(`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(targetUrl)}&_t=${timeKey}`, { signal: controller.signal });
+          const res = await fetch(`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(targetUrl)}&_t=${timeKey}`, { signal: controller.signal, cache: 'no-store' });
           if (!res.ok) throw new Error('Proxy 2 failed');
           return await res.text();
         } finally { clearTimeout(timeoutId); }
       }
     );
 
+    // ループで順番にトライ
     for (let i = 0; i < fetchMethods.length; i++) {
       try {
         const text = await fetchMethods[i]();
