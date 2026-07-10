@@ -47,7 +47,8 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
   }, []);
 
   const fetchHFData = async () => {
-    if (!navigator.onLine) {
+    // 厳密にfalseの時だけネットワークオフラインとみなす
+    if (navigator.onLine === false) {
       setHfData(prev => ({ ...prev, status: "Not Updated" }));
       return;
     }
@@ -60,23 +61,32 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
     let html = "";
     let success = false;
     
+    // iPadOS特有のCORSやキャッシュ問題を回避するための通信手段
     const fetchMethods = [
-      // 1: allorigins (rawテキストを返す安定したプロキシ)
+      // 1: allorigins (JSON API) - iOSの厳格なCORSポリシーを回避しやすい
       async () => {
-        const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}&_t=${cb}`);
+        const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}&_t=${cb}`, { cache: 'no-store' });
         if (!res.ok) throw new Error('Proxy 1 failed');
-        return await res.text();
+        const data = await res.json();
+        if (!data || !data.contents) throw new Error('No content');
+        return data.contents;
       },
-      // 2: corsproxy.io
+      // 2: codetabs - 比較的安定
       async () => {
-        const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(targetUrl)}`);
+        const res = await fetch(`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(targetUrl)}&_t=${cb}`, { cache: 'no-store' });
         if (!res.ok) throw new Error('Proxy 2 failed');
         return await res.text();
       },
-      // 3: codetabs
+      // 3: corsproxy.io
       async () => {
-        const res = await fetch(`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(targetUrl)}&_t=${cb}`);
+        const res = await fetch(`https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}&_t=${cb}`, { cache: 'no-store' });
         if (!res.ok) throw new Error('Proxy 3 failed');
+        return await res.text();
+      },
+      // 4: allorigins (raw) - バックアップ
+      async () => {
+        const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}&_t=${cb}`, { cache: 'no-store' });
+        if (!res.ok) throw new Error('Proxy 4 failed');
         return await res.text();
       }
     ];
@@ -90,7 +100,7 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
           break; 
         }
       } catch (err) {
-        console.warn(`Proxy ${i + 1} failed`);
+        console.warn(`Proxy ${i + 1} failed:`, err);
       }
     }
 
@@ -108,7 +118,7 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
       const newHfData = { ...hfData };
       let updated = false;
 
-      // kHz表記がなくてもマッチするように柔軟な正規表現に変更
+      // kHz表記がなくてもマッチするように柔軟な正規表現
       const asiaMatch = text.match(/North America.*?Asia.*?(\d{4,5})\s*(?:kHz)?.*?(\d{4,5})\s*(?:kHz)?/i);
       if (asiaMatch) { newHfData.asia.pri = asiaMatch[1]; newHfData.asia.sec = asiaMatch[2]; updated = true; }
 
