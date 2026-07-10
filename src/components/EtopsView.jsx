@@ -13,6 +13,7 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
   
   const [todayInfo, setTodayInfo] = useState({ dateStr: "", isOdd: true });
 
+  // 初期値を localStorage から読み込む
   const [hfData, setHfData] = useState(() => {
     try {
       const cached = localStorage.getItem(HF_CACHE_KEY);
@@ -69,30 +70,31 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
     setIsFetchingHF(true);
     setHfData(prev => ({ ...prev, status: "Fetching..." }));
 
+    // ============================================================
+    // ★ GAS URL
+    // ============================================================
     const GAS_URL = "https://script.google.com/macros/s/AKfycbz8_qiZlFNdgo1wlgYTL6b3E70U5emNbBWlMTRyeBb6JLjfL07ii34ZIonFA_oCYaHaZw/exec"; 
     
     const targetUrl = 'https://radio.arinc.net/pacific/';
+    const timeKey = Math.floor(Date.now() / 600000); // 10分キャッシュキー
     let html = null;
     let success = false;
     
     const fetchMethods = [];
 
-    // 1. Google Apps Script 経由
+    // 1. Google Apps Script 経由 (iPad Safari リダイレクト永久キャッシュ対策済み)
     if (GAS_URL) {
       fetchMethods.push(async () => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 12000);
         try {
-          // ★ iPadの「リダイレクト先の強力なキャッシュ」を完全に防ぐ魔法
-          // ミリ秒の現在時刻をくっつけることで、Safariに毎回新しい通信だと認識させます
-          const fetchUrl = `${GAS_URL}?_t=${Date.now()}`;
+          // ★ iPadの「転送先URLの勝手な記憶」をぶっ壊すため、ミリ秒の乱数を付与
+          const fetchUrl = GAS_URL + (GAS_URL.includes("?") ? "&" : "?") + "_t=" + Date.now();
           
-          // iPadが警戒しないよう、オプションは極限までシンプルに
+          // ★ オプションを削ぎ落とし「純粋なGETリクエスト」にすることでiOSのセキュリティ検知をすり抜ける
           const res = await fetch(fetchUrl, { 
-            signal: controller.signal,
-            cache: 'no-store'
+            signal: controller.signal
           });
-          
           if (!res.ok) throw new Error('GAS Fetch failed');
           return await res.text();
         } finally {
@@ -101,14 +103,15 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
       });
     }
 
-    // 2. パブリックプロキシ (予備)
-    const timeKey = Math.floor(Date.now() / 600000); // 予備サーバーは弾かれないよう10分固定
+    // 2. 予備：パブリックプロキシ (バックアップ)
     fetchMethods.push(
       async () => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000);
         try {
-          const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}&_t=${timeKey}`, { signal: controller.signal, cache: 'no-store' });
+          const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}&_t=${timeKey}`, { 
+            signal: controller.signal
+          });
           if (!res.ok) throw new Error('Proxy 1 failed');
           const data = await res.json();
           return data.contents || "";
@@ -118,7 +121,9 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000);
         try {
-          const res = await fetch(`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(targetUrl)}&_t=${timeKey}`, { signal: controller.signal, cache: 'no-store' });
+          const res = await fetch(`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(targetUrl)}&_t=${timeKey}`, { 
+            signal: controller.signal
+          });
           if (!res.ok) throw new Error('Proxy 2 failed');
           return await res.text();
         } finally { clearTimeout(timeoutId); }
