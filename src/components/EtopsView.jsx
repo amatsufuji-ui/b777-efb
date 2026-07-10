@@ -71,9 +71,9 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
     setHfData(prev => ({ ...prev, status: "Fetching..." }));
 
     // ============================================================
-    // ★ GAS URL
+    // ★ Cloudflare Worker の専用プロキシURL ★
     // ============================================================
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbz8_qiZlFNdgo1wlgYTL6b3E70U5emNbBWlMTRyeBb6JLjfL07ii34ZIonFA_oCYaHaZw/exec"; 
+    const PROXY_URL = "https://arinc-proxy.a-matsufuji.workers.dev/"; 
     
     const targetUrl = 'https://radio.arinc.net/pacific/';
     const timeKey = Math.floor(Date.now() / 600000); // 10分キャッシュキー
@@ -82,20 +82,14 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
     
     const fetchMethods = [];
 
-    // 1. Google Apps Script 経由 (iPad Safari リダイレクト永久キャッシュ対策済み)
-    if (GAS_URL) {
+    // 1. Cloudflare Worker 経由 (高速かつ安定して取得可能)
+    if (PROXY_URL) {
       fetchMethods.push(async () => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 12000);
         try {
-          // ★ iPadの「転送先URLの勝手な記憶」をぶっ壊すため、ミリ秒の乱数を付与
-          const fetchUrl = GAS_URL + (GAS_URL.includes("?") ? "&" : "?") + "_t=" + Date.now();
-          
-          // ★ オプションを削ぎ落とし「純粋なGETリクエスト」にすることでiOSのセキュリティ検知をすり抜ける
-          const res = await fetch(fetchUrl, { 
-            signal: controller.signal
-          });
-          if (!res.ok) throw new Error('GAS Fetch failed');
+          const res = await fetch(PROXY_URL, { signal: controller.signal, redirect: 'follow' });
+          if (!res.ok) throw new Error('Worker Fetch failed');
           return await res.text();
         } finally {
           clearTimeout(timeoutId);
@@ -103,15 +97,13 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
       });
     }
 
-    // 2. 予備：パブリックプロキシ (バックアップ)
+    // 2. 予備：パブリックプロキシ
     fetchMethods.push(
       async () => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000);
         try {
-          const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}&_t=${timeKey}`, { 
-            signal: controller.signal
-          });
+          const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}&_t=${timeKey}`, { signal: controller.signal, cache: 'no-store' });
           if (!res.ok) throw new Error('Proxy 1 failed');
           const data = await res.json();
           return data.contents || "";
@@ -121,9 +113,7 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000);
         try {
-          const res = await fetch(`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(targetUrl)}&_t=${timeKey}`, { 
-            signal: controller.signal
-          });
+          const res = await fetch(`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(targetUrl)}&_t=${timeKey}`, { signal: controller.signal, cache: 'no-store' });
           if (!res.ok) throw new Error('Proxy 2 failed');
           return await res.text();
         } finally { clearTimeout(timeoutId); }
@@ -343,7 +333,7 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
               <p className="leading-relaxed font-bold">
                 {hfData.status === "CACHED" ? 
                   `自動取得に失敗したかオフラインです。現在表示されている周波数は前回取得時 (${hfData.lastUpdated}) に保存された「キャッシュデータ」であり、最新ではない可能性があります。` :
-                  `自動取得がブロックされました。現在表示されている周波数は「アプリ内蔵の初期データ」であり、最新ではない可能性があります。GAS (Google Apps Script) のURLが設定されているか確認するか、公式サイトを開いてください。`
+                  `自動取得がブロックされました。現在表示されている周波数は「アプリ内蔵の初期データ」であり、最新ではない可能性があります。Cloudflare Worker のURLが正しく設定されているか確認してください。`
                 }
               </p>
             </div>
