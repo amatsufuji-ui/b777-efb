@@ -71,9 +71,18 @@ export const DashboardView = ({ state, updateState, computed, aircraftRegistrati
         </div>
       </div>
 
-      {/* ================================== CRUISE PERFORMANCE ================================== */}
+   {/* ================================== CRUISE PERFORMANCE ================================== */}
       <div className="bg-[#131c2f] border border-slate-700 rounded-lg p-1.5 shadow-xl mt-1">
-        <div className="flex items-center gap-1 mb-1 text-cyan-400 font-bold tracking-widest text-[9px] border border-cyan-500/50 px-1.5 py-0.5 rounded-full bg-cyan-500/10 w-fit whitespace-nowrap"><div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></div>CRUISE PERFORMANCE</div>
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-1 text-cyan-400 font-bold tracking-widest text-[9px] border border-cyan-500/50 px-1.5 py-0.5 rounded-full bg-cyan-500/10 w-fit whitespace-nowrap"><div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></div>CRUISE PERFORMANCE</div>
+          <div className="flex items-center gap-1">
+            <span className="text-[9px] font-bold text-slate-400 mr-1">MARGIN</span>
+            <div className="flex bg-slate-800 rounded p-0.5 border border-slate-700 shadow-inner">
+              <button onClick={() => updateState('buffetMargin', '1.3G')} className={`px-2 py-0.5 text-[9px] font-black rounded transition-all ${(!state.buffetMargin || state.buffetMargin === '1.3G') ? 'bg-cyan-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}>1.3G</button>
+              <button onClick={() => updateState('buffetMargin', '1.5G')} className={`px-2 py-0.5 text-[9px] font-black rounded transition-all ${state.buffetMargin === '1.5G' ? 'bg-cyan-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}>1.5G</button>
+            </div>
+          </div>
+        </div>
         <div className="flex flex-col gap-1.5">
           <div className="flex w-full gap-1 overflow-x-auto hide-scrollbar">
             <div className="flex-1 min-w-[65px] border border-blue-500/30 rounded flex flex-col bg-[#0f172a] overflow-hidden p-1">

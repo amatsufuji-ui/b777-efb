@@ -15,6 +15,7 @@ import { BuddyCommView } from './components/BuddyCommView';
 import { FltInfoView } from './components/FltInfoView';
 import { ApproachCalcView } from './components/ApproachCalcView';
 import { XwindView } from './components/XwindView';
+
 // ==========================================
 // 📖 目次 (TABLE OF CONTENTS)   
 // ==========================================
@@ -83,17 +84,17 @@ export default function App() {
     landingCondition: "Normal", selectedRwyCond: "6-DRY", windComponent: 0, 
     appSpeedAdditive: 5, pressureAlt: 0, rwSlope: 0, reverserConfig: "Both", 
     factConfig: "1.00", aiConfig: "OFF", cruiseWeight: 400000, landingWeight: 400000, 
-    ptowOrig: null, pldwOrig: null, toElevOrig: null, ldElevOrig: null 
+    ptowOrig: null, pldwOrig: null, toElevOrig: null, ldElevOrig: null,
+    buffetMargin: "1.3G" // ★ 1.3G/1.5G トグル用の状態を追加
   });
   
   const [cruiseWtInputText, setCruiseWtInputText] = useState(formatWeightDisplay(state.cruiseWeight)); 
   const [ldgWtInputText, setLdgWtInputText] = useState(formatWeightDisplay(state.landingWeight));
 
   // FPL ROUTEの読み込み
-const [globalRoute, setGlobalRoute] = useState("");
-const [globalDest, setGlobalDest] = useState("");
+  const [globalRoute, setGlobalRoute] = useState("");
+  const [globalDest, setGlobalDest] = useState("");
 
-  
   useEffect(() => { setCruiseWtInputText(formatWeightDisplay(state.cruiseWeight)); }, [state.cruiseWeight]); 
   useEffect(() => { setLdgWtInputText(formatWeightDisplay(state.landingWeight)); }, [state.landingWeight]);
   
@@ -135,7 +136,6 @@ const [globalDest, setGlobalDest] = useState("");
       if (data.toElev !== undefined) { next.toElevOrig = Math.round(data.toElev / 100) * 100; }
       if (data.ldElev !== undefined) { next.ldElevOrig = Math.round(data.ldElev / 100) * 100; }
      
-      
       if (data.ptow !== undefined || data.pldw !== undefined) { 
         if (prev.landingCondition === "1 ENG INOP" && data.ptow !== undefined) {
           next.landingWeight = data.ptow * 1000;
@@ -208,11 +208,30 @@ const [globalDest, setGlobalDest] = useState("");
     const clampedLandingWeight = Math.max(landingMinWeight, Math.min(state.landingWeight, maxAvailableLdgWt));
     
     const isEngInop = state.landingCondition === "1 ENG INOP"; const appAdd = state.appSpeedAdditive;
-    const wt1000 = clampedCruiseWeight / 1000; const optAltRaw = interpolateObjArray(wt1000, perfTable, 1) || 30000; const buf13Raw = interpolateObjArray(wt1000, perfTable, 2) || 40000; const isa10Raw = interpolateObjArray(wt1000, perfTable, 4) || 41000; const isa15Raw = interpolateObjArray(wt1000, perfTable, 5) || 40000; const isa20Raw = interpolateObjArray(wt1000, perfTable, 6) || 39000;
+    
+    // ★ 巡航性能（MAX ALT）計算ロジックの修正
+    const wt1000 = clampedCruiseWeight / 1000; 
+    const optAltRaw = interpolateObjArray(wt1000, perfTable, 1) || 30000; 
+    
+    // state.buffetMargin に応じて 1.3G(index 2) か 1.5G(index 3) かを切り替える
+    const buffIndex = state.buffetMargin === '1.5G' ? 3 : 2;
+    const bufLimitRaw = interpolateObjArray(wt1000, perfTable, buffIndex) || 40000; 
+    
+    const isa10Raw = interpolateObjArray(wt1000, perfTable, 4) || 41000; 
+    const isa15Raw = interpolateObjArray(wt1000, perfTable, 5) || 40000; 
+    const isa20Raw = interpolateObjArray(wt1000, perfTable, 6) || 39000;
 
-    const optAlt = Math.round(optAltRaw); let thrustLimit;
-    if (state.isaDev <= 10) thrustLimit = isa10Raw; else if (state.isaDev <= 15) thrustLimit = isa10Raw + (isa15Raw - isa10Raw) * ((state.isaDev - 10) / 5); else if (state.isaDev <= 20) thrustLimit = isa15Raw + (isa20Raw - isa15Raw) * ((state.isaDev - 15) / 5); else thrustLimit = isa20Raw + (isa20Raw - isa15Raw) * ((state.isaDev - 20) / 5);
-    thrustLimit = Math.round(thrustLimit); const buf13 = Math.round(buf13Raw); const maxAlt = Math.min(buf13, thrustLimit); const limitReason = maxAlt >= 43100 ? "Structural Limit" : (thrustLimit < buf13 ? "Thrust Limit" : "Maneuver Margin");
+    const optAlt = Math.round(optAltRaw); 
+    let thrustLimit;
+    if (state.isaDev <= 10) thrustLimit = isa10Raw; 
+    else if (state.isaDev <= 15) thrustLimit = isa10Raw + (isa15Raw - isa10Raw) * ((state.isaDev - 10) / 5); 
+    else if (state.isaDev <= 20) thrustLimit = isa15Raw + (isa20Raw - isa15Raw) * ((state.isaDev - 15) / 5); 
+    else thrustLimit = isa20Raw + (isa20Raw - isa15Raw) * ((state.isaDev - 20) / 5);
+    
+    thrustLimit = Math.round(thrustLimit); 
+    const bufLimit = Math.round(bufLimitRaw); 
+    const maxAlt = Math.min(bufLimit, thrustLimit); 
+    const limitReason = maxAlt >= 43100 ? "Structural Limit" : (thrustLimit < bufLimit ? "Thrust Limit" : "Maneuver Margin");
 
     let mmo = (mKey === "772") ? 0.87 : 0.89, vmo = mKey === "77W" || mKey === "77F" ? Math.min(350, Math.round(330 + (state.cruiseAltitude / 30000) * 20)) : 330;
     const vref30Arr = typeof VREF_DATA !== 'undefined' ? VREF_DATA[mKey]?.vref30 : null; const vref30 = vref30Arr ? interpolateDirectArray(clampedCruiseWeight / 1000, vref30Arr.map(v => v[0]), vref30Arr.map(v => v[1])) : 140; const flapUpManeuver = vref30 ? Math.round(vref30 + 80) : "N/A";
@@ -279,9 +298,7 @@ const [globalDest, setGlobalDest] = useState("");
     let distMan1 = getAomDistance(isEngInop ? "FLAP 20" : "FLAP 25", "man");
     let distMan2 = getAomDistance("FLAP 30", "man");
 
-
-
-const acData = MAX_MAN_DATA[state.selectedType];
+    const acData = MAX_MAN_DATA[state.selectedType];
     if (acData) {
       const rwyCond = state.selectedRwyCond === "5-WET" ? "wet" : "dry";
       const wt1000Ldg = clampedLandingWeight / 1000;
@@ -372,7 +389,7 @@ const acData = MAX_MAN_DATA[state.selectedType];
       <DrmModal isOpen={isDrmModalOpen} onClose={() => setIsDrmModalOpen(false)} initialFlightNo={flightId} />
       <SmartCatModal isOpen={isSmartCatModalOpen} onClose={() => setIsSmartCatModalOpen(false)} />
 
-   <div className="flex flex-col gap-1.5 w-full flex-none mb-1 px-1">
+      <div className="flex flex-col gap-1.5 w-full flex-none mb-1 px-1">
         {/* ヘッダー全体：iPhone（縦画面）の時は上下2段、iPad（横画面）の時は左右に並べる */}
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end pt-1 pb-1 border-b-2 border-slate-700/80 gap-1.5">
           
@@ -384,7 +401,7 @@ const acData = MAX_MAN_DATA[state.selectedType];
             </div>
             <div className="flex items-center gap-1">
               <span className="text-amber-400 font-mono text-[9px] border border-amber-500/30 px-1 rounded bg-amber-500/10 tracking-normal font-bold">
-                ver 4.4
+                ver 4.5
               </span>
               {flightId && (
                 <span className="text-slate-300 font-mono text-[9px] border border-slate-600 px-1 rounded bg-slate-800 tracking-normal font-bold">
@@ -452,7 +469,7 @@ const acData = MAX_MAN_DATA[state.selectedType];
         </div>
       </div>
 
-   {activeTab === 'DASHBOARD' && (
+      {activeTab === 'DASHBOARD' && (
         <div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden">
           {typeof DashboardView !== 'undefined' && (
             <DashboardView state={state} updateState={updateState} computed={computed} aircraftRegistrationList={typeof aircraftRegistrationList !== 'undefined' ? aircraftRegistrationList : []} handleRegChange={handleRegChange} setAircraftType={setAircraftType} cruiseWtInputText={cruiseWtInputText} setCruiseWtInputText={setCruiseWtInputText} ldgWtInputText={ldgWtInputText} setLdgWtInputText={setLdgWtInputText} />
