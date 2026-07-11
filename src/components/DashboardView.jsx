@@ -2,7 +2,6 @@ import React from 'react';
 import { SafeIcon } from './SharedComponents';
 import { formatNum, formatWeightDisplay, parseWeightInput } from '../utils/flightCalc';
 
-
 export const DashboardView = ({ state, updateState, computed, aircraftRegistrationList, handleRegChange, setAircraftType, cruiseWtInputText, setCruiseWtInputText, ldgWtInputText, setLdgWtInputText }) => {
   const highlightToggleClass = (isActive, variant = "blue") => isActive ? `px-2 py-0.5 text-[9px] font-bold border-2 rounded transition-all tracking-wider ${variant === 'green' ? 'border-emerald-400 text-emerald-400 bg-emerald-400/10' : variant === 'red' ? 'border-red-400 text-red-400 bg-red-400/10' : 'border-blue-400 text-blue-400 bg-blue-400/10'}` : "px-2 py-0.5 text-[9px] font-bold border border-slate-700 rounded transition-all tracking-wider text-slate-500 hover:text-slate-400";
 
@@ -71,17 +70,10 @@ export const DashboardView = ({ state, updateState, computed, aircraftRegistrati
         </div>
       </div>
 
-   {/* ================================== CRUISE PERFORMANCE ================================== */}
+      {/* ================================== CRUISE PERFORMANCE ================================== */}
       <div className="bg-[#131c2f] border border-slate-700 rounded-lg p-1.5 shadow-xl mt-1">
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-1 text-cyan-400 font-bold tracking-widest text-[9px] border border-cyan-500/50 px-1.5 py-0.5 rounded-full bg-cyan-500/10 w-fit whitespace-nowrap"><div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></div>CRUISE PERFORMANCE</div>
-          <div className="flex items-center gap-1">
-            <span className="text-[9px] font-bold text-slate-400 mr-1">MARGIN</span>
-            <div className="flex bg-slate-800 rounded p-0.5 border border-slate-700 shadow-inner">
-              <button onClick={() => updateState('buffetMargin', '1.3G')} className={`px-2 py-0.5 text-[9px] font-black rounded transition-all ${(!state.buffetMargin || state.buffetMargin === '1.3G') ? 'bg-cyan-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}>1.3G</button>
-              <button onClick={() => updateState('buffetMargin', '1.5G')} className={`px-2 py-0.5 text-[9px] font-black rounded transition-all ${state.buffetMargin === '1.5G' ? 'bg-cyan-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}>1.5G</button>
-            </div>
-          </div>
         </div>
         <div className="flex flex-col gap-1.5">
           <div className="flex w-full gap-1 overflow-x-auto hide-scrollbar">
@@ -89,13 +81,22 @@ export const DashboardView = ({ state, updateState, computed, aircraftRegistrati
               <div className="text-center text-[9px] sm:text-[10px] font-bold text-blue-300 pb-0.5 tracking-wider">OPT ALT</div>
               <div className="flex-1 flex justify-center items-center"><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter leading-none">{formatNum(computed?.optAlt)}</span><span className="text-[9px] sm:text-[10px] font-bold text-slate-300 ml-0.5">FT</span></div>
             </div>
+            
+            {/* ★ MAX ALT (With embedded toggle) */}
             <div className="flex-1 min-w-[65px] border border-orange-500/30 rounded flex flex-col bg-[#0f172a] overflow-hidden p-1">
-              <div className="text-center text-[9px] sm:text-[10px] font-bold text-orange-300 pb-0.5 tracking-wider">MAX ALT</div>
+              <div className="flex justify-center items-center gap-1 pb-0.5">
+                <span className="text-[9px] sm:text-[10px] font-bold text-orange-300 tracking-wider">MAX ALT</span>
+                <div className="flex bg-slate-900 rounded border border-slate-700 overflow-hidden shadow-inner shrink-0">
+                  <button onClick={() => updateState('buffetMargin', '1.3G')} className={`px-1 py-[1px] text-[7px] font-black transition-colors ${(!state.buffetMargin || state.buffetMargin === '1.3G') ? 'bg-orange-600 text-white' : 'text-slate-500 hover:bg-slate-800'}`}>1.3G</button>
+                  <button onClick={() => updateState('buffetMargin', '1.5G')} className={`px-1 py-[1px] text-[7px] font-black transition-colors ${state.buffetMargin === '1.5G' ? 'bg-orange-600 text-white' : 'text-slate-500 hover:bg-slate-800'}`}>1.5G</button>
+                </div>
+              </div>
               <div className="flex-1 flex flex-col justify-center items-center">
                 <div className="flex items-baseline"><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter leading-none">{formatNum(computed?.maxAlt)}</span><span className="text-[9px] sm:text-[10px] font-bold text-slate-300 ml-0.5">FT</span></div>
                 <span className="text-[9px] sm:text-[10px] font-bold text-orange-200 bg-orange-500/30 px-1.5 py-[1px] rounded mt-0.5 whitespace-nowrap leading-none">{computed?.limitReason || "N/A"}</span>
               </div>
             </div>
+
             <div className="flex-1 min-w-[65px] border border-purple-500/30 rounded flex flex-col bg-[#0f172a] overflow-hidden p-1">
               <div className="text-center text-[9px] sm:text-[10px] font-bold text-purple-300 pb-0.5 tracking-wider">VMO / MMO</div>
               <div className="flex-1 flex flex-col justify-center items-center">
@@ -183,8 +184,8 @@ export const DashboardView = ({ state, updateState, computed, aircraftRegistrati
               <div className="absolute top-0 left-0 w-full h-[2px] bg-sky-500/30 group-hover:bg-sky-400/60 transition-colors"></div>
               <div className="text-center text-[9px] sm:text-[10px] font-bold text-slate-300 pb-0.5 tracking-widest bg-[#131c2f]">MAX MAN</div>
               <div className="flex-1 flex flex-col justify-center gap-1.5 py-0.5 px-1">
-                <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed?.activeFlaps?.[0] || '---'}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed?.distMan1)}</span></div>
-                <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed?.activeFlaps?.[1] || '---'}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed?.distMan2)}</span></div>
+                <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed?.activeFlaps?.[0] || '---'}</span><div className="flex items-baseline"><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed?.distMan1)}</span><span className="text-[9px] sm:text-[10px] text-slate-400 font-bold ml-[2px]">M</span></div></div>
+                <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed?.activeFlaps?.[1] || '---'}</span><div className="flex items-baseline"><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed?.distMan2)}</span><span className="text-[9px] sm:text-[10px] text-slate-400 font-bold ml-[2px]">M</span></div></div>
               </div>
               <div className="px-1 py-0.5 text-[6px] opacity-0 font-mono text-center flex justify-between mt-auto border-t border-transparent pt-0.5"><span>-</span><span>-</span></div>
             </div>
@@ -192,8 +193,8 @@ export const DashboardView = ({ state, updateState, computed, aircraftRegistrati
             <div className="border border-slate-700 rounded flex flex-col bg-[#0f172a] overflow-hidden shadow-lg p-1 h-full">
               <div className="text-center text-[9px] sm:text-[10px] font-bold text-slate-300 pb-0.5 tracking-widest bg-[#131c2f]">MAX AUTO</div>
               <div className="flex-1 flex flex-col justify-center gap-1.5 py-0.5 px-1">
-                <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed?.activeFlaps?.[0] || '---'}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed?.distMax1)}</span></div>
-                <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed?.activeFlaps?.[1] || '---'}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed?.distMax2)}</span></div>
+                <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed?.activeFlaps?.[0] || '---'}</span><div className="flex items-baseline"><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed?.distMax1)}</span><span className="text-[9px] sm:text-[10px] text-slate-400 font-bold ml-[2px]">M</span></div></div>
+                <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed?.activeFlaps?.[1] || '---'}</span><div className="flex items-baseline"><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed?.distMax2)}</span><span className="text-[9px] sm:text-[10px] text-slate-400 font-bold ml-[2px]">M</span></div></div>
               </div>
               <div className="px-1 py-0.5 text-[6px] opacity-0 font-mono text-center flex justify-between mt-auto border-t border-transparent pt-0.5"><span>-</span><span>-</span></div>
             </div>
@@ -201,8 +202,8 @@ export const DashboardView = ({ state, updateState, computed, aircraftRegistrati
             <div className="border border-slate-700 rounded flex flex-col bg-[#131c2f] overflow-hidden shadow-lg p-1 h-full">
               <div className="text-center text-[9px] sm:text-[10px] font-bold text-slate-300 pb-0.5 tracking-widest bg-[#1a2640]">AUTO 4</div>
               <div className="flex-1 flex flex-col justify-center gap-1.5 py-0.5 px-1">
-                <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed?.activeFlaps?.[0] || '---'}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed?.distAb41)}</span></div>
-                <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed?.activeFlaps?.[1] || '---'}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed?.distAb42)}</span></div>
+                <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed?.activeFlaps?.[0] || '---'}</span><div className="flex items-baseline"><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed?.distAb41)}</span><span className="text-[9px] sm:text-[10px] text-slate-400 font-bold ml-[2px]">M</span></div></div>
+                <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed?.activeFlaps?.[1] || '---'}</span><div className="flex items-baseline"><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed?.distAb42)}</span><span className="text-[9px] sm:text-[10px] text-slate-400 font-bold ml-[2px]">M</span></div></div>
               </div>
               <div className="px-1 py-0.5 text-[6px] opacity-0 font-mono text-center flex justify-between mt-auto border-t border-transparent pt-0.5"><span>-</span><span>-</span></div>
             </div>
@@ -213,8 +214,8 @@ export const DashboardView = ({ state, updateState, computed, aircraftRegistrati
             <div className="border border-slate-700 rounded flex flex-col bg-[#131c2f] overflow-hidden shadow-lg p-1 h-full">
               <div className="text-center text-[9px] sm:text-[10px] font-bold text-slate-300 pb-0.5 tracking-widest bg-[#1a2640]">AUTO 3</div>
               <div className="flex-1 flex flex-col justify-center gap-1.5 py-0.5 px-1">
-                <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed?.activeFlaps?.[0] || '---'}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed?.distAb31)}</span></div>
-                <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed?.activeFlaps?.[1] || '---'}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed?.distAb32)}</span></div>
+                <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed?.activeFlaps?.[0] || '---'}</span><div className="flex items-baseline"><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed?.distAb31)}</span><span className="text-[9px] sm:text-[10px] text-slate-400 font-bold ml-[2px]">M</span></div></div>
+                <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed?.activeFlaps?.[1] || '---'}</span><div className="flex items-baseline"><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed?.distAb32)}</span><span className="text-[9px] sm:text-[10px] text-slate-400 font-bold ml-[2px]">M</span></div></div>
               </div>
               <div className="px-1 py-0.5 text-[6px] opacity-0 font-mono text-center flex justify-between mt-auto border-t border-transparent pt-0.5"><span>-</span><span>-</span></div>
             </div>
@@ -222,8 +223,8 @@ export const DashboardView = ({ state, updateState, computed, aircraftRegistrati
             <div className="border border-slate-700 rounded flex flex-col bg-[#131c2f] overflow-hidden shadow-lg p-1 h-full">
               <div className="text-center text-[9px] sm:text-[10px] font-bold text-slate-300 pb-0.5 tracking-widest bg-[#1a2640]">AUTO 2</div>
               <div className="flex-1 flex flex-col justify-center gap-1.5 py-0.5 px-1">
-                <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed?.activeFlaps?.[0] || '---'}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed?.distAb21)}</span></div>
-                <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed?.activeFlaps?.[1] || '---'}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed?.distAb22)}</span></div>
+                <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed?.activeFlaps?.[0] || '---'}</span><div className="flex items-baseline"><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed?.distAb21)}</span><span className="text-[9px] sm:text-[10px] text-slate-400 font-bold ml-[2px]">M</span></div></div>
+                <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed?.activeFlaps?.[1] || '---'}</span><div className="flex items-baseline"><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed?.distAb22)}</span><span className="text-[9px] sm:text-[10px] text-slate-400 font-bold ml-[2px]">M</span></div></div>
               </div>
               <div className="px-1 py-0.5 text-[6px] opacity-0 font-mono text-center flex justify-between mt-auto border-t border-transparent pt-0.5"><span>-</span><span>-</span></div>
             </div>
@@ -231,8 +232,8 @@ export const DashboardView = ({ state, updateState, computed, aircraftRegistrati
             <div className="border border-slate-700 rounded flex flex-col bg-[#131c2f] overflow-hidden shadow-lg p-1 h-full">
               <div className="text-center text-[9px] sm:text-[10px] font-bold text-slate-300 pb-0.5 tracking-widest bg-[#1a2640]">AUTO 1</div>
               <div className="flex-1 flex flex-col justify-center gap-1.5 py-0.5 px-1">
-                <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed?.activeFlaps?.[0] || '---'}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed?.distAb11)}</span></div>
-                <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed?.activeFlaps?.[1] || '---'}</span><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed?.distAb12)}</span></div>
+                <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed?.activeFlaps?.[0] || '---'}</span><div className="flex items-baseline"><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed?.distAb11)}</span><span className="text-[9px] sm:text-[10px] text-slate-400 font-bold ml-[2px]">M</span></div></div>
+                <div className="flex justify-between items-baseline leading-none"><span className="text-[9px] sm:text-[11px] text-slate-400 font-bold">{computed?.activeFlaps?.[1] || '---'}</span><div className="flex items-baseline"><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter">{formatNum(computed?.distAb12)}</span><span className="text-[9px] sm:text-[10px] text-slate-400 font-bold ml-[2px]">M</span></div></div>
               </div>
               <div className="px-1 py-0.5 text-[6px] opacity-0 font-mono text-center flex justify-between mt-auto border-t border-transparent pt-0.5"><span>-</span><span>-</span></div>
             </div>
