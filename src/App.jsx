@@ -40,7 +40,7 @@ export default function App() {
     appSpeedAdditive: 5, pressureAlt: 0, rwSlope: 0, reverserConfig: "Both", 
     factConfig: "1.00", aiConfig: "OFF", cruiseWeight: 400000, landingWeight: 400000, 
     ptowOrig: null, pldwOrig: null, toElevOrig: null, ldElevOrig: null,
-    buffetMargin: "1.3G" // ★ 1.3G/1.5G トグル用の状態を追加
+    buffetMargin: "1.3G"
   });
   
   const [cruiseWtInputText, setCruiseWtInputText] = useState(formatWeightDisplay(state.cruiseWeight)); 
@@ -164,11 +164,10 @@ export default function App() {
     
     const isEngInop = state.landingCondition === "1 ENG INOP"; const appAdd = state.appSpeedAdditive;
     
-    // ★ 巡航性能（MAX ALT）計算ロジックの修正
+    // 巡航性能（MAX ALT）計算ロジック
     const wt1000 = clampedCruiseWeight / 1000; 
     const optAltRaw = interpolateObjArray(wt1000, perfTable, 1) || 30000; 
     
-    // state.buffetMargin に応じて 1.3G(index 2) か 1.5G(index 3) かを切り替える
     const buffIndex = state.buffetMargin === '1.5G' ? 3 : 2;
     const bufLimitRaw = interpolateObjArray(wt1000, perfTable, buffIndex) || 40000; 
     
@@ -187,10 +186,8 @@ export default function App() {
     const bufLimit = Math.round(bufLimitRaw); 
     const structuralAlt = 43100;
 
-    // MAX ALT の算出: 三者のうちの最小値
     const maxAlt = Math.min(structuralAlt, bufLimit, thrustLimit); 
     
-    // Limit Reason の決定
     let limitReason = "N/A";
     if (maxAlt === structuralAlt) {
       limitReason = "Structural Limit";
@@ -216,30 +213,67 @@ export default function App() {
     if (!isEngInop && typeof TARGET_PITCH_N1_DATA_RAW !== 'undefined') { 
       const f25Data = TARGET_PITCH_N1_DATA_RAW[mKey]?.f25; const f30Data = TARGET_PITCH_N1_DATA_RAW[mKey]?.f30; const wt1000Ldg = clampedLandingWeight / 1000;
       
-      // ★ appSpeedAdditive に応じて取得するデータのインデックスを切り替える
-      let pchIdx = 1; let n1Idx = 2;
-      const isDataExtended = f25Data && f25Data[0].length > 3;
+      // ★ 1kt単位でスムーズに補間するためのロジック
+      const getInterpolatedTarget = (wt, dataArray, addSpd) => {
+        if (!dataArray || dataArray.length === 0 || wt > dataArray[dataArray.length - 1][0]) return { pch: null, n1: null };
+        const isDataExtended = dataArray[0].length > 3;
+        
+        // 77W等、+0しかデータがない場合は簡易線形で補間
+        if (!isDataExtended) {
+          const basePch = interpolateObjArray(wt, dataArray, 1);
+          const baseN1 = interpolateObjArray(wt, dataArray, 2);
+          if (basePch === null || baseN1 === null) return { pch: null, n1: null };
+          // 1ktあたり Pitch -0.12°, N1 +0.15% の近似
+          return { pch: basePch - (addSpd * 0.12), n1: baseN1 + (addSpd * 0.15) };
+        }
+        
+        // 772/773等、+5,+10..の拡張データがある場合は、まずSpeedで前後データを挟み込む
+        const speeds = [
+          { add: 0, pIdx: 1, nIdx: 2 },
+          { add: 5, pIdx: 3, nIdx: 4 },
+          { add: 10, pIdx: 5, nIdx: 6 },
+          { add: 20, pIdx: 7, nIdx: 8 },
+          { add: 30, pIdx: 9, nIdx: 10 }
+        ];
+        
+        let lower = speeds[0], upper = speeds[speeds.length - 1];
+        if (addSpd <= speeds[0].add) lower = upper = speeds[0];
+        else if (addSpd >= speeds[speeds.length - 1].add) lower = upper = speeds[speeds.length - 1];
+        else {
+          for (let i = 0; i < speeds.length - 1; i++) {
+            if (addSpd >= speeds[i].add && addSpd <= speeds[i+1].add) { 
+              lower = speeds[i]; upper = speeds[i+1]; break; 
+            }
+          }
+        }
+        
+        // 重量を使ってLowerとUpperの速度に対するN1/Pitchを取得
+        const p_lower = interpolateObjArray(wt, dataArray, lower.pIdx);
+        const n_lower = interpolateObjArray(wt, dataArray, lower.nIdx);
+        const p_upper = interpolateObjArray(wt, dataArray, upper.pIdx);
+        const n_upper = interpolateObjArray(wt, dataArray, upper.nIdx);
+        
+        if (p_lower === null || n_lower === null || p_upper === null || n_upper === null) return { pch: null, n1: null };
+        if (lower.add === upper.add) return { pch: p_lower, n1: n_lower };
+        
+        // 速度差の割合(ratio)で線形補間
+        const ratio = (addSpd - lower.add) / (upper.add - lower.add);
+        return { 
+          pch: p_lower + (p_upper - p_lower) * ratio, 
+          n1: n_lower + (n_upper - n_lower) * ratio 
+        };
+      };
 
-      if (isDataExtended) {
-        if (state.appSpeedAdditive >= 30) { pchIdx = 9; n1Idx = 10; }
-        else if (state.appSpeedAdditive >= 20) { pchIdx = 7; n1Idx = 8; }
-        else if (state.appSpeedAdditive >= 10) { pchIdx = 5; n1Idx = 6; }
-        else if (state.appSpeedAdditive >= 5) { pchIdx = 3; n1Idx = 4; }
-        else { pchIdx = 1; n1Idx = 2; } // Vref (+0)
+      if (f25Data) {
+        const res = getInterpolatedTarget(wt1000Ldg, f25Data, state.appSpeedAdditive);
+        currentPchFlap25 = res.pch; currentN1Flap25 = res.n1;
       }
-
-      // 最大重量を超える場合は計算せず null を維持する (N/A表示にするため)
-      if (f25Data && wt1000Ldg <= f25Data[f25Data.length - 1][0]) { 
-        currentPchFlap25 = interpolateObjArray(wt1000Ldg, f25Data, pchIdx); 
-        currentN1Flap25 = interpolateObjArray(wt1000Ldg, f25Data, n1Idx); 
-      }
-      if (f30Data && wt1000Ldg <= f30Data[f30Data.length - 1][0]) { 
-        currentPchFlap30 = interpolateObjArray(wt1000Ldg, f30Data, pchIdx); 
-        currentN1Flap30 = interpolateObjArray(wt1000Ldg, f30Data, n1Idx); 
+      if (f30Data) {
+        const res = getInterpolatedTarget(wt1000Ldg, f30Data, state.appSpeedAdditive);
+        currentPchFlap30 = res.pch; currentN1Flap30 = res.n1;
       }
     }
     
-    // --- AUTOBRAKE のベース処理 ---
     const scaleFactor = state.factConfig === "1.15" ? 1.0 : (1.0 / 1.15); 
     const activeFlaps = isEngInop ? ["F20", "F30"] : ["F25", "F30"];
     
@@ -281,7 +315,6 @@ export default function App() {
     const distAb11 = getAomDistance(isEngInop ? "FLAP 20" : "FLAP 25", "a1");
     const distAb12 = getAomDistance("FLAP 30", "a1");
     
-    // ベースとなるMAN距離
     let distMan1 = getAomDistance(isEngInop ? "FLAP 20" : "FLAP 25", "man");
     let distMan2 = getAomDistance("FLAP 30", "man");
 
@@ -324,7 +357,6 @@ export default function App() {
       const flap1Key = isEngInop ? "inop_f20" : "f25";
       const flap2Key = isEngInop ? "inop_f30" : "f30";
 
-      // 算出されたMAX MANの距離で distMan1 と distMan2 を上書き
       distMan1 = calculateOverride(flap1Key, distMan1);
       distMan2 = calculateOverride(flap2Key, distMan2);
     }
@@ -388,7 +420,7 @@ export default function App() {
             </div>
             <div className="flex items-center gap-1">
               <span className="text-amber-400 font-mono text-[9px] border border-amber-500/30 px-1 rounded bg-amber-500/10 tracking-normal font-bold">
-                ver 4.8
+                ver 4.9
               </span>
               {flightId && (
                 <span className="text-slate-300 font-mono text-[9px] border border-slate-600 px-1 rounded bg-slate-800 tracking-normal font-bold">
@@ -457,7 +489,6 @@ export default function App() {
               
               <button onClick={() => { let flightQuery = ""; if (flightId) { flightQuery = `NH${flightId}`; } else if (selectedFlightId && selectedFlightId !== "N/A" && selectedFlightId !== "") { if (selectedAirlineCode && selectedAirlineCode !== "N/A" && selectedAirlineCode !== "") { flightQuery = `${selectedAirlineCode}${selectedFlightId}`; } else { flightQuery = `NH${selectedFlightId}`; } } if (flightQuery) { copyToClipboard(flightQuery); window.dispatchEvent(new CustomEvent('show-toast', { detail: `便名(${flightQuery})をコピーしました。検索窓にペーストしてください` })); } else { window.dispatchEvent(new CustomEvent('show-toast', { detail: 'FR24アプリを起動します' })); } setTimeout(() => { window.open('https://www.flightradar24.com', '_blank'); }, 1000); }} className="bg-slate-700 hover:bg-yellow-600 text-yellow-400 hover:text-white px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border border-slate-500 hover:border-yellow-400 shadow-sm shrink-0" title="Flight Radar 24を開く"><SafeIcon name="Radar" className="w-3 h-3 pointer-events-none" /><span className="text-[9px] sm:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">FR24</span></button>
               
-              {/* ★ 新規追加: ALC (Google Meet) ボタン ★ */}
               <button onClick={() => window.open('https://meet.google.com/sjj-oshp-ivz', '_blank')} className="bg-slate-700 hover:bg-pink-600 text-pink-400 hover:text-white px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border border-slate-500 hover:border-pink-400 shadow-sm shrink-0" title="ALC (Google Meet) を開く">
                 <SafeIcon name="Video" className="w-3 h-3 pointer-events-none" />
                 <span className="text-[9px] sm:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">ALC</span>
