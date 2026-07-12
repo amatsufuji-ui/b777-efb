@@ -17,51 +17,6 @@ import { ApproachCalcView } from './components/ApproachCalcView';
 import { XwindView } from './components/XwindView';
 
 // ==========================================
-// 📖 目次 (TABLE OF CONTENTS)   
-// ==========================================
-// [1] SETTINGS & IMPORTS
-// [2] COMMON & UI COMPONENTS
-//     [2-1] SafeIcon
-//     [2-2] DepTag
-//     [2-3] copyToClipboard, WifiButton & WifiPwdModal
-//     [2-4] DrmModal
-//     [2-5] parseFlightPlanText & PasteModal
-//     [2-6] SmartCatModal
-//     [2-7] Toast
-//     [2-8] SliderInput (APP CALC)
-//     [2-9] Graphic Components (APP CALC)
-//           - TrafficPatternGraphic
-//           - CirclingPatternGraphic
-// [3] DATA SECTION
-//     [3-1] FLIGHT DATA (RAW_CSV_DATA)
-//     [3-2] AIRCRAFT & REGISTRATION
-//     [3-3] LINKS (BUDDYCOM_LINKS)
-//     [3-4] PERFORMANCE & WEIGHT DATA
-//     [3-5] CRUISE PERF DATA
-//     [3-6] VREF DATA
-//     [3-7] HOLD & MANEUVER SPD DATA
-//     [3-8] APPROACH & LANDING DATA
-//     [3-9] WIND LIMITS
-//     [3-10] DOCS: DG (DANGEROUS GOODS) DATA
-//     [3-11] DOCS: ERG CODE DATA
-//     [3-12] DOCS: SPECIAL PAX DATA
-// [4] UTILITY FUNCTIONS
-//     [4-1] Formatting & Parsing
-//     [4-2] Interpolation
-//     [4-3] Flight Calculation
-// [5] TAB COMPONENTS
-//     [5-1] WxMnmReference (WX/MNM)
-//     [5-2] Docs2View (DOCS)
-//     [5-3] RestView (REST CALC)
-//     [5-4] BuddyCommView (BUDDY COMM)
-//     [5-5] FltInfoView (FLT INFO)
-//     [5-6] DashboardView (DASHBOARD)
-//     [5-7] ApproachCalcView (APP CALC)
-//     [5-8] XwindView (XWIND)
-// [6] MAIN APP COMPONENT
-// ==========================================
-
-// ==========================================
 // [6] MAIN APP COMPONENT
 // ==========================================
 export default function App() {
@@ -230,7 +185,7 @@ export default function App() {
     
     thrustLimit = Math.round(thrustLimit); 
     const bufLimit = Math.round(bufLimitRaw); 
-       const structuralAlt = 43100;
+    const structuralAlt = 43100;
 
     // MAX ALT の算出: 三者のうちの最小値
     const maxAlt = Math.min(structuralAlt, bufLimit, thrustLimit); 
@@ -310,7 +265,7 @@ export default function App() {
     let distMan1 = getAomDistance(isEngInop ? "FLAP 20" : "FLAP 25", "man");
     let distMan2 = getAomDistance("FLAP 30", "man");
 
-    const acData = MAX_MAN_DATA[state.selectedType];
+    const acData = typeof MAX_MAN_DATA !== 'undefined' ? MAX_MAN_DATA[state.selectedType] : null;
     if (acData) {
       const rwyCond = state.selectedRwyCond === "5-WET" ? "wet" : "dry";
       const wt1000Ldg = clampedLandingWeight / 1000;
@@ -413,7 +368,7 @@ export default function App() {
             </div>
             <div className="flex items-center gap-1">
               <span className="text-amber-400 font-mono text-[9px] border border-amber-500/30 px-1 rounded bg-amber-500/10 tracking-normal font-bold">
-                ver 4.7
+                ver 4.8
               </span>
               {flightId && (
                 <span className="text-slate-300 font-mono text-[9px] border border-slate-600 px-1 rounded bg-slate-800 tracking-normal font-bold">
@@ -426,18 +381,67 @@ export default function App() {
           {/* 右側のボタン群：iPhoneの時は横幅いっぱいに広げて均等配置、iPadでは右寄せ */}
           <div className="flex items-center justify-between sm:justify-end gap-1 w-full sm:w-auto overflow-x-auto hide-scrollbar">
             <div className="flex items-center gap-1 w-full sm:w-auto">
-              <WifiButton type="INT" url="https://www.ana-inflight-wifi.com/" label="INT" hoverClass="hover:bg-sky-600" colorClass="text-sky-400 border-sky-500/50 text-[9px] sm:text-[10px]" onLongPress={() => setIsWifiModalOpen(true)} />
+              
+              {/* Panasonic Wifi - 既存のWifiButtonを使用（コピー機能あり） */}
+              <WifiButton 
+                type="PANA" 
+                url="http://portal.inflight.ana-panasonic.aero/" 
+                label="PANA" 
+                hoverClass="hover:bg-sky-600" 
+                colorClass="text-sky-400 border-sky-500/50 text-[9px] sm:text-[10px]" 
+                onLongPress={() => setIsWifiModalOpen(true)} 
+              />
+              
+              {/* Inmarsat Wifi - 通常のボタンを使用（コピー機能なし） */}
+              <button 
+                onClick={() => window.open('https://wifi.inflight.viasat.com/', '_blank')}
+                className="bg-slate-700 hover:bg-indigo-600 text-indigo-400 border border-indigo-500/50 hover:text-white px-1 py-0.5 md:px-1.5 md:py-0.5 rounded flex items-center justify-center gap-0.5 transition-colors shadow-sm select-none"
+                title="Inmarsat Wi-Fi"
+              >
+                <SafeIcon name="Wifi" className="w-2.5 h-2.5 md:w-3 md:h-3 pointer-events-none" />
+                <span className="text-[8px] md:text-[9px] lg:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">INMA</span>
+              </button>
 
-              <WifiButton type="DOM" url="https://www.ana-inflight-wifi.com/" label="DOM" hoverClass="hover:bg-emerald-600" colorClass="text-emerald-400 border-emerald-500/50 text-[9px] sm:text-[10px]" onLongPress={() => { }} />
+              <WifiButton 
+                type="DOM" 
+                url="https://www.ana-inflight-wifi.com/" 
+                label="DOM" 
+                hoverClass="hover:bg-emerald-600" 
+                colorClass="text-emerald-400 border-emerald-500/50 text-[9px] sm:text-[10px]" 
+                onLongPress={() => { }} 
+              />
 
               <button onClick={() => setIsPasteModalOpen(true)} className="animate-glow-pulse bg-emerald-600 hover:bg-emerald-500 text-white px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border border-emerald-400 flex-1 sm:flex-none" title="PDF/TXT 読込">
                 <SafeIcon name="ClipboardPaste" className="w-3 h-3 pointer-events-none" />
                 <span className="text-[9px] sm:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">LOAD</span>
               </button>
 
+              {/* ★ DRM ボタンをメール起動に変更 */}
+              <button onClick={() => {
+                const to = "ml_notice_drm@ana.co.jp";
+                const subject = flightId ? encodeURIComponent(`DRM Report ANA${flightId}`) : encodeURIComponent("DRM Report");
+                
+                // iPadでGmailアプリを直接開くURLスキーム
+                const gmailAppUrl = `googlegmail:///co?to=${to}&subject=${subject}`;
+                // 標準のメーラー起動（デフォルトがGmailに設定されていればGmailが開く）
+                const mailtoUrl = `mailto:${to}?subject=${subject}`;
+
+                // まずGmailアプリの起動を試み、失敗した場合に標準メーラーを起動
+                window.location.href = gmailAppUrl;
+                setTimeout(() => {
+                  window.location.href = mailtoUrl;
+                }, 300);
+                
+                window.dispatchEvent(new CustomEvent('show-toast', { detail: 'メールアプリを起動しています...' }));
+              }} className="bg-slate-700 hover:bg-purple-600 text-purple-400 hover:text-white px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border border-slate-500 hover:border-purple-400 shadow-sm flex-1 sm:flex-none" title="DRM宛にメールを作成">
+                <SafeIcon name="Mail" className="w-3 h-3 pointer-events-none" />
+                <span className="text-[9px] sm:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">DRM</span>
+              </button>
+
               <button onClick={() => { if (!state.selectedReg || state.selectedReg === "N/A" || state.selectedReg === "") { window.dispatchEvent(new CustomEvent('show-toast', { detail: '機番を選択してください' })); return; } const buddycomUrl = typeof BUDDYCOM_LINKS !== 'undefined' ? BUDDYCOM_LINKS[state.selectedReg] : null; if (buddycomUrl) { const pastedFlightName = flightId ? `ANA${flightId}` : ""; if (pastedFlightName) { copyToClipboard(pastedFlightName); window.dispatchEvent(new CustomEvent('show-toast', { detail: `便名(${pastedFlightName})をコピーして起動しました` })); } else { window.dispatchEvent(new CustomEvent('show-toast', { detail: 'Buddycomを起動しました' })); } setTimeout(() => { window.open(buddycomUrl, '_blank'); }, 1000); } else { window.dispatchEvent(new CustomEvent('show-toast', { detail: 'この機番のBuddycomリンクは未登録です' })); } }} className={`px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border shadow-sm flex-1 sm:flex-none ${state.selectedReg && state.selectedReg !== "N/A" && state.selectedReg !== "" ? 'bg-slate-700 hover:bg-orange-600 text-orange-400 hover:text-white border-slate-500 hover:border-orange-400' : 'bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed'}`} title="Buddycomを開く"><SafeIcon name="Radio" className="w-3 h-3 pointer-events-none" /><span className="text-[9px] sm:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">BDYC</span></button>
               
               <button onClick={() => { let flightQuery = ""; if (flightId) { flightQuery = `NH${flightId}`; } else if (selectedFlightId && selectedFlightId !== "N/A" && selectedFlightId !== "") { if (selectedAirlineCode && selectedAirlineCode !== "N/A" && selectedAirlineCode !== "") { flightQuery = `${selectedAirlineCode}${selectedFlightId}`; } else { flightQuery = `NH${selectedFlightId}`; } } if (flightQuery) { copyToClipboard(flightQuery); window.dispatchEvent(new CustomEvent('show-toast', { detail: `便名(${flightQuery})をコピーしました。検索窓にペーストしてください` })); } else { window.dispatchEvent(new CustomEvent('show-toast', { detail: 'FR24アプリを起動します' })); } setTimeout(() => { window.open('https://www.flightradar24.com', '_blank'); }, 1000); }} className="bg-slate-700 hover:bg-yellow-600 text-yellow-400 hover:text-white px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border border-slate-500 hover:border-yellow-400 shadow-sm flex-1 sm:flex-none" title="Flight Radar 24を開く"><SafeIcon name="Radar" className="w-3 h-3 pointer-events-none" /><span className="text-[9px] sm:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">FR24</span></button>
+              
               {/* ★ PWA 強制アップデートボタン ★ */}
               <button 
                 onClick={() => {
