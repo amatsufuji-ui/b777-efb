@@ -230,8 +230,20 @@ export default function App() {
     
     thrustLimit = Math.round(thrustLimit); 
     const bufLimit = Math.round(bufLimitRaw); 
-    const maxAlt = Math.min(bufLimit, thrustLimit); 
-    const limitReason = maxAlt >= 43100 ? "Structural Limit" : (thrustLimit < bufLimit ? "Thrust Limit" : "Maneuver Margin");
+       const structuralAlt = 43100;
+
+    // MAX ALT の算出: 三者のうちの最小値
+    const maxAlt = Math.min(structuralAlt, bufLimit, thrustLimit); 
+    
+    // Limit Reason の決定
+    let limitReason = "N/A";
+    if (maxAlt === structuralAlt) {
+      limitReason = "Structural Limit";
+    } else if (maxAlt === bufLimit) {
+      limitReason = `Buffet Limit (${state.buffetMargin})`;
+    } else {
+      limitReason = "Thrust Limit";
+    }
 
     let mmo = (mKey === "772") ? 0.87 : 0.89, vmo = mKey === "77W" || mKey === "77F" ? Math.min(350, Math.round(330 + (state.cruiseAltitude / 30000) * 20)) : 330;
     const vref30Arr = typeof VREF_DATA !== 'undefined' ? VREF_DATA[mKey]?.vref30 : null; const vref30 = vref30Arr ? interpolateDirectArray(clampedCruiseWeight / 1000, vref30Arr.map(v => v[0]), vref30Arr.map(v => v[1])) : 140; const flapUpManeuver = vref30 ? Math.round(vref30 + 80) : "N/A";
@@ -401,7 +413,7 @@ export default function App() {
             </div>
             <div className="flex items-center gap-1">
               <span className="text-amber-400 font-mono text-[9px] border border-amber-500/30 px-1 rounded bg-amber-500/10 tracking-normal font-bold">
-                ver 4.6
+                ver 4.7
               </span>
               {flightId && (
                 <span className="text-slate-300 font-mono text-[9px] border border-slate-600 px-1 rounded bg-slate-800 tracking-normal font-bold">
@@ -414,8 +426,9 @@ export default function App() {
           {/* 右側のボタン群：iPhoneの時は横幅いっぱいに広げて均等配置、iPadでは右寄せ */}
           <div className="flex items-center justify-between sm:justify-end gap-1 w-full sm:w-auto overflow-x-auto hide-scrollbar">
             <div className="flex items-center gap-1 w-full sm:w-auto">
-              <WifiButton type="INT" url="http://info.ana.co.jp/" label="INT" hoverClass="hover:bg-sky-600" colorClass="text-sky-400 border-sky-500/50 text-[9px] sm:text-[10px]" onLongPress={() => setIsWifiModalOpen(true)} />
-              <WifiButton type="DOM" url="http://www.ana.co.jp/wifi" label="DOM" hoverClass="hover:bg-emerald-600" colorClass="text-emerald-400 border-emerald-500/50 text-[9px] sm:text-[10px]" onLongPress={() => { }} />
+              <WifiButton type="INT" url="https://www.ana-inflight-wifi.com/" label="INT" hoverClass="hover:bg-sky-600" colorClass="text-sky-400 border-sky-500/50 text-[9px] sm:text-[10px]" onLongPress={() => setIsWifiModalOpen(true)} />
+
+              <WifiButton type="DOM" url="https://www.ana-inflight-wifi.com/" label="DOM" hoverClass="hover:bg-emerald-600" colorClass="text-emerald-400 border-emerald-500/50 text-[9px] sm:text-[10px]" onLongPress={() => { }} />
 
               <button onClick={() => setIsPasteModalOpen(true)} className="animate-glow-pulse bg-emerald-600 hover:bg-emerald-500 text-white px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border border-emerald-400 flex-1 sm:flex-none" title="PDF/TXT 読込">
                 <SafeIcon name="ClipboardPaste" className="w-3 h-3 pointer-events-none" />
