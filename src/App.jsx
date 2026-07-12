@@ -215,8 +215,28 @@ export default function App() {
     let currentN1Flap25 = null, currentPchFlap25 = null, currentN1Flap30 = null, currentPchFlap30 = null;
     if (!isEngInop && typeof TARGET_PITCH_N1_DATA_RAW !== 'undefined') { 
       const f25Data = TARGET_PITCH_N1_DATA_RAW[mKey]?.f25; const f30Data = TARGET_PITCH_N1_DATA_RAW[mKey]?.f30; const wt1000Ldg = clampedLandingWeight / 1000;
-      if (f25Data && wt1000Ldg <= f25Data[f25Data.length - 1][0]) { currentPchFlap25 = interpolateObjArray(wt1000Ldg, f25Data, 1); currentN1Flap25 = interpolateObjArray(wt1000Ldg, f25Data, 2); }
-      if (f30Data && wt1000Ldg <= f30Data[f30Data.length - 1][0]) { currentPchFlap30 = interpolateObjArray(wt1000Ldg, f30Data, 1); currentN1Flap30 = interpolateObjArray(wt1000Ldg, f30Data, 2); }
+      
+      // ★ appSpeedAdditive に応じて取得するデータのインデックスを切り替える
+      let pchIdx = 1; let n1Idx = 2;
+      const isDataExtended = f25Data && f25Data[0].length > 3;
+
+      if (isDataExtended) {
+        if (state.appSpeedAdditive >= 30) { pchIdx = 9; n1Idx = 10; }
+        else if (state.appSpeedAdditive >= 20) { pchIdx = 7; n1Idx = 8; }
+        else if (state.appSpeedAdditive >= 10) { pchIdx = 5; n1Idx = 6; }
+        else if (state.appSpeedAdditive >= 5) { pchIdx = 3; n1Idx = 4; }
+        else { pchIdx = 1; n1Idx = 2; } // Vref (+0)
+      }
+
+      // 最大重量を超える場合は計算せず null を維持する (N/A表示にするため)
+      if (f25Data && wt1000Ldg <= f25Data[f25Data.length - 1][0]) { 
+        currentPchFlap25 = interpolateObjArray(wt1000Ldg, f25Data, pchIdx); 
+        currentN1Flap25 = interpolateObjArray(wt1000Ldg, f25Data, n1Idx); 
+      }
+      if (f30Data && wt1000Ldg <= f30Data[f30Data.length - 1][0]) { 
+        currentPchFlap30 = interpolateObjArray(wt1000Ldg, f30Data, pchIdx); 
+        currentN1Flap30 = interpolateObjArray(wt1000Ldg, f30Data, n1Idx); 
+      }
     }
     
     // --- AUTOBRAKE のベース処理 ---
@@ -357,8 +377,8 @@ export default function App() {
       <SmartCatModal isOpen={isSmartCatModalOpen} onClose={() => setIsSmartCatModalOpen(false)} />
 
       <div className="flex flex-col gap-1.5 w-full flex-none mb-1 px-1">
-        {/* ヘッダー全体：iPhone（縦画面）の時は上下2段、iPad（横画面）の時は左右に並べる */}
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end pt-1 pb-1 border-b-2 border-slate-700/80 gap-1.5">
+        {/* ヘッダー全体：常に上下2段（1段目：タイトル、2段目：ボタン群） */}
+        <div className="flex flex-col pt-1 pb-1 border-b-2 border-slate-700/80 gap-1.5">
           
           {/* タイトル & 便名バッジ & バージョン */}
           <div className="flex items-center flex-wrap gap-1 text-blue-400 font-black tracking-tighter text-[11px] sm:text-sm">
@@ -378,24 +398,23 @@ export default function App() {
             </div>
           </div>
 
-          {/* 右側のボタン群：iPhoneの時は横幅いっぱいに広げて均等配置、iPadでは右寄せ */}
-          <div className="flex items-center justify-between sm:justify-end gap-1 w-full sm:w-auto overflow-x-auto hide-scrollbar">
-            <div className="flex items-center gap-1 w-full sm:w-auto">
+          {/* ボタン群：独立した1行として横スクロール可能にする */}
+          <div className="flex items-center gap-1 w-full overflow-x-auto hide-scrollbar pb-0.5">
               
-              {/* Panasonic Wifi - 既存のWifiButtonを使用（コピー機能あり） */}
+              {/* Panasonic Wifi */}
               <WifiButton 
                 type="PANA" 
                 url="http://portal.inflight.ana-panasonic.aero/" 
                 label="PANA" 
                 hoverClass="hover:bg-sky-600" 
-                colorClass="text-sky-400 border-sky-500/50 text-[9px] sm:text-[10px]" 
+                colorClass="text-sky-400 border-sky-500/50 text-[9px] sm:text-[10px] shrink-0" 
                 onLongPress={() => setIsWifiModalOpen(true)} 
               />
               
-              {/* Inmarsat Wifi - 通常のボタンを使用（コピー機能なし） */}
+              {/* Inmarsat Wifi */}
               <button 
                 onClick={() => window.open('https://wifi.inflight.viasat.com/', '_blank')}
-                className="bg-slate-700 hover:bg-indigo-600 text-indigo-400 border border-indigo-500/50 hover:text-white px-1 py-0.5 md:px-1.5 md:py-0.5 rounded flex items-center justify-center gap-0.5 transition-colors shadow-sm select-none"
+                className="bg-slate-700 hover:bg-indigo-600 text-indigo-400 border border-indigo-500/50 hover:text-white px-1 py-0.5 md:px-1.5 md:py-0.5 rounded flex items-center justify-center gap-0.5 transition-colors shadow-sm select-none shrink-0"
                 title="Inmarsat Wi-Fi"
               >
                 <SafeIcon name="Wifi" className="w-2.5 h-2.5 md:w-3 md:h-3 pointer-events-none" />
@@ -407,42 +426,43 @@ export default function App() {
                 url="https://www.ana-inflight-wifi.com/" 
                 label="DOM" 
                 hoverClass="hover:bg-emerald-600" 
-                colorClass="text-emerald-400 border-emerald-500/50 text-[9px] sm:text-[10px]" 
+                colorClass="text-emerald-400 border-emerald-500/50 text-[9px] sm:text-[10px] shrink-0" 
                 onLongPress={() => { }} 
               />
 
-              <button onClick={() => setIsPasteModalOpen(true)} className="animate-glow-pulse bg-emerald-600 hover:bg-emerald-500 text-white px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border border-emerald-400 flex-1 sm:flex-none" title="PDF/TXT 読込">
+              <button onClick={() => setIsPasteModalOpen(true)} className="animate-glow-pulse bg-emerald-600 hover:bg-emerald-500 text-white px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border border-emerald-400 shrink-0" title="PDF/TXT 読込">
                 <SafeIcon name="ClipboardPaste" className="w-3 h-3 pointer-events-none" />
                 <span className="text-[9px] sm:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">LOAD</span>
               </button>
 
-              {/* ★ DRM ボタンをメール起動に変更 */}
               <button onClick={() => {
                 const to = "ml_notice_drm@ana.co.jp";
                 const subject = flightId ? encodeURIComponent(`DRM Report ANA${flightId}`) : encodeURIComponent("DRM Report");
                 
-                // iPadでGmailアプリを直接開くURLスキーム
                 const gmailAppUrl = `googlegmail:///co?to=${to}&subject=${subject}`;
-                // 標準のメーラー起動（デフォルトがGmailに設定されていればGmailが開く）
                 const mailtoUrl = `mailto:${to}?subject=${subject}`;
 
-                // まずGmailアプリの起動を試み、失敗した場合に標準メーラーを起動
                 window.location.href = gmailAppUrl;
                 setTimeout(() => {
                   window.location.href = mailtoUrl;
                 }, 300);
                 
                 window.dispatchEvent(new CustomEvent('show-toast', { detail: 'メールアプリを起動しています...' }));
-              }} className="bg-slate-700 hover:bg-purple-600 text-purple-400 hover:text-white px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border border-slate-500 hover:border-purple-400 shadow-sm flex-1 sm:flex-none" title="DRM宛にメールを作成">
+              }} className="bg-slate-700 hover:bg-purple-600 text-purple-400 hover:text-white px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border border-slate-500 hover:border-purple-400 shadow-sm shrink-0" title="DRM宛にメールを作成">
                 <SafeIcon name="Mail" className="w-3 h-3 pointer-events-none" />
                 <span className="text-[9px] sm:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">DRM</span>
               </button>
 
-              <button onClick={() => { if (!state.selectedReg || state.selectedReg === "N/A" || state.selectedReg === "") { window.dispatchEvent(new CustomEvent('show-toast', { detail: '機番を選択してください' })); return; } const buddycomUrl = typeof BUDDYCOM_LINKS !== 'undefined' ? BUDDYCOM_LINKS[state.selectedReg] : null; if (buddycomUrl) { const pastedFlightName = flightId ? `ANA${flightId}` : ""; if (pastedFlightName) { copyToClipboard(pastedFlightName); window.dispatchEvent(new CustomEvent('show-toast', { detail: `便名(${pastedFlightName})をコピーして起動しました` })); } else { window.dispatchEvent(new CustomEvent('show-toast', { detail: 'Buddycomを起動しました' })); } setTimeout(() => { window.open(buddycomUrl, '_blank'); }, 1000); } else { window.dispatchEvent(new CustomEvent('show-toast', { detail: 'この機番のBuddycomリンクは未登録です' })); } }} className={`px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border shadow-sm flex-1 sm:flex-none ${state.selectedReg && state.selectedReg !== "N/A" && state.selectedReg !== "" ? 'bg-slate-700 hover:bg-orange-600 text-orange-400 hover:text-white border-slate-500 hover:border-orange-400' : 'bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed'}`} title="Buddycomを開く"><SafeIcon name="Radio" className="w-3 h-3 pointer-events-none" /><span className="text-[9px] sm:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">BDYC</span></button>
+              <button onClick={() => { if (!state.selectedReg || state.selectedReg === "N/A" || state.selectedReg === "") { window.dispatchEvent(new CustomEvent('show-toast', { detail: '機番を選択してください' })); return; } const buddycomUrl = typeof BUDDYCOM_LINKS !== 'undefined' ? BUDDYCOM_LINKS[state.selectedReg] : null; if (buddycomUrl) { const pastedFlightName = flightId ? `ANA${flightId}` : ""; if (pastedFlightName) { copyToClipboard(pastedFlightName); window.dispatchEvent(new CustomEvent('show-toast', { detail: `便名(${pastedFlightName})をコピーして起動しました` })); } else { window.dispatchEvent(new CustomEvent('show-toast', { detail: 'Buddycomを起動しました' })); } setTimeout(() => { window.open(buddycomUrl, '_blank'); }, 1000); } else { window.dispatchEvent(new CustomEvent('show-toast', { detail: 'この機番のBuddycomリンクは未登録です' })); } }} className={`px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border shadow-sm shrink-0 ${state.selectedReg && state.selectedReg !== "N/A" && state.selectedReg !== "" ? 'bg-slate-700 hover:bg-orange-600 text-orange-400 hover:text-white border-slate-500 hover:border-orange-400' : 'bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed'}`} title="Buddycomを開く"><SafeIcon name="Radio" className="w-3 h-3 pointer-events-none" /><span className="text-[9px] sm:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">BDYC</span></button>
               
-              <button onClick={() => { let flightQuery = ""; if (flightId) { flightQuery = `NH${flightId}`; } else if (selectedFlightId && selectedFlightId !== "N/A" && selectedFlightId !== "") { if (selectedAirlineCode && selectedAirlineCode !== "N/A" && selectedAirlineCode !== "") { flightQuery = `${selectedAirlineCode}${selectedFlightId}`; } else { flightQuery = `NH${selectedFlightId}`; } } if (flightQuery) { copyToClipboard(flightQuery); window.dispatchEvent(new CustomEvent('show-toast', { detail: `便名(${flightQuery})をコピーしました。検索窓にペーストしてください` })); } else { window.dispatchEvent(new CustomEvent('show-toast', { detail: 'FR24アプリを起動します' })); } setTimeout(() => { window.open('https://www.flightradar24.com', '_blank'); }, 1000); }} className="bg-slate-700 hover:bg-yellow-600 text-yellow-400 hover:text-white px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border border-slate-500 hover:border-yellow-400 shadow-sm flex-1 sm:flex-none" title="Flight Radar 24を開く"><SafeIcon name="Radar" className="w-3 h-3 pointer-events-none" /><span className="text-[9px] sm:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">FR24</span></button>
+              <button onClick={() => { let flightQuery = ""; if (flightId) { flightQuery = `NH${flightId}`; } else if (selectedFlightId && selectedFlightId !== "N/A" && selectedFlightId !== "") { if (selectedAirlineCode && selectedAirlineCode !== "N/A" && selectedAirlineCode !== "") { flightQuery = `${selectedAirlineCode}${selectedFlightId}`; } else { flightQuery = `NH${selectedFlightId}`; } } if (flightQuery) { copyToClipboard(flightQuery); window.dispatchEvent(new CustomEvent('show-toast', { detail: `便名(${flightQuery})をコピーしました。検索窓にペーストしてください` })); } else { window.dispatchEvent(new CustomEvent('show-toast', { detail: 'FR24アプリを起動します' })); } setTimeout(() => { window.open('https://www.flightradar24.com', '_blank'); }, 1000); }} className="bg-slate-700 hover:bg-yellow-600 text-yellow-400 hover:text-white px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border border-slate-500 hover:border-yellow-400 shadow-sm shrink-0" title="Flight Radar 24を開く"><SafeIcon name="Radar" className="w-3 h-3 pointer-events-none" /><span className="text-[9px] sm:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">FR24</span></button>
               
-              {/* ★ PWA 強制アップデートボタン ★ */}
+              {/* ★ 新規追加: ALC (Google Meet) ボタン ★ */}
+              <button onClick={() => window.open('https://meet.google.com/sjj-oshp-ivz', '_blank')} className="bg-slate-700 hover:bg-pink-600 text-pink-400 hover:text-white px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border border-slate-500 hover:border-pink-400 shadow-sm shrink-0" title="ALC (Google Meet) を開く">
+                <SafeIcon name="Video" className="w-3 h-3 pointer-events-none" />
+                <span className="text-[9px] sm:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">ALC</span>
+              </button>
+
               <button 
                 onClick={() => {
                   if ('serviceWorker' in navigator) {
@@ -455,13 +475,12 @@ export default function App() {
                   window.dispatchEvent(new CustomEvent('show-toast', { detail: '最新バージョンを取得して再起動します...' }));
                   setTimeout(() => { window.location.reload(true); }, 1500);
                 }}
-                className="bg-slate-700 hover:bg-emerald-600 text-emerald-400 hover:text-white px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border border-emerald-500 hover:border-emerald-400 shadow-sm flex-1 sm:flex-none"
+                className="bg-slate-700 hover:bg-emerald-600 text-emerald-400 hover:text-white px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border border-emerald-500 hover:border-emerald-400 shadow-sm shrink-0"
                 title="アプリを消さずに最新版へアップデート"
               >
                 <SafeIcon name="DownloadCloud" className="w-3 h-3 pointer-events-none" />
                 <span className="text-[9px] sm:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">UPDT</span>
               </button>
-            </div>
           </div>
         </div>
 

@@ -1,6 +1,24 @@
 import React from 'react';
 import { SafeIcon } from './SharedComponents';
-import { formatNum, formatWeightDisplay, parseWeightInput } from '../utils/flightCalc';
+
+function formatNum(num) { 
+  return (num == null || isNaN(num)) ? "---" : Math.round(num).toLocaleString('en-US'); 
+}
+
+function formatWeightDisplay(val) { 
+  return (val / 1000).toFixed(1).replace(/\.0$/, '') + 'K'; 
+}
+
+function parseWeightInput(str) {
+  if (!str) return null; 
+  str = str.toString().trim().toUpperCase().replace(/,/g, '');
+  let mult = 1; 
+  if (str.endsWith('K')) { mult = 1000; str = str.slice(0, -1); }
+  const val = parseFloat(str); 
+  if (isNaN(val)) return null;
+  if (mult === 1 && val <= 1500) mult = 1000;
+  return Math.round((val * mult) / 1000) * 1000;
+}
 
 export const DashboardView = ({ state, updateState, computed, aircraftRegistrationList, handleRegChange, setAircraftType, cruiseWtInputText, setCruiseWtInputText, ldgWtInputText, setLdgWtInputText }) => {
   const highlightToggleClass = (isActive, variant = "blue") => isActive ? `px-2 py-0.5 text-[9px] font-bold border-2 rounded transition-all tracking-wider ${variant === 'green' ? 'border-emerald-400 text-emerald-400 bg-emerald-400/10' : variant === 'red' ? 'border-red-400 text-red-400 bg-red-400/10' : 'border-blue-400 text-blue-400 bg-blue-400/10'}` : "px-2 py-0.5 text-[9px] font-bold border border-slate-700 rounded transition-all tracking-wider text-slate-500 hover:text-slate-400";
@@ -8,6 +26,7 @@ export const DashboardView = ({ state, updateState, computed, aircraftRegistrati
   return (
     <div className="flex flex-col gap-1 overflow-y-auto flex-1 h-full pr-1 animate-in fade-in">
       
+      {}
       {/* ================================== AIRCRAFT PROFILE ================================== */}
       <div className="flex flex-col bg-gradient-to-r from-slate-900 via-[#131c2f] to-slate-900 p-2 rounded-xl border border-slate-700/80 shadow-lg gap-2 relative overflow-hidden">
         <div className="absolute top-0 left-0 w-1/3 h-full bg-blue-500/5 blur-xl pointer-events-none"></div>
@@ -70,6 +89,7 @@ export const DashboardView = ({ state, updateState, computed, aircraftRegistrati
         </div>
       </div>
 
+      {}
       {/* ================================== CRUISE PERFORMANCE ================================== */}
       <div className="bg-[#131c2f] border border-slate-700 rounded-lg p-1.5 shadow-xl mt-1">
         <div className="flex items-center justify-between mb-1">
@@ -147,6 +167,7 @@ export const DashboardView = ({ state, updateState, computed, aircraftRegistrati
         </div>
       </div>
 
+      {}
       {/* ================================== LANDING ADJUSTED DISTANCE ================================== */}
       <div className="bg-[#0b101d] border border-slate-700/80 rounded-lg p-1 sm:p-1.5 shadow-2xl space-y-1.5 mt-1">
         <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-1">
@@ -276,7 +297,7 @@ export const DashboardView = ({ state, updateState, computed, aircraftRegistrati
             <div className="flex justify-between items-end mb-0.5">
               <span className="text-[9px] sm:text-[10px] text-slate-200 font-bold tracking-wider">APP SPD ADD</span><span className="text-[11px] text-white font-bold font-mono"><span>+{state.appSpeedAdditive}</span><span className="text-[9px] sm:text-[10px] font-bold text-slate-300 ml-0.5">KT</span></span>
             </div>
-            <input type="range" min="0" max="30" step="5" value={state.appSpeedAdditive} onChange={(e) => updateState('appSpeedAdditive', Number(e.target.value))} className="w-full h-1 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-blue-500 my-1.5" />
+            <input type="range" min="0" max="30" step="1" value={state.appSpeedAdditive} onChange={(e) => updateState('appSpeedAdditive', Number(e.target.value))} className="w-full h-1 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-blue-500 my-1.5" />
           </div>
           <div className="border border-slate-700 rounded p-1.5 flex flex-col bg-[#111827] justify-center">
             <div className="flex justify-between items-end mb-0.5">
