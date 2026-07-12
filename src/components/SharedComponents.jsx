@@ -146,26 +146,21 @@ export const parseFlightPlanText = (text) => {
     extractedIsa = parseInt(isaStr.replace('M', '-').replace('P', '+'), 10);
   }
 
-const routeMatch = text.match(/(?:DEP\/DEST|ROUTE|FLT)[^\w]*([A-Z]{4})[^\w]*([A-Z]{4})/i) || text.match(/([A-Z]{4})\s*-\s*([A-Z]{4})/);
+  const routeMatch = text.match(/(?:DEP\/DEST|ROUTE|FLT)[^\w]*([A-Z]{4})[^\w]*([A-Z]{4})/i) || text.match(/([A-Z]{4})\s*-\s*([A-Z]{4})/);
   let depPort = '', arrPort = '';
   if (routeMatch) { depPort = routeMatch[1]; arrPort = routeMatch[2]; }
   
-  // ★ ICAO FPL形式（-RJTT0055 と -EGLL1344）から出発地・目的地を確実に抽出
   const icaoMatches = [...text.matchAll(/-([A-Z]{4})\d{4}/g)];
   if (icaoMatches.length >= 2) {
     if (!depPort) depPort = icaoMatches[0][1];
     if (!arrPort) arrPort = icaoMatches[1][1];
   }
   
-  // ETOPS用に目的地をdataオブジェクトに格納
   if (arrPort) {
     data.dest = arrPort.toUpperCase();
   }
 
-  // ★ T/O OAT の抽出 (出発地のMETARから探す)
-  // ディスパッチャコメントは使わず、純粋にMETARから抽出します
   if (depPort) {
-    // [\s\S]を使用して改行を跨いでも検索できるようにします。ZがOCRで2になるケースに対応
     const depMetarRegex = new RegExp(`${depPort}\\s+\\d{6}[Zz2][\\s\\S]{0,150}?(?:\\s|\\/+)(M?\\d{2})\\/(?:M?\\d{2})[\\s=Q\\n]`);
     const depMetarMatch = text.match(depMetarRegex);
     if (depMetarMatch) {
@@ -173,7 +168,6 @@ const routeMatch = text.match(/(?:DEP\/DEST|ROUTE|FLT)[^\w]*([A-Z]{4})[^\w]*([A-
     }
   }
 
-  // ★ L/D OAT の抽出 (到着地のMETARから探す)
   if (arrPort) {
     const arrMetarRegex = new RegExp(`${arrPort}\\s+\\d{6}[Zz2][\\s\\S]{0,150}?(?:\\s|\\/+)(M?\\d{2})\\/(?:M?\\d{2})[\\s=Q\\n]`);
     const arrMetarMatch = text.match(arrMetarRegex);
@@ -182,18 +176,10 @@ const routeMatch = text.match(/(?:DEP\/DEST|ROUTE|FLT)[^\w]*([A-Z]{4})[^\w]*([A-
     }
   }
 
-// ★ ETOPS判定用：PDFテキストから経路部分をざっくり抽出
   let extractedRoute = "";
-  
-  // パターン1：ICAO FPLフォーマット (例: -N0503F290 INUBO ... -EGLL1344 のような場合)
-  // 非常に特徴的な文字列で誤爆が少ないため、こちらを【最優先】で探します
   const icaoRouteMatch = text.match(/-(?:N\d{4}|M\d{3})[FSAM]\d{3}\s+([\s\S]+?)(?=\s*-[A-Z]{4}\d{4})/i);
-  
-  // パターン2：一般的なディスパッチフォーマット ("ROUTE" などの見出しがある場合)
-  // 見出しの誤爆（要約ルートなど）が多いため、バックアップとして使います
   const releaseRouteMatch = text.match(/(?:ATC ROUTE|ROUTE|RTE)[\s:]*([\s\S]+?)(?:RTE RSVS|ALTN|AWY|FLT INFO|RMK|FIR|ATC|TIME|PLND|PROFIL|DISP|FUEL|$)/i);
 
-  // ★ 優先順位の変更：ICAOフォーマットを最優先で評価する！
   if (icaoRouteMatch && icaoRouteMatch[1].length > 10) {
     extractedRoute = icaoRouteMatch[1];
   } else if (releaseRouteMatch && releaseRouteMatch[1].length > 10) {
@@ -201,11 +187,9 @@ const routeMatch = text.match(/(?:DEP\/DEST|ROUTE|FLT)[^\w]*([A-Z]{4})[^\w]*([A-
   }
 
   if (extractedRoute) {
-    // 改行をスペースに変換し、連続する無駄なスペースも1つに圧縮する
     data.route = extractedRoute.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim(); 
   }
 
-  // フォールバック
   if (data.toOat === undefined) {
     const toOatMatch = text.match(/(?:T\/O|DEP)\s*OAT[^\dPM+-]*([PM+-]?\d{1,2})/i);
     if (toOatMatch) data.toOat = parseInt(toOatMatch[1].toUpperCase().replace('M', '-').replace('P', '+'), 10);
@@ -215,14 +199,12 @@ const routeMatch = text.match(/(?:DEP\/DEST|ROUTE|FLT)[^\w]*([A-Z]{4})[^\w]*([A-
     if (ldOatMatch) data.ldOat = parseInt(ldOatMatch[1].toUpperCase().replace('M', '-').replace('P', '+'), 10);
   }
 
-  // ★ ISA の抽出 (TOCの文字に依存せず、巡航高度の温度を直接探す)
   if (extractedIsa !== null && !isNaN(extractedIsa)) {
     data.isa = extractedIsa;
   } else if (data.alt) {
     const navLogIndex = text.indexOf('NAVIGATION LOG');
     const searchArea = navLogIndex !== -1 ? text.substring(navLogIndex) : text;
     const altStr = data.alt.toString();
-    // 例: "35000 121.4 -47 " や "41000 023.1-56" (距離と温度がくっついている場合) に対応
     const regex = new RegExp(altStr + "\\s+[\\d\\.]+\\s*([M+-]?\\d{2})[\\s\\n]");
     const match = searchArea.match(regex);
 
@@ -237,6 +219,22 @@ const routeMatch = text.match(/(?:DEP\/DEST|ROUTE|FLT)[^\w]*([A-Z]{4})[^\w]*([A-
   const elevMatches = [...text.matchAll(/ELEV[\s\S]{0,100}?(\d{1,4})\s*FT/g)];
   if (elevMatches.length > 0) data.toElev = parseInt(elevMatches[0][1], 10);
   if (elevMatches.length > 1) data.ldElev = parseInt(elevMatches[1][1], 10);
+
+  // ★ ETOPS ALTN (RALT) の抽出
+  const raltMatch = text.match(/RALT\/([A-Z0-9\s]+?)(?:RMK\/|-|\n|\r|$)/);
+  if (raltMatch) {
+      const ralts = raltMatch[1].trim().split(/\s+/).filter(code => /^[A-Z]{4}$/.test(code));
+      if (ralts.length > 0) {
+          data.etopsAltns = ralts;
+      }
+  }
+
+  // ★ ETOPS PLAN 時間 (180 or 207) の抽出
+  const etopsTimeMatch = text.match(/ETOPS[/\s]*(120|180|207)[\s]*PLAN/i) || text.match(/ETOPS\s*(120|180|207)/i);
+  if (etopsTimeMatch) {
+      data.etopsTime = etopsTimeMatch[1];
+  }
+
   return Object.keys(data).length > 0 ? data : null;
 };
 
@@ -303,6 +301,8 @@ export const PasteModal = ({ isOpen, onClose, onApply }) => {
               {parsedData.isa !== undefined && renderBadge("ISA", parsedData.isa > 0 ? `+${parsedData.isa}` : parsedData.isa, "text-orange-300 bg-orange-500/20 border-orange-500/40")}
               {parsedData.toOat !== undefined && renderBadge("T/O", `${parsedData.toOat}°C`, "text-amber-300 bg-amber-500/20 border-amber-500/40")}
               {parsedData.ldOat !== undefined && renderBadge("L/D", `${parsedData.ldOat}°C`, "text-amber-300 bg-amber-500/20 border-amber-500/40")}
+              {parsedData.etopsAltns && renderBadge("RALT", parsedData.etopsAltns.join(' '), "text-pink-300 bg-pink-500/20 border-pink-500/40")}
+              {parsedData.etopsTime && renderBadge("ETOPS", `${parsedData.etopsTime} MIN`, "text-pink-300 bg-pink-500/20 border-pink-500/40")}
               {parsedData.route && renderBadge("ROUTE", parsedData.route.substring(0, 15) + "...", "text-violet-300 bg-violet-500/20 border-violet-500/40")}
             </div>
           ) : <span className="text-xs text-rose-400 italic px-1 font-bold">有効なデータが抽出できませんでした</span>}

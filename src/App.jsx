@@ -49,6 +49,8 @@ export default function App() {
   // FPL ROUTEの読み込み
   const [globalRoute, setGlobalRoute] = useState("");
   const [globalDest, setGlobalDest] = useState("");
+  const [globalEtopsAltns, setGlobalEtopsAltns] = useState([]); // ★ 追加: ETOPS ALTN用
+  const [globalEtopsTime, setGlobalEtopsTime] = useState(""); // ★ 追加: ETOPS PLAN時間
 
   useEffect(() => { setCruiseWtInputText(formatWeightDisplay(state.cruiseWeight)); }, [state.cruiseWeight]); 
   useEffect(() => { setLdgWtInputText(formatWeightDisplay(state.landingWeight)); }, [state.landingWeight]);
@@ -110,6 +112,8 @@ export default function App() {
     if (data.avgTaxi !== undefined) setTaxiOutMins(data.avgTaxi); else setTaxiOutMins(20);
     if (data.route) { setGlobalRoute(data.route); }
     if (data.dest) { setGlobalDest(data.dest); }
+    if (data.etopsAltns) { setGlobalEtopsAltns(data.etopsAltns); } else { setGlobalEtopsAltns([]); }
+    if (data.etopsTime) { setGlobalEtopsTime(data.etopsTime); } else { setGlobalEtopsTime(""); }
     window.dispatchEvent(new CustomEvent('show-toast', { detail: 'フライトデータをパフォーマンス計算と休憩計算に反映しました！' }));
   };
 
@@ -213,21 +217,17 @@ export default function App() {
     if (!isEngInop && typeof TARGET_PITCH_N1_DATA_RAW !== 'undefined') { 
       const f25Data = TARGET_PITCH_N1_DATA_RAW[mKey]?.f25; const f30Data = TARGET_PITCH_N1_DATA_RAW[mKey]?.f30; const wt1000Ldg = clampedLandingWeight / 1000;
       
-      // ★ 1kt単位でスムーズに補間するためのロジック
       const getInterpolatedTarget = (wt, dataArray, addSpd) => {
         if (!dataArray || dataArray.length === 0 || wt > dataArray[dataArray.length - 1][0]) return { pch: null, n1: null };
         const isDataExtended = dataArray[0].length > 3;
         
-        // 77W等、+0しかデータがない場合は簡易線形で補間
         if (!isDataExtended) {
           const basePch = interpolateObjArray(wt, dataArray, 1);
           const baseN1 = interpolateObjArray(wt, dataArray, 2);
           if (basePch === null || baseN1 === null) return { pch: null, n1: null };
-          // 1ktあたり Pitch -0.12°, N1 +0.15% の近似
           return { pch: basePch - (addSpd * 0.12), n1: baseN1 + (addSpd * 0.15) };
         }
         
-        // 772/773等、+5,+10..の拡張データがある場合は、まずSpeedで前後データを挟み込む
         const speeds = [
           { add: 0, pIdx: 1, nIdx: 2 },
           { add: 5, pIdx: 3, nIdx: 4 },
@@ -247,7 +247,6 @@ export default function App() {
           }
         }
         
-        // 重量を使ってLowerとUpperの速度に対するN1/Pitchを取得
         const p_lower = interpolateObjArray(wt, dataArray, lower.pIdx);
         const n_lower = interpolateObjArray(wt, dataArray, lower.nIdx);
         const p_upper = interpolateObjArray(wt, dataArray, upper.pIdx);
@@ -256,7 +255,6 @@ export default function App() {
         if (p_lower === null || n_lower === null || p_upper === null || n_upper === null) return { pch: null, n1: null };
         if (lower.add === upper.add) return { pch: p_lower, n1: n_lower };
         
-        // 速度差の割合(ratio)で線形補間
         const ratio = (addSpd - lower.add) / (upper.add - lower.add);
         return { 
           pch: p_lower + (p_upper - p_lower) * ratio, 
@@ -420,7 +418,7 @@ export default function App() {
             </div>
             <div className="flex items-center gap-1">
               <span className="text-amber-400 font-mono text-[9px] border border-amber-500/30 px-1 rounded bg-amber-500/10 tracking-normal font-bold">
-                ver 4.9
+                ver 5.0
               </span>
               {flightId && (
                 <span className="text-slate-300 font-mono text-[9px] border border-slate-600 px-1 rounded bg-slate-800 tracking-normal font-bold">
@@ -545,7 +543,7 @@ export default function App() {
       )}
       {activeTab === 'TFC INFO' && (<div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden">{typeof FltInfoView !== 'undefined' && <FltInfoView p={fltInfoProps} />}</div>)}
       {activeTab === 'WX/MNM' && (<div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden">{typeof WxMnmReference !== 'undefined' && <WxMnmReference />}</div>)}
-      {activeTab === 'ETOPS' && (<div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden">{typeof EtopsView !== 'undefined' && <EtopsView globalRoute={globalRoute} globalDest={globalDest} />}</div>)} 
+      {activeTab === 'ETOPS' && (<div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden">{typeof EtopsView !== 'undefined' && <EtopsView globalRoute={globalRoute} globalDest={globalDest} globalEtopsAltns={globalEtopsAltns} globalEtopsTime={globalEtopsTime} />}</div>)} 
       {activeTab === 'DOCS' && (<div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden">{typeof Docs2View !== 'undefined' && <Docs2View />}</div>)}
       {activeTab === 'REST CALC' && (<div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden">
         {typeof RestView !== 'undefined' && <RestView
