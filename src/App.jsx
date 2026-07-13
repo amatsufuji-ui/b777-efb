@@ -30,12 +30,29 @@ export default function App() {
   const [isWifiModalOpen, setIsWifiModalOpen] = useState(false); 
   const [isDrmModalOpen, setIsDrmModalOpen] = useState(false); 
   const [isSmartCatModalOpen, setIsSmartCatModalOpen] = useState(false);
-  const [isGuideOpen, setIsGuideOpen] = useState(false); // ★HELPモーダル用
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
+
+  // ★ 追加: 初回セットアップバナー用ステート
+  const [showSetupBanner, setShowSetupBanner] = useState(false);
 
   const [restFlightHours3, setRestFlightHours3] = useState(8); const [restFlightMins3, setRestFlightMins3] = useState(0); const [restFlightHours4, setRestFlightHours4] = useState(12); const [restFlightMins4, setRestFlightMins4] = useState(0);
   const [stdHours, setStdHours] = useState(10); const [stdMins, setStdMins] = useState(0);
   const [isTakeoffAuto, setIsTakeoffAuto] = useState(true); const [taxiOutMins, setTaxiOutMins] = useState(20); const [restTakeoffHours, setRestTakeoffHours] = useState(10); const [restTakeoffMins, setRestTakeoffMins] = useState(20);
   const [restOffsetMins, setRestOffsetMins] = useState(0); const [restLandingOffsetMins, setRestLandingOffsetMins] = useState(0); const [restCrewSize, setRestCrewSize] = useState(3); const [restFirstRestMins, setRestFirstRestMins] = useState(60); const [restLastRestMins, setRestLastRestMins] = useState(60); const [restFirstHalfMins, setRestFirstHalfMins] = useState(0);
+
+  // ★ 追加: 起動時にローカルストレージを確認してバナー表示判定を行う
+  useEffect(() => {
+    const isHidden = localStorage.getItem('hideSetupGuide');
+    if (isHidden !== 'true') {
+      setShowSetupBanner(true);
+    }
+  }, []);
+
+  // ★ 追加: バナーを閉じて、今後表示しない設定を保存する関数
+  const handleCloseBanner = () => {
+    localStorage.setItem('hideSetupGuide', 'true');
+    setShowSetupBanner(false);
+  };
 
   useEffect(() => {
     if (isTakeoffAuto) { const totalMins = stdHours * 60 + stdMins + taxiOutMins; setRestTakeoffHours(Math.floor(totalMins / 60) % 24); setRestTakeoffMins(totalMins % 60); }
@@ -58,8 +75,8 @@ export default function App() {
   // FPL ROUTEの読み込み
   const [globalRoute, setGlobalRoute] = useState("");
   const [globalDest, setGlobalDest] = useState("");
-  const [globalEtopsAltns, setGlobalEtopsAltns] = useState([]); // ★ 追加: ETOPS ALTN用
-  const [globalEtopsTime, setGlobalEtopsTime] = useState(""); // ★ 追加: ETOPS PLAN時間
+  const [globalEtopsAltns, setGlobalEtopsAltns] = useState([]); // ETOPS ALTN用
+  const [globalEtopsTime, setGlobalEtopsTime] = useState(""); // ETOPS PLAN時間
 
   useEffect(() => { setCruiseWtInputText(formatWeightDisplay(state.cruiseWeight)); }, [state.cruiseWeight]); 
   useEffect(() => { setLdgWtInputText(formatWeightDisplay(state.landingWeight)); }, [state.landingWeight]);
@@ -414,10 +431,30 @@ export default function App() {
       <WifiPwdModal isOpen={isWifiModalOpen} onClose={() => setIsWifiModalOpen(false)} />
       <DrmModal isOpen={isDrmModalOpen} onClose={() => setIsDrmModalOpen(false)} initialFlightNo={flightId} />
       <SmartCatModal isOpen={isSmartCatModalOpen} onClose={() => setIsSmartCatModalOpen(false)} />
-      {/* ★ 追加: クイックガイドモーダルの配置 */}
       <QuickGuideModal isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} />
 
-      <div className="flex flex-col gap-1.5 w-full flex-none mb-1 px-1">
+      {/* ★ 追加: 初回セットアップバナー */}
+      {showSetupBanner && (
+        <div className="bg-[#0b2447] border border-blue-500/50 rounded-xl p-3 mx-1 mt-1 shadow-md relative overflow-hidden animate-in slide-in-from-top-4 flex items-center justify-between gap-3">
+          <div className="flex-1 min-w-0">
+             <div className="flex items-center gap-1.5 text-blue-400 font-black text-xs md:text-sm mb-1">
+                <SafeIcon name="Smartphone" className="w-4 h-4 shrink-0" />
+                <span className="truncate">アプリを「ホーム画面に追加」して快適に！</span>
+             </div>
+             <p className="text-[10px] sm:text-xs text-blue-100 leading-tight">
+               全画面表示のため、ブラウザの共有メニュー（<SafeIcon name="Share" className="w-3 h-3 inline pb-0.5" />）から<span className="text-amber-400 font-bold mx-0.5">「ホーム画面に追加」</span>をお願いします。
+             </p>
+          </div>
+          <button 
+            onClick={handleCloseBanner}
+            className="shrink-0 bg-blue-600 hover:bg-blue-500 text-white font-bold py-1.5 px-3 rounded-lg text-xs transition-colors shadow-sm whitespace-nowrap border border-blue-400/30"
+          >
+            閉じる
+          </button>
+        </div>
+      )}
+
+      <div className="flex flex-col gap-1.5 w-full flex-none mb-1 px-1 mt-1">
         {/* ヘッダー全体：常に上下2段（1段目：タイトル、2段目：ボタン群） */}
         <div className="flex flex-col pt-1 pb-1 border-b-2 border-slate-700/80 gap-1.5">
           
@@ -429,7 +466,7 @@ export default function App() {
             </div>
             <div className="flex items-center gap-1">
               <span className="text-amber-400 font-mono text-[9px] border border-amber-500/30 px-1 rounded bg-amber-500/10 tracking-normal font-bold">
-                ver 5.2
+                ver 5.3
               </span>
               {flightId && (
                 <span className="text-slate-300 font-mono text-[9px] border border-slate-600 px-1 rounded bg-slate-800 tracking-normal font-bold">
@@ -512,7 +549,6 @@ export default function App() {
                 <span className="text-[9px] sm:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">CKIN</span>
               </button>
 
-              {/* ★ 追加: HELP ボタン */}
               <button 
                 onClick={() => setIsGuideOpen(true)} 
                 className="bg-slate-700 hover:bg-rose-600 text-rose-400 hover:text-white px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border border-slate-500 hover:border-rose-400 shadow-sm shrink-0" 

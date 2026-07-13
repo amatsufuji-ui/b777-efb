@@ -1,7 +1,28 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { SafeIcon } from './SharedComponents';
 
 export const QuickGuideModal = ({ isOpen, onClose }) => {
+  const [hideSetup, setHideSetup] = useState(false);
+
+  // モーダルが開かれた時にローカルストレージの設定を読み込む
+  useEffect(() => {
+    if (isOpen) {
+      const stored = localStorage.getItem('hideSetupGuide');
+      setHideSetup(stored === 'true');
+    }
+  }, [isOpen]);
+
+  // チェックボックスの変更を処理し、ローカルストレージに保存
+  const handleCheckboxChange = (e) => {
+    const checked = e.target.checked;
+    setHideSetup(checked);
+    if (checked) {
+      localStorage.setItem('hideSetupGuide', 'true');
+    } else {
+      localStorage.removeItem('hideSetupGuide');
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -15,6 +36,65 @@ export const QuickGuideModal = ({ isOpen, onClose }) => {
 
         {/* スクロール可能なコンテンツエリア */}
         <div className="overflow-y-auto custom-scrollbar pr-2 space-y-5 text-sm text-slate-300">
+
+          {/* ★ 初回セットアップガイド (チェックボックスがOFFの時のみ表示) */}
+          {!hideSetup && (
+            <div className="bg-[#0b2447] border border-blue-500/50 rounded-xl p-4 shadow-inner relative overflow-hidden">
+              <div className="absolute top-[-20px] right-[-20px] opacity-10">
+                <SafeIcon name="Smartphone" className="w-40 h-40" />
+              </div>
+              
+              <div className="flex items-center gap-2 text-blue-400 font-black text-sm md:text-base mb-2 relative z-10">
+                <SafeIcon name="AlertCircle" className="w-5 h-5" />
+                <span>【重要】初回セットアップのお願い</span>
+              </div>
+              
+              <p className="text-xs md:text-sm text-blue-100 leading-relaxed font-medium relative z-10 mb-3">
+                本アプリは<span className="text-amber-400 font-bold mx-1">「ホーム画面に追加」</span>してご利用いただくよう設計されています。<br className="hidden md:block"/>
+                ブラウザの検索バーなどを消し、全画面で快適に操作するために、<br className="hidden md:block"/>
+                以下の手順でホーム画面に追加してからお使いください。
+              </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 relative z-10 mb-3">
+                <div className="bg-[#121c2f] border border-blue-900/50 rounded-lg p-2.5 flex items-center gap-3">
+                  <div className="text-blue-400 shrink-0"><SafeIcon name="Share" className="w-6 h-6" /></div>
+                  <div className="flex flex-col">
+                    <span className="text-[10px] text-blue-400 font-black tracking-wider">STEP 1</span>
+                    <span className="text-xs text-white font-bold leading-tight mt-0.5">ブラウザの<br/>「共有マーク」をタップ</span>
+                  </div>
+                </div>
+                
+                <div className="bg-[#121c2f] border border-blue-900/50 rounded-lg p-2.5 flex items-center gap-3">
+                  <div className="text-sky-400 shrink-0"><SafeIcon name="PlusSquare" className="w-6 h-6" /></div>
+                  <div className="flex flex-col">
+                    <span className="text-[10px] text-sky-400 font-black tracking-wider">STEP 2</span>
+                    <span className="text-xs text-white font-bold leading-tight mt-0.5">メニューから<br/>「ホーム画面に追加」</span>
+                  </div>
+                </div>
+
+                <div className="bg-[#062c21] border border-emerald-900/50 rounded-lg p-2.5 flex items-center gap-3">
+                  <div className="text-emerald-400 shrink-0"><SafeIcon name="Smartphone" className="w-6 h-6" /></div>
+                  <div className="flex flex-col">
+                    <span className="text-[10px] text-emerald-400 font-black tracking-wider">STEP 3</span>
+                    <span className="text-xs text-white font-bold leading-tight mt-0.5">追加されたアイコンから<br/>アプリを起動！</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 mt-2 relative z-10 border-t border-blue-800/50 pt-2">
+                <input 
+                  type="checkbox" 
+                  id="hideSetupCheckbox" 
+                  checked={hideSetup}
+                  onChange={handleCheckboxChange}
+                  className="w-4 h-4 rounded bg-slate-900 border-slate-600 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-slate-900"
+                />
+                <label htmlFor="hideSetupCheckbox" className="text-xs text-blue-200 cursor-pointer select-none">
+                  今後このセットアップ案内を表示しない
+                </label>
+              </div>
+            </div>
+          )}
           
           <section>
             <h3 className="text-emerald-400 font-bold mb-1 border-l-4 border-emerald-400 pl-2">1. データの読み込み (LOAD)</h3>
