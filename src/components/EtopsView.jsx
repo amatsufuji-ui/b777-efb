@@ -329,11 +329,15 @@ export const EtopsView = ({ globalRoute = "", globalDest = "", globalEtopsAltns 
             
             {/* 補足説明としてFPLから取得したRALTのリストを表示 */}
             {globalEtopsAltns.length > 0 && (
-              <div className="mt-3 pt-2 border-t border-slate-700 text-[10px] text-slate-400 flex items-center gap-1.5">
+              <div className="mt-3 pt-2 border-t border-slate-700 text-[10px] text-slate-400 flex items-center gap-1.5 flex-wrap">
                 <SafeIcon name="Info" className="w-3.5 h-3.5 text-pink-400 shrink-0" />
+                {globalEtopsTime && (
+                  <span className={`px-1.5 py-0.5 rounded font-black font-mono text-[10px] leading-none ${globalEtopsTime === '207' ? 'bg-amber-900/60 text-amber-400 border border-amber-500/50' : 'bg-pink-900/60 text-pink-400 border border-pink-500/50'}`}>
+                    {globalEtopsTime} ETOPS
+                  </span>
+                )}
                 <span>
-                  FPL RALT: <strong className="font-mono text-pink-300">{globalEtopsAltns.join(', ')}</strong> (ETOPS/{globalEtopsTime || '---'} PLAN) 
-                  がすべて含まれる組み合わせを強調表示しています。
+                  FPL RALT: <strong className="font-mono text-pink-300">{globalEtopsAltns.join(', ')}</strong> がすべて含まれる組み合わせを強調表示しています。
                 </span>
               </div>
             )}

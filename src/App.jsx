@@ -418,7 +418,7 @@ export default function App() {
             </div>
             <div className="flex items-center gap-1">
               <span className="text-amber-400 font-mono text-[9px] border border-amber-500/30 px-1 rounded bg-amber-500/10 tracking-normal font-bold">
-                ver 5.0
+                ver 5.1
               </span>
               {flightId && (
                 <span className="text-slate-300 font-mono text-[9px] border border-slate-600 px-1 rounded bg-slate-800 tracking-normal font-bold">
@@ -490,6 +490,16 @@ export default function App() {
               <button onClick={() => window.open('https://meet.google.com/sjj-oshp-ivz', '_blank')} className="bg-slate-700 hover:bg-pink-600 text-pink-400 hover:text-white px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border border-slate-500 hover:border-pink-400 shadow-sm shrink-0" title="ALC (Google Meet) を開く">
                 <SafeIcon name="Video" className="w-3 h-3 pointer-events-none" />
                 <span className="text-[9px] sm:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">ALC</span>
+              </button>
+
+              {/* ★ 追加: ANAオンラインチェックインボタン */}
+              <button 
+                onClick={() => window.open('https://aswbe.ana.co.jp/webapps/checkin/checkin-search?CONNECTION_KIND=JPN&LANG=ja&SITE_ID=ASW_TOP', '_blank')} 
+                className="bg-slate-700 hover:bg-sky-600 text-sky-400 hover:text-white px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border border-slate-500 hover:border-sky-400 shadow-sm shrink-0" 
+                title="ANAオンラインチェックイン"
+              >
+                <SafeIcon name="UserCheck" className="w-3 h-3 pointer-events-none" />
+                <span className="text-[9px] sm:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">CKIN</span>
               </button>
 
               <button 
