@@ -127,7 +127,7 @@ export const QuickGuideModal = ({ isOpen, onClose }) => {
 
               <div className="bg-slate-900/50 p-2 rounded border border-slate-700">
                 <div className="text-amber-300 font-bold mb-0.5">TFC INFO</div>
-                <p className="leading-relaxed">読み込んだ便の前後の便を表示します。</p>
+                <p className="leading-relaxed">読み込んだ便の前後の便を表示します。特定の便の情報を確認できます。</p>
               </div>
 
               <div className="bg-slate-900/50 p-2 rounded border border-slate-700">
