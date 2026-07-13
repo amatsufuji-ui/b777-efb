@@ -35,7 +35,7 @@ export const QuickGuideModal = ({ isOpen, onClose }) => {
         </div>
 
         {/* スクロール可能なコンテンツエリア */}
-        <div className="overflow-y-auto custom-scrollbar pr-2 space-y-5 text-sm text-slate-300">
+        <div className="overflow-y-auto custom-scrollbar pr-2 space-y-6 text-sm text-slate-300">
 
           {/* ★ 初回セットアップガイド (チェックボックスがOFFの時のみ表示) */}
           {!hideSetup && (
@@ -97,77 +97,77 @@ export const QuickGuideModal = ({ isOpen, onClose }) => {
           )}
           
           <section>
-            <h3 className="text-emerald-400 font-bold mb-1 border-l-4 border-emerald-400 pl-2">1. データの読み込み (LOAD)</h3>
+            <h3 className="text-emerald-400 font-bold mb-2 border-l-4 border-emerald-400 pl-2">1. データの読み込み (LOAD)</h3>
             <p className="text-xs leading-relaxed ml-1">
-              ヘッダーの <span className="bg-emerald-600 text-white px-1 rounded font-bold">LOAD</span> ボタンから、PDF（Information Package）を選択するか、テキストをペーストすることで、<span className="text-emerald-300 font-bold">機番・便名・重量・温度・経路</span>などを読み込んで各計算に自動反映されます。
+              ヘッダーの <span className="bg-emerald-600 text-white px-1.5 py-0.5 rounded font-bold">LOAD</span> ボタンから、PDF（Information Package）を選択、またはテキストをペーストしてください。<span className="text-emerald-300 font-bold">機番・便名・重量・温度・経路</span>などのデータが読み込まれ、各計算ツールに自動反映されます。
             </p>
           </section>
 
           <section>
-            <h3 className="text-sky-400 font-bold mb-1 border-l-4 border-sky-400 pl-2">2. ヘッダーボタンの機能</h3>
-            <ul className="text-xs leading-relaxed space-y-1.5 pl-1">
-              <li><span className="bg-sky-600 px-1 rounded text-white font-mono font-bold">PANA</span> / <span className="bg-indigo-600 px-1 rounded text-white font-mono font-bold">INMA</span> / <span className="bg-emerald-600 px-1 rounded text-white font-mono font-bold">DOM</span> : 機内Wi-Fiポータルへ接続します。（PANAを長押しでパスワード登録。パスワードの入力時にペースト可能。）</li>
-              <li><span className="bg-purple-600 px-1 rounded text-white font-mono font-bold">DRM</span> : 欧州線でのDRM送信のため、抽出した便名を件名に入れた状態でGmailを起動します。</li>
-              <li><span className="bg-orange-600 px-1 rounded text-white font-mono font-bold">BDYC</span> : 当該機番のBuddycomを起動します。</li>
-              <li><span className="bg-yellow-600 px-1 rounded text-white font-mono font-bold">FR24</span> : FlightRadar24が起動し、便名をペーストできます。</li>
-              <li><span className="bg-pink-600 px-1 rounded text-white font-mono font-bold">ALC</span> : リモートアルコール検査（Google Meet等）を起動します。</li>
-              <li><span className="bg-sky-600 px-1 rounded text-white font-mono font-bold">CKIN</span> : ANAオンラインチェックインを開きます。</li>
-              <li><span className="bg-emerald-600 px-1 rounded text-white font-mono font-bold">UPDT</span> : アプリを最新バージョンに更新します。</li>
+            <h3 className="text-sky-400 font-bold mb-2 border-l-4 border-sky-400 pl-2">2. ヘッダーボタンの機能</h3>
+            <ul className="text-xs leading-relaxed space-y-2 pl-1">
+              <li><span className="bg-sky-600 px-1.5 py-0.5 rounded text-white font-mono font-bold">PANA</span> <span className="bg-indigo-600 px-1.5 py-0.5 rounded text-white font-mono font-bold">INMA</span> <span className="bg-emerald-600 px-1.5 py-0.5 rounded text-white font-mono font-bold">DOM</span> : 機内Wi-Fiポータルへ接続します。（PANA長押しでパスワード登録。入力時にペースト可能）</li>
+              <li><span className="bg-purple-600 px-1.5 py-0.5 rounded text-white font-mono font-bold">DRM</span> : 欧州線用DRM送信ツール。抽出した便名を件名に入れた状態でGmailが起動します。</li>
+              <li><span className="bg-orange-600 px-1.5 py-0.5 rounded text-white font-mono font-bold">BDYC</span> : 当該機番のBuddycomを起動します。</li>
+              <li><span className="bg-yellow-600 px-1.5 py-0.5 rounded text-white font-mono font-bold">FR24</span> : FlightRadar24を起動します（便名のペーストが可能です）。</li>
+              <li><span className="bg-pink-600 px-1.5 py-0.5 rounded text-white font-mono font-bold">ALC</span> : リモートアルコール検査（Google Meet等）を起動します。</li>
+              <li><span className="bg-sky-600 px-1.5 py-0.5 rounded text-white font-mono font-bold">CKIN</span> : ANAオンラインチェックイン画面を開きます。</li>
+              <li><span className="bg-emerald-600 px-1.5 py-0.5 rounded text-white font-mono font-bold">UPDT</span> : アプリを最新バージョンに更新します。</li>
             </ul>
           </section>
 
           <section>
-            <h3 className="text-amber-400 font-bold mb-2 border-l-4 border-amber-400 pl-2">3. 各機能・タブの説明</h3>
+            <h3 className="text-amber-400 font-bold mb-3 border-l-4 border-amber-400 pl-2">3. 各機能・タブの説明</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pl-1 text-xs">
               
-              <div className="bg-slate-900/50 p-2 rounded border border-slate-700">
-                <div className="text-amber-300 font-bold mb-0.5">DASHBOARD</div>
-                <p className="leading-relaxed">PTOW/PLDWを読み込んでVREF、Flap Up Maneuver、Hold Speedや、着陸時のMAX AUTO / MAN 距離などをスライダーと連動してリアルタイムに計算します。<br/><span className="text-rose-400">※ ENG INOPを選ぶとPTOWを着陸重量に反映するのでTAKEOFF RTNが可能かの判断に使用できます。</span></p>
+              <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
+                <div className="text-amber-300 font-bold mb-1">DASHBOARD</div>
+                <p className="leading-relaxed">PTOW/PLDWをもとに、VREF・Flap Up Maneuver・Hold Speedや、着陸時のMAX AUTO / MAN 距離をスライダー連動でリアルタイム計算。<br/><span className="text-rose-400 mt-1 inline-block">※ ENG INOP選択時はPTOWを着陸重量に反映し、TAKEOFF RTN可否の判断に活用できます。</span></p>
               </div>
 
-              <div className="bg-slate-900/50 p-2 rounded border border-slate-700">
-                <div className="text-amber-300 font-bold mb-0.5">TFC INFO</div>
-                <p className="leading-relaxed">読み込んだ便の前後の便を表示します。特定の便の情報を確認できます。</p>
+              <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
+                <div className="text-amber-300 font-bold mb-1">TFC INFO</div>
+                <p className="leading-relaxed">読み込んだ便の前後便や、便名検索による関連機の情報を表示します。</p>
               </div>
 
-              <div className="bg-slate-900/50 p-2 rounded border border-slate-700">
-                <div className="text-amber-300 font-bold mb-0.5">WX/MNM</div>
-                <p className="leading-relaxed">WX悪化時のフローやFPL記号の説明を確認できます。</p>
+              <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
+                <div className="text-amber-300 font-bold mb-1">WX/MNM</div>
+                <p className="leading-relaxed">WX悪化時のフロー確認や、FPL記号の解説を閲覧できます。</p>
               </div>
 
-              <div className="bg-slate-900/50 p-2 rounded border border-slate-700">
-                <div className="text-amber-300 font-bold mb-0.5">ETOPS</div>
-                <p className="leading-relaxed">欧州線のみADDITIONAL FUEL要否の判断ツールや、HF周波数の取得を行えます。</p>
+              <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
+                <div className="text-amber-300 font-bold mb-1">ETOPS</div>
+                <p className="leading-relaxed">欧州線専用ツール。ADDITIONAL FUELの要否判断や、HF周波数の取得を行えます。</p>
               </div>
 
-              <div className="bg-slate-900/50 p-2 rounded border border-slate-700">
-                <div className="text-amber-300 font-bold mb-0.5">DOCS</div>
-                <p className="leading-relaxed">危険品の混載確認や、配慮を要する旅客の情報を確認できます。</p>
+              <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
+                <div className="text-amber-300 font-bold mb-1">DOCS</div>
+                <p className="leading-relaxed">危険品の混載確認や、配慮を要する旅客情報の確認ができます。</p>
               </div>
 
-              <div className="bg-slate-900/50 p-2 rounded border border-slate-700">
-                <div className="text-amber-300 font-bold mb-0.5">スマカタ</div>
-                <p className="leading-relaxed">よく使うマニュアル・ドキュメントへの直リンク集です。</p>
+              <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
+                <div className="text-amber-300 font-bold mb-1">スマカタ</div>
+                <p className="leading-relaxed">高頻度で使用するマニュアルやドキュメントへの直リンク集です。</p>
               </div>
 
-              <div className="bg-slate-900/50 p-2 rounded border border-slate-700">
-                <div className="text-amber-300 font-bold mb-0.5">REST CALC</div>
-                <p className="leading-relaxed">REST計算ツール。T/O TIMEはSTD + AVG TAXI TIMEをデフォルトに設定しています。</p>
+              <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
+                <div className="text-amber-300 font-bold mb-1">REST CALC</div>
+                <p className="leading-relaxed">休憩時間の計算ツール。T/O TIMEのデフォルト設定は「STD + AVG TAXI TIME」です。</p>
               </div>
 
-              <div className="bg-slate-900/50 p-2 rounded border border-slate-700">
-                <div className="text-amber-300 font-bold mb-0.5">APP CALC</div>
-                <p className="leading-relaxed">LDA時にFAFからMXまでのFPA計算、ILS Z 34Lでの高温時のGS CAPTURE予測、TRAFFIC PATTERNとMIN CIRCでの降下開始点を算出します。</p>
+              <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
+                <div className="text-amber-300 font-bold mb-1">APP CALC</div>
+                <p className="leading-relaxed">温度変化に伴うLDA時のFPA計算（FAF〜MX間）、ILS Z 34Lでの高温時GS CAPTURE予測、TRAFFIC PATTERNやMIN CIRCの降下開始点を算出します。</p>
               </div>
 
-              <div className="bg-slate-900/50 p-2 rounded border border-slate-700">
-                <div className="text-amber-300 font-bold mb-0.5">BUDDY COMM</div>
-                <p className="leading-relaxed">選択した機番でBuddycomにログインします。</p>
+              <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
+                <div className="text-amber-300 font-bold mb-1">BUDDY COMM</div>
+                <p className="leading-relaxed">選択中の機番でBuddycomにログインします。</p>
               </div>
 
-              <div className="bg-slate-900/50 p-2 rounded border border-slate-700">
-                <div className="text-amber-300 font-bold mb-0.5">XWIND</div>
-                <p className="leading-relaxed">TAIL LIMITを選択可能な横風・背風計算ツールです。</p>
+              <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
+                <div className="text-amber-300 font-bold mb-1">XWIND</div>
+                <p className="leading-relaxed">TAIL LIMITを選択可能な、横風・背風の計算ツールです。</p>
               </div>
 
             </div>
