@@ -106,7 +106,7 @@ export const QuickGuideModal = ({ isOpen, onClose }) => {
           <section>
             <h3 className="text-sky-400 font-bold mb-1 border-l-4 border-sky-400 pl-2">2. ヘッダーボタンの機能</h3>
             <ul className="text-xs leading-relaxed space-y-1.5 pl-1">
-              <li><span className="bg-sky-600 px-1 rounded text-white font-mono font-bold">PANA</span> / <span className="bg-indigo-600 px-1 rounded text-white font-mono font-bold">INMA</span> / <span className="bg-emerald-600 px-1 rounded text-white font-mono font-bold">DOM</span> : 機内Wi-Fiポータルへ接続します。（PANAを長押しでパスワード登録）</li>
+              <li><span className="bg-sky-600 px-1 rounded text-white font-mono font-bold">PANA</span> / <span className="bg-indigo-600 px-1 rounded text-white font-mono font-bold">INMA</span> / <span className="bg-emerald-600 px-1 rounded text-white font-mono font-bold">DOM</span> : 機内Wi-Fiポータルへ接続します。（PANAを長押しでパスワード登録。パスワードの入力時にペースト可能。）</li>
               <li><span className="bg-purple-600 px-1 rounded text-white font-mono font-bold">DRM</span> : 欧州線でのDRM送信のため、抽出した便名を件名に入れた状態でGmailを起動します。</li>
               <li><span className="bg-orange-600 px-1 rounded text-white font-mono font-bold">BDYC</span> : 当該機番のBuddycomを起動します。</li>
               <li><span className="bg-yellow-600 px-1 rounded text-white font-mono font-bold">FR24</span> : FlightRadar24が起動し、便名をペーストできます。</li>
