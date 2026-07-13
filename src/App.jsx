@@ -443,7 +443,10 @@ export default function App() {
              </div>
              <p className="text-[10px] sm:text-xs text-blue-100 leading-tight">
                全画面表示のため、ブラウザの共有メニュー（<SafeIcon name="Share" className="w-3 h-3 inline pb-0.5" />）から<span className="text-amber-400 font-bold mx-0.5">「ホーム画面に追加」</span>をお願いします。
-             </p>
+<span className="text-emerald-300 font-bold flex items-center gap-1 mt-0.5">
+                 <SafeIcon name="Info" className="w-3 h-3" />
+                 アプリの使い方は上部メニューの「HELP」ボタンからご覧ください。
+               </span>             </p>
           </div>
           <button 
             onClick={handleCloseBanner}
@@ -466,7 +469,7 @@ export default function App() {
             </div>
             <div className="flex items-center gap-1">
               <span className="text-amber-400 font-mono text-[9px] border border-amber-500/30 px-1 rounded bg-amber-500/10 tracking-normal font-bold">
-                ver 5.3
+                ver 5.4
               </span>
               {flightId && (
                 <span className="text-slate-300 font-mono text-[9px] border border-slate-600 px-1 rounded bg-slate-800 tracking-normal font-bold">
