@@ -122,12 +122,12 @@ export const QuickGuideModal = ({ isOpen, onClose }) => {
               
               <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
                 <div className="text-amber-300 font-bold mb-1">DASHBOARD</div>
-                <p className="leading-relaxed">PTOW/PLDWをもとに、VREF・Flap Up Maneuver・Hold Speedや、着陸時のMAX AUTO / MAN 距離をスライダー連動でリアルタイム計算。<br/><span className="text-rose-400 mt-1 inline-block">※ ENG INOP選択時はPTOWを着陸重量に反映し、TAKEOFF RTN可否の判断に活用できます。</span></p>
+                <p className="leading-relaxed">PTOW/PLDWをもとに、Target N1・VREF・Flap Up Maneuver・Hold Speedや、着陸時のMAX AUTO / MAN 距離をスライダー連動でリアルタイム計算。<br/><span className="text-rose-400 mt-1 inline-block">※ ENG INOP選択時はPTOWを着陸重量に反映し、TAKEOFF RTN可否の判断に活用できます。</span></p>
               </div>
 
               <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
                 <div className="text-amber-300 font-bold mb-1">TFC INFO</div>
-                <p className="leading-relaxed">読み込んだ便の前後便や、便名検索による関連機の情報を表示します。</p>
+                <p className="leading-relaxed">読み込んだ便の前後便や、直接便名入力することにより便の情報を表示します。</p>
               </div>
 
               <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
@@ -137,7 +137,7 @@ export const QuickGuideModal = ({ isOpen, onClose }) => {
 
               <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
                 <div className="text-amber-300 font-bold mb-1">ETOPS</div>
-                <p className="leading-relaxed">欧州線専用ツール。ADDITIONAL FUELの要否判断や、HF周波数の取得を行えます。</p>
+                <p className="leading-relaxed">ADDITIONAL FUELの要否判断(欧州線のみ)や、HF周波数の取得を行えます。</p>
               </div>
 
               <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
@@ -157,7 +157,7 @@ export const QuickGuideModal = ({ isOpen, onClose }) => {
 
               <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
                 <div className="text-amber-300 font-bold mb-1">APP CALC</div>
-                <p className="leading-relaxed">温度変化に伴うLDA時のFPA計算（FAF〜MX間）、ILS Z 34Lでの高温時GS CAPTURE予測、TRAFFIC PATTERNやMIN CIRCの降下開始点を算出します。</p>
+                <p className="leading-relaxed">温度変化に伴うLDA時のFPA計算（FAF〜MX間）、ILS Z 34L等での高温時GS CAPTURE予測、TRAFFIC PATTERNやMIN CIRCの降下開始点を算出します。</p>
               </div>
 
               <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">

@@ -102,7 +102,6 @@ export const DashboardView = ({ state, updateState, computed, aircraftRegistrati
               <div className="flex-1 flex justify-center items-center"><span className="text-lg sm:text-2xl font-extrabold text-white font-mono tracking-tighter leading-none">{formatNum(computed?.optAlt)}</span><span className="text-[9px] sm:text-[10px] font-bold text-slate-300 ml-0.5">FT</span></div>
             </div>
             
-            {/* ★ MAX ALT (With embedded toggle) */}
             <div className="flex-1 min-w-[65px] border border-orange-500/30 rounded flex flex-col bg-[#0f172a] overflow-hidden p-1">
               <div className="flex justify-center items-center gap-1 pb-0.5">
                 <span className="text-[9px] sm:text-[10px] font-bold text-orange-300 tracking-wider">MAX ALT</span>
@@ -146,7 +145,18 @@ export const DashboardView = ({ state, updateState, computed, aircraftRegistrati
             <div className="flex-[2] flex flex-col justify-center">
               <div className="flex justify-between items-end mb-0.5">
                 <span className="text-[9px] sm:text-[10px] text-slate-200 font-bold tracking-wider">GROSS WT</span>
-                <div className="flex items-center"><input type="text" inputMode="decimal" value={String(cruiseWtInputText).replace(/[kKｋＫ]/g, '')} onChange={(e) => setCruiseWtInputText(e.target.value.replace(/[kKｋＫ]/g, ''))} onBlur={() => { const w = parseWeightInput(cruiseWtInputText); if (w !== null) updateState('cruiseWeight', w); else setCruiseWtInputText(formatWeightDisplay(state.cruiseWeight)); }} className="bg-transparent text-right text-[11px] text-white font-bold font-mono w-12 border-b border-transparent hover:border-slate-500 focus:border-emerald-500 focus:outline-none transition-colors" /><span className="text-[9px] sm:text-[10px] font-bold text-slate-300 ml-0.5">KLBS</span></div>
+                <div className="flex items-center">
+                  <input 
+                    type="text" 
+                    inputMode="decimal" 
+                    value={String(cruiseWtInputText).replace(/[kKｋＫ]/g, '')} 
+                    onChange={(e) => setCruiseWtInputText(e.target.value.replace(/[kKｋＫ]/g, ''))} 
+                    onBlur={() => { const w = parseWeightInput(cruiseWtInputText); if (w !== null) updateState('cruiseWeight', w); else setCruiseWtInputText(formatWeightDisplay(state.cruiseWeight)); }} 
+                    onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }} /* ← Enterで確定を追加 */
+                    className="bg-transparent text-right text-[11px] text-white font-bold font-mono w-12 border-b border-transparent hover:border-slate-500 focus:border-emerald-500 focus:outline-none transition-colors" 
+                  />
+                  <span className="text-[9px] sm:text-[10px] font-bold text-slate-300 ml-0.5">KLBS</span>
+                </div>
               </div>
               <input type="range" step="1000" min={computed?.minCruiseWeight || 150000} max={computed?.maxCruiseWeight || 500000} value={computed?.clampedCruiseWeight || state.cruiseWeight} onChange={(e) => updateState('cruiseWeight', Number(e.target.value))} className="w-full h-1 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-emerald-500 my-1.5" />
               <div className="flex justify-between text-[9px] sm:text-[10px] font-bold text-slate-300 mt-0.5 font-mono"><span>{Math.round((computed?.minCruiseWeight || 150000) / 1000)}k</span><span>{Math.round((computed?.maxCruiseWeight || 500000) / 1000)}k</span></div>
@@ -230,7 +240,7 @@ export const DashboardView = ({ state, updateState, computed, aircraftRegistrati
             </div>
           </div>
 
-          {/* ROW 2: AUTO 3, AUTO 2, AUTO 1, M TO FT (2列化) */}
+          {/* ROW 2: AUTO 3, AUTO 2, AUTO 1, M TO FT */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-1 w-full mt-0.5">
             <div className="border border-slate-700 rounded flex flex-col bg-[#131c2f] overflow-hidden shadow-lg p-1 h-full">
               <div className="text-center text-[9px] sm:text-[10px] font-bold text-slate-300 pb-0.5 tracking-widest bg-[#1a2640]">AUTO 3</div>
@@ -259,7 +269,7 @@ export const DashboardView = ({ state, updateState, computed, aircraftRegistrati
               <div className="px-1 py-0.5 text-[6px] opacity-0 font-mono text-center flex justify-between mt-auto border-t border-transparent pt-0.5"><span>-</span><span>-</span></div>
             </div>
 
-            {/* M TO FT BADGE (2列化・文字拡大) */}
+            {/* M TO FT BADGE */}
             <div className="border border-slate-700 rounded flex flex-col bg-[#0f172a] overflow-hidden shadow-lg p-1 h-full col-span-2 md:col-span-1">
               <div className="text-center text-[9px] sm:text-[10px] font-bold text-slate-300 pb-0.5 tracking-widest bg-[#131c2f]">M TO FT</div>
               <div className="flex-1 grid grid-cols-2 gap-x-2 py-0.5 px-1.5 font-mono items-center">
@@ -278,11 +288,23 @@ export const DashboardView = ({ state, updateState, computed, aircraftRegistrati
         </div>
 
         {/* BOTTOM ROW: SLIDERS */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-1.5 pt-1">
-          <div className="border border-slate-700 rounded p-1.5 flex flex-col bg-[#111827]">
+        {/* ★ grid-cols-6 に変更し、LDG WTを col-span-2 で幅を広く設定 */}
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-1.5 pt-1">
+          <div className="border border-slate-700 rounded p-1.5 flex flex-col bg-[#111827] col-span-2">
             <div className="flex justify-between items-end mb-0.5">
               <span className="text-[9px] sm:text-[10px] text-slate-200 font-bold tracking-wider">LANDING WT</span>
-              <div className="flex items-center"><input type="text" inputMode="decimal" value={String(ldgWtInputText).replace(/[kKｋＫ]/g, '')} onChange={(e) => setLdgWtInputText(e.target.value.replace(/[kKｋＫ]/g, ''))} onBlur={() => { const w = parseWeightInput(ldgWtInputText); if (w !== null) updateState('landingWeight', w); else setLdgWtInputText(formatWeightDisplay(state.landingWeight)); }} className="bg-transparent text-right text-[11px] text-white font-bold font-mono w-12 border-b border-transparent hover:border-slate-500 focus:border-emerald-500 focus:outline-none transition-colors" /><span className="text-[9px] sm:text-[10px] font-bold text-slate-300 ml-0.5">KLBS</span></div>
+              <div className="flex items-center">
+                <input 
+                  type="text" 
+                  inputMode="decimal" 
+                  value={String(ldgWtInputText).replace(/[kKｋＫ]/g, '')} 
+                  onChange={(e) => setLdgWtInputText(e.target.value.replace(/[kKｋＫ]/g, ''))} 
+                  onBlur={() => { const w = parseWeightInput(ldgWtInputText); if (w !== null) updateState('landingWeight', w); else setLdgWtInputText(formatWeightDisplay(state.landingWeight)); }} 
+                  onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }} /* ← Enterで確定を追加 */
+                  className="bg-transparent text-right text-[11px] text-white font-bold font-mono w-12 border-b border-transparent hover:border-slate-500 focus:border-emerald-500 focus:outline-none transition-colors" 
+                />
+                <span className="text-[9px] sm:text-[10px] font-bold text-slate-300 ml-0.5">KLBS</span>
+              </div>
             </div>
             <input type="range" step="1000" min={computed?.landingMinWeight || 280000} max={computed?.maxAvailableLdgWt || 800000} value={computed?.clampedLandingWeight || state.landingWeight} onChange={(e) => updateState('landingWeight', Number(e.target.value))} className="w-full h-1 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-emerald-500 my-1.5" />
             <div className="flex justify-between text-[9px] sm:text-[10px] font-bold text-slate-300 mt-0.5 font-mono"><span>{Math.round((computed?.landingMinWeight || 280000) / 1000)}k</span><span>MAX: {Math.round((computed?.maxAvailableLdgWt || 800000) / 1000)}k</span></div>
