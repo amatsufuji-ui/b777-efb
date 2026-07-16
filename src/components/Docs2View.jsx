@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { SafeIcon } from './SharedComponents';
 import { DG_DATA, ISOLATION_COLS_FINAL, ISOLATION_MATRIX_FINAL, ERG_DRILLS_FINAL, ERG_LETTERS_LEFT_FINAL, ERG_LETTERS_RIGHT_FINAL, SPECIAL_PAX_DATA } from '../data/docsData';
+// ★ 追加: TarmacViewをインポート
+import { TarmacView } from './TarmacView';
 
 // --- [5-2] Docs2View (DOCS) ---
 export const Docs2View = () => {
@@ -56,10 +58,10 @@ export const Docs2View = () => {
           <h2 className="text-sm lg:text-base font-black uppercase tracking-widest text-pink-100">DOCS</h2>
         </div>
 
-        <div className="flex bg-slate-700/80 p-1 rounded-lg border border-slate-500 shadow-inner items-center shrink-0">
+        <div className="flex bg-slate-700/80 p-1 rounded-lg border border-slate-500 shadow-inner items-center shrink-0 overflow-x-auto hide-scrollbar max-w-full">
           <button
             onClick={() => setActiveTab('classification')}
-            className={`px-3 py-1 rounded-md transition-all shadow-sm flex items-center justify-center gap-1.5 ${activeTab === 'classification' ? 'bg-pink-600 text-white border border-pink-400 shadow-[0_0_10px_rgba(219,39,119,0.5)]' : 'text-slate-300 border border-transparent hover:bg-slate-600'
+            className={`px-3 py-1 rounded-md transition-all shadow-sm flex items-center justify-center gap-1.5 shrink-0 ${activeTab === 'classification' ? 'bg-pink-600 text-white border border-pink-400 shadow-[0_0_10px_rgba(219,39,119,0.5)]' : 'text-slate-300 border border-transparent hover:bg-slate-600'
               }`}
           >
             <SafeIcon name="List" className="w-3 h-3" />
@@ -67,7 +69,7 @@ export const Docs2View = () => {
           </button>
           <button
             onClick={() => setActiveTab('erg')}
-            className={`px-3 py-1 rounded-md transition-all shadow-sm flex items-center justify-center gap-1.5 ml-1 ${activeTab === 'erg' ? 'bg-rose-600 text-white border border-rose-400 shadow-[0_0_10px_rgba(225,29,72,0.5)]' : 'text-slate-300 border border-transparent hover:bg-slate-600'
+            className={`px-3 py-1 rounded-md transition-all shadow-sm flex items-center justify-center gap-1.5 ml-1 shrink-0 ${activeTab === 'erg' ? 'bg-rose-600 text-white border border-rose-400 shadow-[0_0_10px_rgba(225,29,72,0.5)]' : 'text-slate-300 border border-transparent hover:bg-slate-600'
               }`}
           >
             <SafeIcon name="AlertTriangle" className="w-3 h-3" />
@@ -75,11 +77,20 @@ export const Docs2View = () => {
           </button>
           <button
             onClick={() => setActiveTab('special_pax')}
-            className={`px-3 py-1 rounded-md transition-all shadow-sm flex items-center justify-center gap-1.5 ml-1 ${activeTab === 'special_pax' ? 'bg-indigo-600 text-white border border-indigo-400 shadow-[0_0_10px_rgba(79,70,229,0.5)]' : 'text-slate-300 border border-transparent hover:bg-slate-600'
+            className={`px-3 py-1 rounded-md transition-all shadow-sm flex items-center justify-center gap-1.5 ml-1 shrink-0 ${activeTab === 'special_pax' ? 'bg-indigo-600 text-white border border-indigo-400 shadow-[0_0_10px_rgba(79,70,229,0.5)]' : 'text-slate-300 border border-transparent hover:bg-slate-600'
               }`}
           >
             <SafeIcon name="Users" className="w-3 h-3" />
-            <span className="text-[10px] md:text-xs font-black tracking-widest whitespace-nowrap">配慮を要する旅客</span>
+            <span className="text-[10px] md:text-xs font-black tracking-widest whitespace-nowrap">配慮旅客</span>
+          </button>
+          {/* ★ 追加: Tarmac Delay タブ */}
+          <button
+            onClick={() => setActiveTab('tarmac')}
+            className={`px-3 py-1 rounded-md transition-all shadow-sm flex items-center justify-center gap-1.5 ml-1 shrink-0 ${activeTab === 'tarmac' ? 'bg-emerald-600 text-white border border-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.5)]' : 'text-slate-300 border border-transparent hover:bg-slate-600'
+              }`}
+          >
+            <SafeIcon name="Clock" className="w-3 h-3" />
+            <span className="text-[10px] md:text-xs font-black tracking-widest whitespace-nowrap">TARMAC</span>
           </button>
         </div>
       </div>
@@ -87,6 +98,9 @@ export const Docs2View = () => {
       {/* Content Area */}
       <div className="flex-1 w-full p-2 lg:p-4 overflow-y-auto custom-scrollbar bg-slate-900/30">
         <div className="flex flex-col gap-6 lg:gap-8 max-w-[1400px] mx-auto pb-4">
+
+          {/* ★ 追加: TARMAC SECTION */}
+          {activeTab === 'tarmac' && <TarmacView />}
 
           {/* ================================== */}
           {/* --- CLASSIFICATION SECTION --- */}
