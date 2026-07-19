@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { SafeIcon } from './SharedComponents';
+import { 
+  Play, Pause, AlertTriangle, Info, FastForward, RotateCcw, 
+  AlertCircle, Check, PlaneTakeoff, PlaneLanding, Plane
+} from 'lucide-react';
 
 const COUNTRY_DATA = {
   US: {
@@ -16,7 +19,10 @@ const COUNTRY_DATA = {
       '出発便は4時間以内に管制機関へGTBを要求すればOK。'
     ],
     rules: {
-      Departure: { start: 'ドアクローズした時点', reset: 'ドアオープンし降機可能と伝えた時点 / 離陸した時点' },
+      Departure: {
+        start: 'ドアクローズした時点',
+        reset: 'ドアオープンし降機可能と伝えた時点 / 離陸した時点'
+      },
       Arrival: { start: '着陸した時点', reset: 'ドアオープンし降機可能と伝えた時点 / ドアオープンした時点' },
       Divert: { start: '着陸した時点', reset: 'ドアオープンし降機可能と伝えた時点 / ドアオープンした時点' }
     }
@@ -124,32 +130,50 @@ const generateTasks = (countryId) => {
   tasks.push({ time: 0, id: 'init_1', title: 'カウント開始', desc: '化粧室の使用、客室温度の維持、旅客の健康状態を把握し必要な措置を講じる', isUrgent: false });
 
   if (countryId === 'VN') {
-    tasks.push({ time: 30, id: 'vn_water', title: '飲料水の提供', desc: '旅客へ飲料水を提供すること', isUrgent: true, isCritical: false });
+    tasks.push({ time: 30, id: 'vn_water', title: '飲料水の提供', desc: '旅客へ飲料水を提供すること', isUrgent: true });
   }
 
   for (let m = data.announceInterval; m <= 300; m += data.announceInterval) {
-    tasks.push({ time: m, id: `ann_${m}`, title: '機内アナウンス', desc: `遅延の状況(理由、今後の見込み等)についてアナウンスを実施`, isUrgent: false });
+    tasks.push({ 
+      time: m, 
+      id: `ann_${m}`, 
+      title: '機内アナウンス', 
+      desc: `遅延の状況(理由、今後の見込み等)についてアナウンスを実施`, 
+      isUrgent: false 
+    });
   }
 
   if (data.foodInterval) {
     for (let m = data.foodInterval; m <= 300; m += data.foodInterval) {
-      tasks.push({ time: m, id: `food_${m}`, title: '飲食物の提供', desc: `すべての旅客に対して飲み物と食べ物を提供 (安全上支障がある場合を除く)`, isUrgent: true });
+      tasks.push({ 
+        time: m, 
+        id: `food_${m}`, 
+        title: '飲食物の提供', 
+        desc: `すべての旅客に対して飲み物と食べ物を提供 (安全上支障がある場合を除く)`, 
+        isUrgent: true 
+      });
     }
   }
 
   if (data.decisionPoint) {
     tasks.push({ 
-      time: data.decisionPoint, id: 'decision', title: '【重要】降機・運航継続の判断', 
+      time: data.decisionPoint, 
+      id: 'decision', 
+      title: '【重要】降機・運航継続の判断', 
       desc: countryId === 'CN' ? '離陸予定時刻が不明な場合は、降機の必要性を基地長に確認。' : '上限前に降機機会を提供するため、GTBするか運航継続するか空港基地長と協議し判断する。', 
-      isUrgent: true, isCritical: true
+      isUrgent: true,
+      isCritical: true
     });
   }
 
   if (data.limit) {
     tasks.push({ 
-      time: data.limit, id: 'limit', title: '【限界】上限時間到達', 
+      time: data.limit, 
+      id: 'limit', 
+      title: '【限界】上限時間到達', 
       desc: `これ以上の機内停留は不可。速やかに降機の機会を提供すること。(${data.limitNote || ''})`, 
-      isUrgent: true, isCritical: true
+      isUrgent: true,
+      isCritical: true
     });
   }
 
@@ -172,12 +196,14 @@ const generateTasks = (countryId) => {
   return groupedTasks;
 };
 
+// 修正箇所：export const TarmacView として名前付きエクスポート可能にする
 export const TarmacView = () => {
   const [country, setCountry] = useState('US');
   const [phase, setPhase] = useState('Departure');
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
   const [checkedTasks, setCheckedTasks] = useState(new Set());
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
   
   const currentData = COUNTRY_DATA[country];
   const elapsedMinutes = Math.floor(elapsedSeconds / 60);
@@ -200,6 +226,42 @@ export const TarmacView = () => {
 
   const taskGroups = useMemo(() => generateTasks(country), [country]);
 
+  const overviewMilestones = useMemo(() => {
+    const milestones = [];
+    milestones.push({ time: 0, label: '開始' });
+    
+    if (currentData.id === 'VN') {
+       milestones.push({ time: 30, label: '水提供' });
+    }
+    if (currentData.announceInterval) {
+       milestones.push({ time: currentData.announceInterval, label: 'アナウンス開始' });
+    }
+    if (currentData.foodInterval) {
+       milestones.push({ time: currentData.foodInterval, label: '飲食提供開始' });
+    }
+    if (currentData.decisionPoint) {
+       milestones.push({ time: currentData.decisionPoint, label: '降機判断' });
+    }
+    if (currentData.limit) {
+       milestones.push({ time: currentData.limit, label: '上限到達' });
+    } else {
+       milestones.push({ time: 240, label: '上限なし' }); // 視覚的プレースホルダー
+    }
+
+    const grouped = {};
+    milestones.forEach(m => {
+       if (!grouped[m.time]) grouped[m.time] = [];
+       if (!grouped[m.time].includes(m.label)) {
+         grouped[m.time].push(m.label);
+       }
+    });
+    
+    return Object.keys(grouped).sort((a,b) => Number(a) - Number(b)).map(t => ({
+       time: Number(t),
+       labels: grouped[t]
+    }));
+  }, [currentData]);
+
   const toggleTask = (taskId) => {
     const newChecked = new Set(checkedTasks);
     if (newChecked.has(taskId)) {
@@ -211,14 +273,22 @@ export const TarmacView = () => {
   };
 
   const handleReset = () => {
-    if (window.confirm('タイマーとタスクの状況を全てリセットしますか？')) {
+    if (showResetConfirm) {
       setIsRunning(false);
       setElapsedSeconds(0);
       setCheckedTasks(new Set());
+      setShowResetConfirm(false);
+    } else {
+      setShowResetConfirm(true);
+      setTimeout(() => {
+        setShowResetConfirm(false);
+      }, 3000);
     }
   };
 
-  const skipTime = (minutes) => setElapsedSeconds(prev => prev + (minutes * 60));
+  const skipTime = (minutes) => {
+    setElapsedSeconds(prev => prev + (minutes * 60));
+  };
 
   const formatTime = (totalSeconds) => {
     const h = Math.floor(totalSeconds / 3600);
@@ -237,250 +307,278 @@ export const TarmacView = () => {
   };
 
   return (
-    <div className="flex flex-col lg:flex-row gap-4 w-full animate-in fade-in">
-      
-      {/* 左カラム：操作パネル (幅を5/12に拡張して見やすく) */}
-      <div className="w-full lg:w-5/12 flex flex-col gap-4">
+    <div className="min-h-full bg-slate-50 text-slate-800 font-sans pb-10">
+      <header className="bg-blue-900 text-white p-4 shadow-md sticky top-0 z-10">
+        <div className="max-w-6xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Plane className="w-6 h-6" />
+            <h1 className="text-xl font-bold tracking-wider">Tarmac Delay Assistant</h1>
+          </div>
+          <div className="text-sm text-blue-200">ANA Operations Manual</div>
+        </div>
+      </header>
+
+      <main className="max-w-6xl mx-auto p-4 mt-4 grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* タイマー本体 */}
-        <div className="bg-slate-800/80 rounded-xl shadow-lg border border-slate-600 overflow-hidden text-center flex flex-col">
-          <div className="bg-slate-900/80 px-4 py-2 border-b border-slate-700 flex justify-between items-center shrink-0">
-            <span className="text-xs font-bold text-slate-300">経過時間</span>
-            {isRunning && <span className="flex items-center gap-1 text-[10px] font-black text-emerald-400 animate-pulse"><SafeIcon name="Play" className="w-3 h-3"/> 測定中</span>}
-          </div>
-          <div className="p-4 flex flex-col flex-1 justify-center">
-            <div className="text-4xl lg:text-5xl font-mono font-black tracking-wider text-white mb-4 drop-shadow-md">
-              {formatTime(elapsedSeconds)}
+        {/* 左側カラム：設定とルール */}
+        <div className="lg:col-span-1 space-y-6">
+          
+          <section className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="bg-slate-100 px-4 py-3 border-b border-slate-200 font-semibold text-slate-700 flex items-center gap-2">
+              国・地域を選択
             </div>
-            <div className="flex justify-center gap-2">
-              {!isRunning ? (
-                <button onClick={() => setIsRunning(true)} className="flex-1 flex items-center justify-center gap-1 bg-emerald-600 hover:bg-emerald-500 text-white py-2.5 rounded-lg font-bold shadow-lg shadow-emerald-900/20 transition-all border border-emerald-500 text-sm">
-                  <SafeIcon name="Play" className="w-4 h-4" /> スタート
-                </button>
-              ) : (
-                <button onClick={() => setIsRunning(false)} className="flex-1 flex items-center justify-center gap-1 bg-amber-600 hover:bg-amber-500 text-white py-2.5 rounded-lg font-bold shadow-lg shadow-amber-900/20 transition-all border border-amber-500 text-sm">
-                  <SafeIcon name="Pause" className="w-4 h-4" /> 一時停止
-                </button>
-              )}
-              <button onClick={handleReset} className="flex-1 flex items-center justify-center gap-1 bg-slate-700 hover:bg-slate-600 text-slate-200 py-2.5 rounded-lg font-bold transition-all border border-slate-500 text-sm">
-                <SafeIcon name="RotateCcw" className="w-4 h-4" /> リセット
-              </button>
-            </div>
-
-            {/* Sim controls */}
-            <div className="mt-4 pt-3 border-t border-slate-700 flex justify-center items-center gap-2 text-xs">
-              <span className="text-slate-400 flex items-center font-bold text-[10px]"><SafeIcon name="FastForward" className="w-3 h-3 mr-1"/> シミュレーション用:</span>
-              <button onClick={() => skipTime(15)} className="px-2 py-1 bg-slate-900 border border-slate-600 hover:bg-slate-700 rounded text-slate-300 font-mono text-[10px]">+15分</button>
-              <button onClick={() => skipTime(60)} className="px-2 py-1 bg-slate-900 border border-slate-600 hover:bg-slate-700 rounded text-slate-300 font-mono text-[10px]">+1時間</button>
-            </div>
-          </div>
-        </div>
-
-        {/* 国選択 */}
-        <div className="bg-slate-800/80 rounded-xl shadow-lg border border-slate-600 overflow-hidden">
-          <div className="bg-slate-900/80 px-4 py-2 border-b border-slate-700 text-xs font-bold text-slate-300">
-            適用国・地域を選択
-          </div>
-          <div className="p-2 grid grid-cols-2 gap-2">
-            {Object.values(COUNTRY_DATA).map(c => (
-              <button
-                key={c.id}
-                onClick={() => {
-                  if(country !== c.id) {
-                    if(elapsedSeconds > 0 && !window.confirm('国を変更するとタイマーがリセットされます。よろしいですか？')) return;
-                    setCountry(c.id); setElapsedSeconds(0); setIsRunning(false); setCheckedTasks(new Set());
-                  }
-                }}
-                className={`p-2 rounded-lg text-xs font-bold transition-all border ${
-                  country === c.id 
-                    ? 'bg-sky-600 border-sky-400 text-white shadow-md shadow-sky-900/30' 
-                    : 'bg-slate-900/50 border-slate-700 text-slate-400 hover:bg-slate-700 hover:text-white'
-                }`}
-              >
-                {c.name}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* フェーズ選択 */}
-        <div className="bg-slate-800/80 rounded-xl shadow-lg border border-slate-600 overflow-hidden">
-          <div className="bg-slate-900/80 px-4 py-2 border-b border-slate-700 text-xs font-bold text-slate-300">
-            運航フェーズ
-          </div>
-          <div className="p-2 flex gap-2">
-            {['Departure', 'Arrival', 'Divert'].map(p => {
-              const isAvailable = currentData.phases.includes(p);
-              const iconName = p === 'Departure' ? 'PlaneTakeoff' : (p === 'Arrival' ? 'PlaneLanding' : 'AlertCircle');
-              return (
+            <div className="p-2 grid grid-cols-2 gap-2">
+              {Object.values(COUNTRY_DATA).map(c => (
                 <button
-                  key={p}
-                  disabled={!isAvailable}
-                  onClick={() => setPhase(p)}
-                  className={`flex-1 flex flex-col items-center justify-center p-2 rounded-lg border text-[10px] font-bold gap-1 transition-all ${
-                    !isAvailable ? 'opacity-30 bg-slate-900 border-slate-800 cursor-not-allowed text-slate-500' :
-                    phase === p ? 'bg-sky-600 border-sky-400 text-white shadow-md' : 'bg-slate-900/50 border-slate-700 text-slate-400 hover:bg-slate-700'
+                  key={c.id}
+                  onClick={() => {
+                    if(country !== c.id) {
+                      setCountry(c.id);
+                      setElapsedSeconds(0);
+                      setIsRunning(false);
+                      setCheckedTasks(new Set());
+                      setShowResetConfirm(false);
+                    }
+                  }}
+                  className={`p-3 rounded-lg text-sm font-medium transition-colors border ${
+                    country === c.id 
+                      ? 'bg-blue-50 border-blue-500 text-blue-700 shadow-sm' 
+                      : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                   }`}
                 >
-                  <SafeIcon name={iconName} className="w-4 h-4" />
-                  {p === 'Departure' ? '出発' : p === 'Arrival' ? '到着' : 'Divert'}
+                  {c.name}
                 </button>
-              )
-            })}
-          </div>
-        </div>
+              ))}
+            </div>
+          </section>
 
-        {}
-        {/* ルール詳細 (より大きく目立つように) */}
-        <div className="bg-slate-900/90 rounded-xl border-2 border-sky-500/50 shadow-lg overflow-hidden flex flex-col">
-          <div className="bg-sky-900/40 px-3 py-2.5 border-b border-sky-500/50 text-sm lg:text-base font-black text-sky-300 flex items-center gap-2">
-            <SafeIcon name="Info" className="w-4 h-4 lg:w-5 lg:h-5" /> 適用ルール・注意事項
-          </div>
-          <div className="p-3 lg:p-4 text-xs lg:text-sm text-slate-200 flex flex-col gap-3.5">
-            <div>
-              <span className="font-black text-sky-400 flex items-center gap-1.5 mb-1.5">
-                <SafeIcon name="PlayCircle" className="w-3.5 h-3.5" /> カウント開始条件:
-              </span>
-              <div className="bg-slate-800/80 p-2.5 rounded-lg border border-slate-600 font-bold shadow-inner">
-                {currentData.rules[phase]?.start || 'N/A'}
-              </div>
+          <section className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="bg-slate-100 px-4 py-3 border-b border-slate-200 font-semibold text-slate-700">
+              運航フェーズ
             </div>
-            <div>
-              <span className="font-black text-sky-400 flex items-center gap-1.5 mb-1.5">
-                <SafeIcon name="RotateCcw" className="w-3.5 h-3.5" /> カウントリセット条件:
-              </span>
-              <div className="bg-slate-800/80 p-2.5 rounded-lg border border-slate-600 font-bold shadow-inner">
-                {currentData.rules[phase]?.reset || 'N/A'}
-              </div>
+            <div className="p-4 flex gap-2">
+              {['Departure', 'Arrival', 'Divert'].map(p => {
+                const isAvailable = currentData.phases.includes(p);
+                const Icon = p === 'Departure' ? PlaneTakeoff : (p === 'Arrival' ? PlaneLanding : AlertCircle);
+                return (
+                  <button
+                    key={p}
+                    disabled={!isAvailable}
+                    onClick={() => setPhase(p)}
+                    className={`flex-1 flex flex-col items-center justify-center p-3 rounded-lg border text-sm gap-1 transition-colors ${
+                      !isAvailable ? 'opacity-40 bg-slate-100 cursor-not-allowed' :
+                      phase === p ? 'bg-blue-50 border-blue-500 text-blue-700' : 'bg-white border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    <Icon className="w-5 h-5" />
+                    {p === 'Departure' ? '出発' : p === 'Arrival' ? '到着' : 'Divert'}
+                  </button>
+                )
+              })}
             </div>
-            {currentData.specialNotes.length > 0 && (
-              <div className="mt-1">
-                <span className="font-black text-amber-400 flex items-center gap-1.5 mb-2 text-sm lg:text-base">
-                  <SafeIcon name="AlertTriangle" className="w-4 h-4 lg:w-5 lg:h-5" /> 特記事項・注意事項:
-                </span>
-                <div className="bg-amber-950/30 p-3 rounded-xl border border-amber-500/40 shadow-inner">
-                  <ul className="list-disc pl-4 space-y-2 text-amber-100 font-bold text-xs lg:text-sm leading-relaxed">
+          </section>
+
+          <section className="bg-blue-50 rounded-xl border border-blue-100 overflow-hidden">
+            <div className="bg-blue-100 px-4 py-3 border-b border-blue-200 font-semibold text-blue-900 flex items-center gap-2">
+              <Info className="w-5 h-5" /> 適用ルール ({currentData.name} - {phase})
+            </div>
+            <div className="p-4 text-sm text-blue-900 space-y-5">
+              <div>
+                <span className="font-bold block mb-1">カウント開始条件:</span>
+                <div className="bg-white p-2 rounded border border-blue-100 shadow-sm text-slate-700">{currentData.rules[phase]?.start || 'N/A'}</div>
+              </div>
+              <div>
+                <span className="font-bold block mb-1">カウントリセット条件:</span>
+                <div className="bg-white p-2 rounded border border-blue-100 shadow-sm text-slate-700">{currentData.rules[phase]?.reset || 'N/A'}</div>
+              </div>
+
+              {/* 修正箇所：対応タイムライン概要を特記事項の上に配置 */}
+              <div>
+                <span className="font-bold block mb-2">対応タイムライン概要:</span>
+                <div className="bg-white p-4 rounded border border-blue-100 shadow-sm overflow-x-auto">
+                  <div className="flex items-start min-w-max relative">
+                    <div className="absolute top-[7px] left-4 right-4 h-[2px] bg-blue-200 z-0"></div>
+                    
+                    {overviewMilestones.map((ms, i) => (
+                       <div key={i} className="flex flex-col items-center w-24 relative z-10 flex-shrink-0">
+                          <div className={`w-4 h-4 rounded-full border-[3px] mb-2 ${
+                            ms.time === 240 && currentData.limit === null 
+                              ? 'border-slate-300 bg-slate-100' 
+                              : 'border-blue-500 bg-white'
+                          }`}></div>
+                          <span className="text-xs font-bold text-blue-800">
+                            {ms.time === 240 && currentData.limit === null ? '設定なし' : formatMinToText(ms.time)}
+                          </span>
+                          <span className="text-[10px] text-slate-600 text-center mt-1 leading-tight px-1">
+                            {ms.labels.map((l, idx) => <span key={idx} className="block mt-0.5">{l}</span>)}
+                          </span>
+                       </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {currentData.specialNotes.length > 0 && (
+                <div>
+                  <span className="font-bold block mb-1">特記事項:</span>
+                  <ul className="list-disc pl-5 space-y-1 text-slate-700">
                     {currentData.specialNotes.map((note, i) => (
                       <li key={i}>{note}</li>
                     ))}
                   </ul>
                 </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+              )}
+            </div>
+          </section>
 
-      {}
-      {/* 右カラム：タイムライン（チェックリスト） (幅を7/12にしてコンパクトに) */}
-      <div className="w-full lg:w-7/12">
-        <div className="bg-slate-800/80 rounded-xl shadow-lg border border-slate-600 overflow-hidden h-full flex flex-col">
-          <div className="bg-slate-900/80 px-4 py-3 border-b border-slate-700 font-bold text-slate-200 flex justify-between items-center shrink-0">
-            <span className="text-sm">対応タイムライン / チェックリスト</span>
-            <span className="text-[10px] font-mono bg-slate-800 px-2 py-1 rounded border border-slate-600 text-sky-400">経過: {formatMinToText(elapsedMinutes)}</span>
-          </div>
+        </div>
+
+        {/* 右側カラム：タイマーとチェックリスト */}
+        <div className="lg:col-span-2 flex flex-col gap-6">
           
-          <div className="flex-1 p-3 lg:p-5 overflow-y-auto custom-scrollbar bg-slate-900/30">
-            {/* マージンを小さくしてコンパクト化 */}
-            <div className="relative border-l-2 border-slate-700 ml-[50px] md:ml-[60px] space-y-4 pb-4">
-              {taskGroups.map((group, gIdx) => {
-                const isFuture = group.time > elapsedMinutes;
-                const isPast = group.time <= elapsedMinutes;
-                const timeDiff = group.time - elapsedMinutes;
+          {/* 修正箇所：タイマーをチェックリストの上に移動 */}
+          <section className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden text-center flex-shrink-0">
+            <div className="bg-slate-800 text-white px-4 py-3 font-semibold flex justify-between items-center">
+              <span>経過時間</span>
+              {isRunning && <span className="flex items-center gap-1 text-xs text-green-400 animate-pulse"><Play className="w-3 h-3"/> 測定中</span>}
+            </div>
+            <div className="p-6">
+              <div className="text-5xl font-mono font-bold tracking-wider text-slate-800 mb-6">
+                {formatTime(elapsedSeconds)}
+              </div>
+              <div className="flex justify-center gap-4">
+                {!isRunning ? (
+                  <button onClick={() => setIsRunning(true)} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-bold shadow-md transition-all">
+                    <Play className="w-5 h-5" /> スタート
+                  </button>
+                ) : (
+                  <button onClick={() => setIsRunning(false)} className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-6 py-3 rounded-lg font-bold shadow-md transition-all">
+                    <Pause className="w-5 h-5" /> 一時停止
+                  </button>
+                )}
                 
-                // 未来の遠すぎるタスクは隠す（1時間以上先）
-                if (timeDiff > 60 && gIdx > 0) return null; 
-                const isCurrentTarget = timeDiff > 0 && timeDiff <= 30; 
+                <button 
+                  onClick={handleReset} 
+                  className={`flex items-center gap-2 px-4 py-3 rounded-lg font-semibold transition-all ${
+                    showResetConfirm 
+                      ? 'bg-red-500 hover:bg-red-600 text-white shadow-md' 
+                      : 'bg-slate-200 hover:bg-slate-300 text-slate-700'
+                  }`}
+                >
+                  <RotateCcw className="w-5 h-5" /> 
+                  {showResetConfirm ? '本当に？' : 'リセット'}
+                </button>
+              </div>
 
-                return (
-                  <div key={group.time} className={`relative transition-opacity duration-500 ${isFuture ? 'opacity-50' : 'opacity-100'}`}>
-                    
-                    {/* Time Marker */}
-                    <div className={`absolute -left-[60px] md:-left-[70px] top-1 text-right w-[50px] md:w-[60px] font-mono font-black text-[10px] md:text-xs
-                      ${isPast ? 'text-sky-400' : 'text-slate-500'}`}>
-                      {formatMinToText(group.time)}
-                    </div>
-                    
-                    {/* Timeline Dot (少し小さく) */}
-                    <div className={`absolute -left-[7px] top-1.5 w-3 h-3 rounded-full border-2 bg-slate-900 transition-colors duration-300
-                      ${isPast ? 'border-sky-400' : 'border-slate-600'}
-                      ${isCurrentTarget ? 'ring-4 ring-sky-900/50 bg-sky-900' : ''}
-                    `} />
+              <div className="mt-6 pt-4 border-t border-slate-100 flex justify-center gap-2 text-xs">
+                <span className="text-slate-400 flex items-center mr-2"><FastForward className="w-3 h-3 mr-1"/> シミュレーション用:</span>
+                <button onClick={() => skipTime(15)} className="px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-600">+15分</button>
+                <button onClick={() => skipTime(60)} className="px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-600">+1時間</button>
+              </div>
+            </div>
+          </section>
 
-                    {/* Tasks in this time block */}
-                    <div className="pl-4 space-y-2">
-                      {group.tasks.map(task => {
-                        const isChecked = checkedTasks.has(task.id);
-                        const isDelayed = isPast && !isChecked && group.time > 0; // missed
+          {/* チェックリスト（下部） */}
+          <section className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex-1">
+            <div className="bg-slate-100 px-6 py-4 border-b border-slate-200 font-semibold text-slate-700 flex justify-between items-center">
+              <span>対応タイムライン / チェックリスト</span>
+              <span className="text-sm font-normal text-slate-500">現在経過: <strong className="text-blue-700">{formatMinToText(elapsedMinutes)}</strong></span>
+            </div>
+            <div className="p-6">
+              
+              <div className="relative border-l-2 border-slate-200 ml-4 md:ml-10 space-y-8 pb-10">
+                {taskGroups.map((group, gIdx) => {
+                  
+                  const isFuture = group.time > elapsedMinutes;
+                  const isPast = group.time <= elapsedMinutes;
+                  const timeDiff = group.time - elapsedMinutes;
+                  
+                  // 未来すぎるタスクは非表示（直近60分まで表示）
+                  if (timeDiff > 60 && gIdx > 0) return null; 
 
-                        return (
-                          <div 
-                            key={task.id} 
-                            // パディングとギャップを縮小してコンパクト化
-                            className={`p-2.5 lg:p-3 rounded-xl border shadow-md flex items-start gap-2.5 transition-all duration-300 cursor-pointer select-none
-                              ${isChecked ? 'bg-emerald-900/20 border-emerald-900/50' : 
-                                isDelayed ? (task.isCritical ? 'bg-rose-950/40 border-rose-500/50' : 'bg-amber-950/40 border-amber-500/50') : 
-                                isPast ? 'bg-slate-800 border-sky-500/50 shadow-sky-900/20' : 'bg-slate-800/50 border-slate-700'}
-                            `}
-                            onClick={() => isPast && toggleTask(task.id)}
-                          >
-                            {/* Checkbox (少し小さく) */}
-                            <button 
-                              disabled={!isPast}
-                              className={`mt-0.5 shrink-0 w-4 h-4 lg:w-5 lg:h-5 rounded-full border-2 flex items-center justify-center transition-all
-                                ${!isPast ? 'border-slate-700 bg-slate-800/50 cursor-not-allowed' : 
-                                  isChecked ? 'border-emerald-500 bg-emerald-500 text-white scale-110' : 
-                                  isDelayed && task.isCritical ? 'border-rose-500 bg-rose-950' :
-                                  isDelayed ? 'border-amber-500 bg-amber-950' :
-                                  'border-slate-400 hover:border-sky-400 bg-slate-800'}
+                  const isCurrentTarget = timeDiff > 0 && timeDiff <= 30; 
+
+                  return (
+                    <div key={group.time} className={`relative ${isFuture ? 'opacity-60' : 'opacity-100'}`}>
+                      <div className={`absolute -left-16 md:-left-24 top-1 text-right w-12 md:w-20 font-mono font-bold text-sm md:text-base
+                        ${isPast ? 'text-slate-700' : 'text-slate-400'}`}>
+                        {formatMinToText(group.time)}
+                      </div>
+                      
+                      <div className={`absolute -left-[9px] top-1.5 w-4 h-4 rounded-full border-2 bg-white 
+                        ${isPast ? 'border-blue-500' : 'border-slate-300'}
+                        ${isCurrentTarget ? 'ring-4 ring-blue-100' : ''}
+                      `} />
+
+                      <div className="pl-6 space-y-3">
+                        {group.tasks.map(task => {
+                          const isChecked = checkedTasks.has(task.id);
+                          const isDelayed = isPast && !isChecked && group.time > 0; 
+
+                          return (
+                            <div 
+                              key={task.id} 
+                              className={`p-4 rounded-lg border shadow-sm flex items-start gap-4 transition-all cursor-pointer
+                                ${isChecked ? 'bg-slate-50 border-slate-200' : 
+                                  isDelayed ? (task.isCritical ? 'bg-red-50 border-red-300' : 'bg-amber-50 border-amber-300') : 
+                                  isPast ? 'bg-white border-blue-200 ring-1 ring-blue-100' : 'bg-white border-slate-100'}
                               `}
+                              onClick={() => isPast && toggleTask(task.id)}
                             >
-                              {isChecked && <SafeIcon name="Check" className="w-2.5 h-2.5 lg:w-3 lg:h-3" />}
-                            </button>
+                              <button 
+                                disabled={!isPast}
+                                className={`mt-0.5 flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors
+                                  ${!isPast ? 'border-slate-200 bg-slate-50' : 
+                                    isChecked ? 'border-green-500 bg-green-500 text-white' : 
+                                    isDelayed && task.isCritical ? 'border-red-400 bg-white' :
+                                    isDelayed ? 'border-amber-400 bg-white' :
+                                    'border-slate-300 hover:border-blue-400 bg-white'}
+                                `}
+                              >
+                                {isChecked && <Check className="w-4 h-4" />}
+                              </button>
 
-                            <div className={`flex-1 ${isChecked ? 'opacity-50' : ''}`}>
-                              {/* タイトルのフォントサイズを縮小 */}
-                              <h3 className={`font-bold text-[11px] lg:text-xs flex items-center gap-1.5 transition-colors
-                                ${isChecked ? 'text-emerald-400 line-through' :
-                                  isDelayed && task.isCritical ? 'text-rose-400' :
-                                  isDelayed ? 'text-amber-400' :
-                                  task.isCritical && isPast ? 'text-rose-400' :
-                                  'text-white'
-                                }`}>
-                                {task.title}
-                                {task.isCritical && !isChecked && <SafeIcon name="AlertTriangle" className="w-3 h-3" />}
-                              </h3>
-                              {/* 説明文のフォントサイズを縮小 */}
-                              <p className={`text-[9px] lg:text-[10px] mt-0.5 leading-relaxed ${isChecked ? 'text-slate-500 line-through' : 'text-slate-400'}`}>
-                                {task.desc}
-                              </p>
+                              <div className={`flex-1 ${isChecked ? 'opacity-60 line-through' : ''}`}>
+                                <h3 className={`font-bold flex items-center gap-2 
+                                  ${isDelayed && !isChecked && task.isCritical ? 'text-red-700' :
+                                    isDelayed && !isChecked ? 'text-amber-700' :
+                                    task.isCritical && isPast ? 'text-red-600' :
+                                    'text-slate-800'
+                                  }`}>
+                                  {task.title}
+                                  {task.isCritical && <AlertTriangle className="w-4 h-4" />}
+                                </h3>
+                                <p className="text-sm text-slate-600 mt-1 leading-relaxed">{task.desc}</p>
+                              </div>
+                              
+                              {!isChecked && isDelayed && (
+                                <span className={`text-xs px-2 py-1 rounded font-bold whitespace-nowrap
+                                  ${task.isCritical ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}
+                                `}>
+                                  未完了
+                                </span>
+                              )}
                             </div>
-                            
-                            {/* Status Badge */}
-                            {!isChecked && isDelayed && (
-                              <span className={`text-[9px] px-1.5 py-0.5 rounded font-black tracking-wider whitespace-nowrap border
-                                ${task.isCritical ? 'bg-rose-500/20 text-rose-300 border-rose-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30'}
-                              `}>
-                                未完了
-                              </span>
-                            )}
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-            
-            {/* Bottom filler */}
-            <div className="text-center text-slate-500 text-[10px] mt-4 italic font-bold">
-              ... 規定時間以降も要件・アナウンスは継続します ...
-            </div>
-          </div>
-        </div>
-      </div>
+                  );
+                })}
+              </div>
+              
+              <div className="text-center text-slate-400 text-sm mt-4 italic">
+                ... 規定時間以降も要件は継続します ...
+              </div>
 
+            </div>
+          </section>
+        </div>
+
+      </main>
     </div>
   );
 };
+
+// プレビュー表示用 兼 デフォルトインポート対応
+export default TarmacView;
