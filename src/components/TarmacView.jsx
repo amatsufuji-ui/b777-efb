@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   Play, Square, RotateCcw, FastForward, CheckSquare, Square as SquareOutline, 
   Info, AlertTriangle, Clock, ChevronRight, CheckCircle2, PlaneTakeoff, PlaneLanding,
-  Coffee, Megaphone, ShieldAlert, XCircle, Settings2
+  Coffee, Megaphone, ShieldAlert, XCircle, Settings2, Pause
 } from 'lucide-react';
 
 export const TarmacView = () => {
@@ -11,6 +11,9 @@ export const TarmacView = () => {
   
   const [elapsedMs, setElapsedMs] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
+  const [baseTimestamp, setBaseTimestamp] = useState(null);
+  const [inputTime, setInputTime] = useState("");
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
   
   const [checkedTasks, setCheckedTasks] = useState({});
   const timerRef = useRef(null);
@@ -29,31 +32,80 @@ export const TarmacView = () => {
     }
   }, [selectedCountry, availablePhases, selectedPhase]);
 
-  // タイマー処理
+  // 国やフェーズが変更された時にタイマーを自動リセット
+  useEffect(() => {
+    setIsRunning(false);
+    setElapsedMs(0);
+    setBaseTimestamp(null);
+    setInputTime("");
+    setCheckedTasks({});
+    setShowResetConfirm(false);
+  }, [selectedCountry, selectedPhase]);
+
+  // タイマー処理 (実時刻ベース)
   useEffect(() => {
     if (isRunning) {
-      const interval = 1000; // 実時間は1秒更新
       timerRef.current = setInterval(() => {
-        setElapsedMs(prev => prev + interval);
-      }, interval);
+        if (baseTimestamp) {
+          setElapsedMs(Date.now() - baseTimestamp);
+        } else {
+          setElapsedMs(prev => prev + 1000);
+        }
+      }, 1000);
     } else {
       clearInterval(timerRef.current);
     }
     return () => clearInterval(timerRef.current);
-  }, [isRunning]);
+  }, [isRunning, baseTimestamp]);
 
-  const toggleTimer = () => setIsRunning(!isRunning);
+  const toggleTimer = () => {
+    if (isRunning) {
+      setIsRunning(false);
+    } else {
+      setBaseTimestamp(Date.now() - elapsedMs);
+      setIsRunning(true);
+    }
+  };
   
-  const resetTimer = () => {
-    if (window.confirm('タイマーとチェックリストをリセットしますか？')) {
+  const handleReset = () => {
+    if (showResetConfirm) {
       setIsRunning(false);
       setElapsedMs(0);
+      setBaseTimestamp(null);
+      setInputTime("");
       setCheckedTasks({});
+      setShowResetConfirm(false);
+    } else {
+      setShowResetConfirm(true);
+      setTimeout(() => setShowResetConfirm(false), 3000);
     }
   };
 
   const addTime = (minutes) => {
-    setElapsedMs(prev => prev + minutes * 60 * 1000);
+    const msToAdd = minutes * 60 * 1000;
+    setElapsedMs(prev => prev + msToAdd);
+    if (baseTimestamp) {
+      setBaseTimestamp(prev => prev - msToAdd);
+    }
+  };
+
+  const applyInputTime = () => {
+    if (!inputTime) return;
+    const [hours, minutes] = inputTime.split(':').map(Number);
+    const now = new Date();
+    const targetDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, 0, 0);
+    
+    let diff = now.getTime() - targetDate.getTime();
+    
+    // もし未来の時間が入力されたら（前日の時間を入れたと解釈）
+    if (diff < 0) {
+       targetDate.setDate(targetDate.getDate() - 1);
+       diff = now.getTime() - targetDate.getTime();
+    }
+    
+    setBaseTimestamp(targetDate.getTime());
+    setElapsedMs(diff);
+    setIsRunning(true);
   };
 
   const formatTime = (ms) => {
@@ -303,7 +355,7 @@ export const TarmacView = () => {
           <div className={`absolute -right-10 -top-10 w-32 h-32 rounded-full blur-3xl opacity-20 ${isRunning ? 'bg-amber-500 animate-pulse' : 'bg-blue-500'}`}></div>
 
           <div className="text-[10px] text-slate-400 font-bold mb-1 tracking-widest">ELAPSED TIME</div>
-          <div className={`text-4xl sm:text-5xl font-mono font-black tracking-wider mb-3 ${isRunning ? 'text-amber-400' : 'text-slate-200'}`}>
+          <div className={`text-4xl sm:text-5xl font-mono font-black tracking-wider mb-2 ${isRunning ? 'text-amber-400' : 'text-slate-200'}`}>
             {formatTime(elapsedMs)}
           </div>
           
@@ -316,16 +368,37 @@ export const TarmacView = () => {
                 : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/50'
               }`}
             >
-              {isRunning ? <Square className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-              {isRunning ? 'STOP' : 'START'}
+              {isRunning ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+              {isRunning ? 'PAUSE' : 'START'}
             </button>
             
             <button
-              onClick={resetTimer}
-              className="px-3 py-2 bg-slate-700 hover:bg-rose-600 text-slate-300 hover:text-white border border-slate-600 rounded-md transition-colors shadow-sm"
+              onClick={handleReset}
+              className={`px-3 py-2 rounded-md font-bold text-sm transition-colors shadow-sm flex items-center gap-1 ${
+                showResetConfirm
+                ? 'bg-rose-600 text-white hover:bg-rose-500'
+                : 'bg-slate-700 text-slate-300 hover:bg-slate-600 border border-slate-600'
+              }`}
               title="リセット"
             >
               <RotateCcw className="w-4 h-4" />
+              {showResetConfirm && <span>本当に？</span>}
+            </button>
+          </div>
+
+          <div className="flex w-full items-center gap-2 mt-3 pt-3 border-t border-slate-700/50">
+            <span className="text-[10px] text-slate-400 font-bold shrink-0">基準時刻設定:</span>
+            <input 
+              type="time" 
+              value={inputTime}
+              onChange={(e) => setInputTime(e.target.value)}
+              className="bg-slate-900 border border-slate-600 text-slate-200 rounded px-2 py-1.5 text-xs w-full focus:outline-none focus:border-blue-500"
+            />
+            <button 
+              onClick={applyInputTime}
+              className="bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold px-3 py-1.5 rounded transition-colors shrink-0 shadow-sm"
+            >
+              SET
             </button>
           </div>
 
