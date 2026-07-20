@@ -5,17 +5,33 @@ import {
   Coffee, Megaphone, ShieldAlert, XCircle, Settings2, Pause
 } from 'lucide-react';
 
+// タブ切り替え（アンマウント）時に状態を保持するためのモジュール変数
+let persistedState = {
+  selectedCountry: '米国',
+  selectedPhase: '出発時',
+  elapsedMs: 0,
+  isRunning: false,
+  baseTimestamp: null,
+  inputTime: "",
+  checkedTasks: {}
+};
+
 export const TarmacView = () => {
-  const [selectedCountry, setSelectedCountry] = useState('米国');
-  const [selectedPhase, setSelectedPhase] = useState('出発時');
+  const [selectedCountry, setSelectedCountry] = useState(persistedState.selectedCountry);
+  const [selectedPhase, setSelectedPhase] = useState(persistedState.selectedPhase);
   
-  const [elapsedMs, setElapsedMs] = useState(0);
-  const [isRunning, setIsRunning] = useState(false);
-  const [baseTimestamp, setBaseTimestamp] = useState(null);
-  const [inputTime, setInputTime] = useState("");
+  // 初期マウント時に、もしタイマー稼働中なら現在時刻からelapsedMsを再計算（裏で進んでいた分を補正）
+  const initialElapsed = persistedState.isRunning && persistedState.baseTimestamp 
+    ? Date.now() - persistedState.baseTimestamp 
+    : persistedState.elapsedMs;
+
+  const [elapsedMs, setElapsedMs] = useState(initialElapsed);
+  const [isRunning, setIsRunning] = useState(persistedState.isRunning);
+  const [baseTimestamp, setBaseTimestamp] = useState(persistedState.baseTimestamp);
+  const [inputTime, setInputTime] = useState(persistedState.inputTime);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   
-  const [checkedTasks, setCheckedTasks] = useState({});
+  const [checkedTasks, setCheckedTasks] = useState(persistedState.checkedTasks);
   const timerRef = useRef(null);
 
   const countries = ['米国', 'カナダ', '韓国', '中国', 'タイ', 'ベトナム'];
@@ -26,21 +42,49 @@ export const TarmacView = () => {
     ? ['出発時'] 
     : phases;
 
-  useEffect(() => {
-    if (!availablePhases.includes(selectedPhase)) {
+  // 国変更ハンドラー（ユーザー操作時のみ明示的にリセット）
+  const handleCountryChange = (c) => {
+    if (c === selectedCountry) return;
+    setSelectedCountry(c);
+    
+    const available = (c === 'タイ' || c === 'ベトナム') ? ['出発時'] : phases;
+    if (!available.includes(selectedPhase)) {
       setSelectedPhase('出発時');
     }
-  }, [selectedCountry, availablePhases, selectedPhase]);
-
-  // 国やフェーズが変更された時にタイマーを自動リセット
-  useEffect(() => {
+    
     setIsRunning(false);
     setElapsedMs(0);
     setBaseTimestamp(null);
     setInputTime("");
     setCheckedTasks({});
     setShowResetConfirm(false);
-  }, [selectedCountry, selectedPhase]);
+  };
+
+  // フェーズ変更ハンドラー（ユーザー操作時のみ明示的にリセット）
+  const handlePhaseChange = (p) => {
+    if (p === selectedPhase) return;
+    setSelectedPhase(p);
+    
+    setIsRunning(false);
+    setElapsedMs(0);
+    setBaseTimestamp(null);
+    setInputTime("");
+    setCheckedTasks({});
+    setShowResetConfirm(false);
+  };
+
+  // ステートが変更されるたびにモジュール変数にバックアップ（タブ切り替え対策）
+  useEffect(() => {
+    persistedState = {
+      selectedCountry,
+      selectedPhase,
+      elapsedMs,
+      isRunning,
+      baseTimestamp,
+      inputTime,
+      checkedTasks
+    };
+  }, [selectedCountry, selectedPhase, elapsedMs, isRunning, baseTimestamp, inputTime, checkedTasks]);
 
   // タイマー処理 (実時刻ベース)
   useEffect(() => {
@@ -247,7 +291,7 @@ export const TarmacView = () => {
                 {countries.map(c => (
                   <button
                     key={c}
-                    onClick={() => setSelectedCountry(c)}
+                    onClick={() => handleCountryChange(c)}
                     className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors border shadow-sm ${
                       selectedCountry === c 
                       ? 'bg-blue-600 text-white border-blue-500 shadow-blue-900/50' 
@@ -266,7 +310,7 @@ export const TarmacView = () => {
                 {availablePhases.map(p => (
                   <button
                     key={p}
-                    onClick={() => setSelectedPhase(p)}
+                    onClick={() => handlePhaseChange(p)}
                     className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors border flex items-center gap-1 shadow-sm ${
                       selectedPhase === p 
                       ? 'bg-amber-600 text-white border-amber-500 shadow-amber-900/50' 
