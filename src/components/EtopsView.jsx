@@ -4,8 +4,7 @@ import { etopsData } from '../data/flightData';
 
 const HF_CACHE_KEY = 'efb_arinc_hf_data';
 
-// ★ props に globalEtopsAltns と globalEtopsTime を追加
-export const EtopsView = ({ globalRoute = "", globalDest = "", globalEtopsAltns = [], globalEtopsTime = "" }) => {
+export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
   const [routeInput, setRouteInput] = useState(globalRoute);
   const [aircraft, setAircraft] = useState("B777-300ER/B777F");
   const [destination, setDestination] = useState("EDDF");
@@ -289,58 +288,7 @@ export const EtopsView = ({ globalRoute = "", globalDest = "", globalEtopsAltns 
           </div>
           <div className="bg-slate-900 p-3 rounded border border-slate-700">
             <h3 className="font-semibold text-slate-300 text-xs mb-2 flex items-center"><SafeIcon name="CheckCircle" className="w-3.5 h-3.5 mr-1.5 text-emerald-500" />Additional Fuel 不要の ETOPS ALTN 組み合わせ</h3>
-            {activeRouteType ? (noAdditionalFuelAltns.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {noAdditionalFuelAltns.map((item, idx) => {
-                  // ★ CYFB-BIKF のようにハイフンやスラッシュで繋がれている空港を分割
-                  const altnsInItem = item.altn.split(/[-/]/).map(a => a.trim());
-                  
-                  // ★ すべての空港コードが globalEtopsAltns に含まれているか判定
-                  const isMatched = altnsInItem.length > 0 && altnsInItem.every(a => globalEtopsAltns.includes(a));
-
-                  // ★ 180 ETOPS の FPL なのに、207 ETOPS が必要な組み合わせが RALT に選ばれている場合の警告
-                  const isTimeMismatch = isMatched && globalEtopsTime === '180' && item.etops === '207';
-                  
-                  // マッチした場合の専用スタイル（OKアイコンなどをつけるため大きくデザインを変更）
-                  // Mismatchがある場合はアンバー色（オレンジ）で警告表示
-                  const badgeClass = isMatched 
-                    ? (isTimeMismatch 
-                        ? "px-2 py-1 bg-amber-900/50 text-amber-300 rounded font-mono text-[11px] border border-amber-500 flex items-center gap-1 font-bold shadow-sm shadow-amber-900/50"
-                        : "px-2 py-1 bg-pink-900/50 text-pink-300 rounded font-mono text-[11px] border border-pink-500 flex items-center gap-1 font-bold shadow-sm shadow-pink-900/50")
-                    : "px-2 py-1 bg-emerald-900/30 text-emerald-400 rounded font-mono text-[11px] border border-emerald-700/50 flex items-center gap-1";
-
-                  const tagClass = isMatched
-                    ? (isTimeMismatch ? "text-[9px] bg-amber-800/60 text-amber-200 px-1 py-0.5 rounded leading-none" : "text-[9px] bg-pink-800/60 text-pink-200 px-1 py-0.5 rounded leading-none")
-                    : "text-[9px] bg-emerald-800/60 text-emerald-200 px-1 py-0.5 rounded leading-none";
-
-                  return (
-                    <span key={idx} className={badgeClass}>
-                      {isMatched && !isTimeMismatch && <SafeIcon name="CheckCircle2" className="w-3.5 h-3.5 text-pink-400 shrink-0" />}
-                      {isMatched && isTimeMismatch && <SafeIcon name="AlertTriangle" className="w-3.5 h-3.5 text-amber-400 shrink-0" />}
-                      {item.altn}
-                      {item.etops === '207' && <span className={tagClass}>207</span>}
-                      {isMatched && !isTimeMismatch && <span className="ml-0.5 text-pink-400 font-black">OK</span>}
-                      {isMatched && isTimeMismatch && <span className="ml-0.5 text-amber-400 font-black">180 PLAN注意</span>}
-                    </span>
-                  );
-                })}
-              </div>
-            ) : (<p className="text-xs text-red-400">条件に合致する「追加燃料不要」のALTNはありません。</p>)) : (<p className="text-xs text-slate-500">ルートを入力するか、手動で選択してください。</p>)}
-            
-            {/* 補足説明としてFPLから取得したRALTのリストを表示 */}
-            {globalEtopsAltns.length > 0 && (
-              <div className="mt-3 pt-2 border-t border-slate-700 text-[10px] text-slate-400 flex items-center gap-1.5 flex-wrap">
-                <SafeIcon name="Info" className="w-3.5 h-3.5 text-pink-400 shrink-0" />
-                {globalEtopsTime && (
-                  <span className={`px-1.5 py-0.5 rounded font-black font-mono text-[10px] leading-none ${globalEtopsTime === '207' ? 'bg-amber-900/60 text-amber-400 border border-amber-500/50' : 'bg-pink-900/60 text-pink-400 border border-pink-500/50'}`}>
-                    {globalEtopsTime} ETOPS
-                  </span>
-                )}
-                <span>
-                  FPL RALT: <strong className="font-mono text-pink-300">{globalEtopsAltns.join(', ')}</strong> がすべて含まれる組み合わせを強調表示しています。
-                </span>
-              </div>
-            )}
+            {activeRouteType ? (noAdditionalFuelAltns.length > 0 ? (<div className="flex flex-wrap gap-2">{noAdditionalFuelAltns.map((item, idx) => (<span key={idx} className="px-2 py-1 bg-emerald-900/30 text-emerald-400 rounded font-mono text-[11px] border border-emerald-700/50 flex items-center gap-1">{item.altn}{item.etops === '207' && <span className="text-[9px] bg-emerald-800/60 text-emerald-200 px-1 py-0.5 rounded leading-none">207</span>}</span>))}</div>) : (<p className="text-xs text-red-400">条件に合致する「追加燃料不要」のALTNはありません。</p>)) : (<p className="text-xs text-slate-500">ルートを入力するか、手動で選択してください。</p>)}
           </div>
         </div>
 
@@ -394,17 +342,17 @@ export const EtopsView = ({ globalRoute = "", globalDest = "", globalEtopsAltns 
           {/* HF Frequencies */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className={`bg-slate-900/60 p-2.5 rounded-lg border ${hfData.status === "Not Updated" ? "border-red-500/30" : hfData.status === "CACHED" ? "border-amber-500/30" : "border-slate-700/60"} flex flex-col justify-between`}>
-              <div className="text-[11px] font-black text-slate-300 border-l-2 border-amber-400 pl-2 mb-1.5 leading-none">North America &rarr; Asia</div>
-              <div className="flex items-center justify-between text-xs font-mono text-slate-400 pt-1">
-                <div>Pri: <span className="text-white font-bold">{hfData.asia.pri}</span></div>
-                <div>Sec: <span className="text-slate-300">{hfData.asia.sec}</span></div>
-              </div>
-            </div>
-            <div className={`bg-slate-900/60 p-2.5 rounded-lg border ${hfData.status === "Not Updated" ? "border-red-500/30" : hfData.status === "CACHED" ? "border-amber-500/30" : "border-slate-700/60"} flex flex-col justify-between`}>
               <div className="text-[11px] font-black text-slate-300 border-l-2 border-amber-400 pl-2 mb-1.5 font-normal leading-none">Alaska / North Pacific <span className="text-[9px] text-slate-500 font-normal">(West of 150W)</span></div>
               <div className="flex items-center justify-between text-xs font-mono text-slate-400 pt-1">
                 <div>Pri: <span className="text-white font-bold">{hfData.alaska.pri}</span></div>
                 <div>Sec: <span className="text-slate-300">{hfData.alaska.sec}</span></div>
+              </div>
+            </div>
+            <div className={`bg-slate-900/60 p-2.5 rounded-lg border ${hfData.status === "Not Updated" ? "border-red-500/30" : hfData.status === "CACHED" ? "border-amber-500/30" : "border-slate-700/60"} flex flex-col justify-between`}>
+              <div className="text-[11px] font-black text-slate-300 border-l-2 border-amber-400 pl-2 mb-1.5 leading-none">North America &rarr; Asia</div>
+              <div className="flex items-center justify-between text-xs font-mono text-slate-400 pt-1">
+                <div>Pri: <span className="text-white font-bold">{hfData.asia.pri}</span></div>
+                <div>Sec: <span className="text-slate-300">{hfData.asia.sec}</span></div>
               </div>
             </div>
             <div className={`bg-slate-900/60 p-2.5 rounded-lg border ${hfData.status === "Not Updated" ? "border-red-500/30" : hfData.status === "CACHED" ? "border-amber-500/30" : "border-slate-700/60"} flex flex-col justify-between`}>
