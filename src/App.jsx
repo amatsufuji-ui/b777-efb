@@ -16,14 +16,15 @@ import { FltInfoView } from './components/FltInfoView';
 import { ApproachCalcView } from './components/ApproachCalcView';
 import { XwindView } from './components/XwindView';
 import { QuickGuideModal } from './components/QuickGuideModal';
+import { NavlogView } from './components/NavlogView';
 
 // ==========================================
 // [6] MAIN APP COMPONENT
 // ==========================================
 export default function App() {
   const [activeTab, setActiveTab] = useState('DASHBOARD');
-  const tabs = ['DASHBOARD', 'TFC INFO', 'WX/MNM', 'ETOPS', 'DOCS', 'スマカタ', 'REST CALC', 'APP CALC', 'BUDDY COMM', 'XWIND'];
-  
+  const tabs = ['DASHBOARD', 'TFC INFO', 'WX/MNM', 'ETOPS', 'NAVLOG', 'DOCS', 'スマカタ', 'REST CALC', 'APP CALC', 'BUDDY COMM', 'XWIND'];
+
   // モーダルステート群
   const [isPasteModalOpen, setIsPasteModalOpen] = useState(false); 
   const [flightId, setFlightId] = useState(""); 
@@ -469,7 +470,7 @@ export default function App() {
             </div>
             <div className="flex items-center gap-1">
               <span className="text-amber-400 font-mono text-[9px] border border-amber-500/30 px-1 rounded bg-amber-500/10 tracking-normal font-bold">
-                ver 6.2
+                ver 6.3
               </span>
               {flightId && (
                 <span className="text-slate-300 font-mono text-[9px] border border-slate-600 px-1 rounded bg-slate-800 tracking-normal font-bold">
@@ -613,6 +614,18 @@ export default function App() {
       {activeTab === 'TFC INFO' && (<div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden">{typeof FltInfoView !== 'undefined' && <FltInfoView p={fltInfoProps} />}</div>)}
       {activeTab === 'WX/MNM' && (<div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden">{typeof WxMnmReference !== 'undefined' && <WxMnmReference />}</div>)}
       {activeTab === 'ETOPS' && (<div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden">{typeof EtopsView !== 'undefined' && <EtopsView globalRoute={globalRoute} globalDest={globalDest} globalEtopsAltns={globalEtopsAltns} globalEtopsTime={globalEtopsTime} />}</div>)} 
+      {activeTab === 'NAVLOG' && (
+        <div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden">
+          {typeof NavlogView !== 'undefined' && (
+            <NavlogView 
+              flightId={flightId} 
+              state={state} 
+              updateState={updateState} 
+              onApplyFlightPlan={handleApplyFlightPlan} 
+            />
+          )}
+        </div>
+      )}
       {activeTab === 'DOCS' && (<div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden">{typeof Docs2View !== 'undefined' && <Docs2View />}</div>)}
       {activeTab === 'REST CALC' && (<div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden">
         {typeof RestView !== 'undefined' && <RestView
