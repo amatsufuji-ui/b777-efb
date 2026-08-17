@@ -1,3 +1,4 @@
+// App.jsx
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import * as LucideIcons from 'lucide-react';
 
@@ -18,30 +19,39 @@ import { XwindView } from './components/XwindView';
 import { QuickGuideModal } from './components/QuickGuideModal';
 import { NavlogView } from './components/NavlogView';
 
-// ==========================================
-// [6] MAIN APP COMPONENT
-// ==========================================
 export default function App() {
   const [activeTab, setActiveTab] = useState('DASHBOARD');
   const tabs = ['DASHBOARD', 'TFC INFO', 'WX/MNM', 'ETOPS', 'NAVLOG', 'DOCS', 'スマカタ', 'REST CALC', 'APP CALC', 'BUDDY COMM', 'XWIND'];
 
-  // モーダルステート群
   const [isPasteModalOpen, setIsPasteModalOpen] = useState(false); 
   const [flightId, setFlightId] = useState(""); 
   const [isWifiModalOpen, setIsWifiModalOpen] = useState(false); 
   const [isDrmModalOpen, setIsDrmModalOpen] = useState(false); 
   const [isSmartCatModalOpen, setIsSmartCatModalOpen] = useState(false);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
-
-  // ★ 追加: 初回セットアップバナー用ステート
   const [showSetupBanner, setShowSetupBanner] = useState(false);
 
-  const [restFlightHours3, setRestFlightHours3] = useState(8); const [restFlightMins3, setRestFlightMins3] = useState(0); const [restFlightHours4, setRestFlightHours4] = useState(12); const [restFlightMins4, setRestFlightMins4] = useState(0);
-  const [stdHours, setStdHours] = useState(10); const [stdMins, setStdMins] = useState(0);
-  const [isTakeoffAuto, setIsTakeoffAuto] = useState(true); const [taxiOutMins, setTaxiOutMins] = useState(20); const [restTakeoffHours, setRestTakeoffHours] = useState(10); const [restTakeoffMins, setRestTakeoffMins] = useState(20);
-  const [restOffsetMins, setRestOffsetMins] = useState(0); const [restLandingOffsetMins, setRestLandingOffsetMins] = useState(0); const [restCrewSize, setRestCrewSize] = useState(3); const [restFirstRestMins, setRestFirstRestMins] = useState(60); const [restLastRestMins, setRestLastRestMins] = useState(60); const [restFirstHalfMins, setRestFirstHalfMins] = useState(0);
+  const pdfInputRef = useRef(null);
+  const [isParsingPdf, setIsParsingPdf] = useState(false);
+  const [navlogData, setNavlogData] = useState(null);
 
-  // ★ 追加: 起動時にローカルストレージを確認してバナー表示判定を行う
+  const [restFlightHours3, setRestFlightHours3] = useState(8); 
+  const [restFlightMins3, setRestFlightMins3] = useState(0); 
+  const [restFlightHours4, setRestFlightHours4] = useState(12); 
+  const [restFlightMins4, setRestFlightMins4] = useState(0);
+  const [stdHours, setStdHours] = useState(10); 
+  const [stdMins, setStdMins] = useState(0);
+  const [isTakeoffAuto, setIsTakeoffAuto] = useState(true); 
+  const [taxiOutMins, setTaxiOutMins] = useState(20); 
+  const [restTakeoffHours, setRestTakeoffHours] = useState(10); 
+  const [restTakeoffMins, setRestTakeoffMins] = useState(20);
+  const [restOffsetMins, setRestOffsetMins] = useState(0); 
+  const [restLandingOffsetMins, setRestLandingOffsetMins] = useState(0); 
+  const [restCrewSize, setRestCrewSize] = useState(3); 
+  const [restFirstRestMins, setRestFirstRestMins] = useState(60); 
+  const [restLastRestMins, setRestLastRestMins] = useState(60); 
+  const [restFirstHalfMins, setRestFirstHalfMins] = useState(0);
+
   useEffect(() => {
     const isHidden = localStorage.getItem('hideSetupGuide');
     if (isHidden !== 'true') {
@@ -49,14 +59,17 @@ export default function App() {
     }
   }, []);
 
-  // ★ 追加: バナーを閉じて、今後表示しない設定を保存する関数
   const handleCloseBanner = () => {
     localStorage.setItem('hideSetupGuide', 'true');
     setShowSetupBanner(false);
   };
 
   useEffect(() => {
-    if (isTakeoffAuto) { const totalMins = stdHours * 60 + stdMins + taxiOutMins; setRestTakeoffHours(Math.floor(totalMins / 60) % 24); setRestTakeoffMins(totalMins % 60); }
+    if (isTakeoffAuto) { 
+        const totalMins = stdHours * 60 + stdMins + taxiOutMins; 
+        setRestTakeoffHours(Math.floor(totalMins / 60) % 24); 
+        setRestTakeoffMins(totalMins % 60); 
+    }
   }, [stdHours, stdMins, isTakeoffAuto, taxiOutMins]);
 
   const [selectedDep, setSelectedDep] = useState(""); const [selectedArr, setSelectedArr] = useState(""); const [selectedFlightId, setSelectedFlightId] = useState(""); const [selectedAirlineCode, setSelectedAirlineCode] = useState(""); const [selectedAirline, setSelectedAirline] = useState(""); const [selectedCallsign, setSelectedCallsign] = useState(""); const [trafficTimeRange, setTrafficTimeRange] = useState(30); const [depTrafficMode, setDepTrafficMode] = useState("DEP"); const [arrTrafficMode, setArrTrafficMode] = useState("OFF");
@@ -73,11 +86,10 @@ export default function App() {
   const [cruiseWtInputText, setCruiseWtInputText] = useState(formatWeightDisplay(state.cruiseWeight)); 
   const [ldgWtInputText, setLdgWtInputText] = useState(formatWeightDisplay(state.landingWeight));
 
-  // FPL ROUTEの読み込み
   const [globalRoute, setGlobalRoute] = useState("");
   const [globalDest, setGlobalDest] = useState("");
-  const [globalEtopsAltns, setGlobalEtopsAltns] = useState([]); // ETOPS ALTN用
-  const [globalEtopsTime, setGlobalEtopsTime] = useState(""); // ETOPS PLAN時間
+  const [globalEtopsAltns, setGlobalEtopsAltns] = useState([]);
+  const [globalEtopsTime, setGlobalEtopsTime] = useState("");
 
   useEffect(() => { setCruiseWtInputText(formatWeightDisplay(state.cruiseWeight)); }, [state.cruiseWeight]); 
   useEffect(() => { setLdgWtInputText(formatWeightDisplay(state.landingWeight)); }, [state.landingWeight]);
@@ -89,7 +101,7 @@ export default function App() {
         if (value === '1 ENG INOP') {
           if (prev.ptowOrig) next.landingWeight = prev.ptowOrig;
           if (prev.toElevOrig !== null) next.pressureAlt = prev.toElevOrig;
-          next.reverserConfig = 'One'; // ENG INOP時にONE REVへ自動変更
+          next.reverserConfig = 'One';
         } else if (value === 'Normal') {
           if (prev.pldwOrig) next.landingWeight = prev.pldwOrig; 
           if (prev.ldElevOrig !== null) next.pressureAlt = prev.ldElevOrig;
@@ -115,33 +127,300 @@ export default function App() {
       if (data.reg) { const ac = typeof aircraftRegistrationList !== 'undefined' ? aircraftRegistrationList.find(a => a.reg === data.reg) : null; if (ac) { next.selectedReg = data.reg; next.selectedType = ac.type; } else { next.selectedReg = data.reg; } }
       if (data.isa !== undefined) next.isaDev = data.isa;
       if (data.alt !== undefined) next.cruiseAltitude = data.alt;
-      if (data.ptow !== undefined) { next.cruiseWeight = data.ptow * 1000; next.ptowOrig = data.ptow * 1000; }
-      if (data.pldw !== undefined) { next.pldwOrig = data.pldw * 1000; }
-      if (data.toElev !== undefined) { next.toElevOrig = Math.round(data.toElev / 100) * 100; }
-      if (data.ldElev !== undefined) { next.ldElevOrig = Math.round(data.ldElev / 100) * 100; }
-     
-      if (data.ptow !== undefined || data.pldw !== undefined) { 
-        if (prev.landingCondition === "1 ENG INOP" && data.ptow !== undefined) {
-          next.landingWeight = data.ptow * 1000;
-          if (data.toElev !== undefined) next.pressureAlt = Math.round(data.toElev / 100) * 100;
-        } else if (data.pldw !== undefined) {
-          next.landingWeight = data.pldw * 1000;
-          if (data.ldElev !== undefined) next.pressureAlt = Math.round(data.ldElev / 100) * 100;
+      
+      if (data.ptow !== undefined) { 
+        next.cruiseWeight = data.ptow * 1000; 
+        next.ptowOrig = data.ptow * 1000; 
+        if (prev.landingCondition === "1 ENG INOP") {
+            next.landingWeight = data.ptow * 1000;
         }
-      } else {
-        if (data.ldElev !== undefined) next.pressureAlt = Math.round(data.ldElev / 100) * 100;
+      }
+      if (data.pldw !== undefined) { 
+        next.pldwOrig = data.pldw * 1000; 
+        if (prev.landingCondition !== "1 ENG INOP") {
+            next.landingWeight = data.pldw * 1000;
+        }
+      }
+      
+      if (data.toElev !== undefined) { 
+        next.toElevOrig = Math.round(data.toElev / 100) * 100; 
+        if (prev.landingCondition === "1 ENG INOP") {
+            next.pressureAlt = next.toElevOrig;
+        }
+      }
+      if (data.ldElev !== undefined) { 
+        next.ldElevOrig = Math.round(data.ldElev / 100) * 100; 
+        if (prev.landingCondition !== "1 ENG INOP") {
+            next.pressureAlt = next.ldElevOrig;
+        }
       }
       return next;
     });
+    
     if (data.flightId) { setFlightId(data.flightId); setSelectedFlightId(data.flightId); setSelectedAirlineCode("NH"); setSelectedAirline("ANA"); setSelectedCallsign("ALL NIPPON"); }
-    if (data.fltTimeH !== undefined) { setRestFlightHours3(data.fltTimeH); setRestFlightHours4(data.fltTimeH); setRestFlightMins3(data.fltTimeM); setRestFlightMins4(data.fltTimeM); }
+    
+    if (data.fltTimeH !== undefined && data.fltTimeH !== null && !isNaN(data.fltTimeH)) { 
+        setRestFlightHours3(data.fltTimeH); 
+        setRestFlightHours4(data.fltTimeH); 
+    }
+    if (data.fltTimeM !== undefined && data.fltTimeM !== null && !isNaN(data.fltTimeM)) { 
+        setRestFlightMins3(data.fltTimeM); 
+        setRestFlightMins4(data.fltTimeM); 
+    }
+    
     if (data.stdH !== undefined) { setStdHours(data.stdH); setStdMins(data.stdM); setIsTakeoffAuto(true); }
     if (data.avgTaxi !== undefined) setTaxiOutMins(data.avgTaxi); else setTaxiOutMins(20);
-    if (data.route) { setGlobalRoute(data.route); }
-    if (data.dest) { setGlobalDest(data.dest); }
-    if (data.etopsAltns) { setGlobalEtopsAltns(data.etopsAltns); } else { setGlobalEtopsAltns([]); }
-    if (data.etopsTime) { setGlobalEtopsTime(data.etopsTime); } else { setGlobalEtopsTime(""); }
-    window.dispatchEvent(new CustomEvent('show-toast', { detail: 'フライトデータをパフォーマンス計算と休憩計算に反映しました！' }));
+    
+    if (data.route) setGlobalRoute(data.route);
+    if (data.dest) setGlobalDest(data.dest); 
+    if (data.etopsAltns) setGlobalEtopsAltns(data.etopsAltns); else setGlobalEtopsAltns([]);
+    if (data.etopsTime) setGlobalEtopsTime(data.etopsTime); else setGlobalEtopsTime("");
+    
+    window.dispatchEvent(new CustomEvent('show-toast', { detail: 'フライトデータを全画面に反映しました！' }));
+  };
+
+  const parseNavlogPDFText = (text) => {
+    let newPlan = [];
+    
+    const fNoMatch = text.match(/(?:ANA|JAL|NCA|NH|JL)(\d{2,4}[A-Z]?)/);
+    const fNo = fNoMatch ? fNoMatch[0].replace(/(ANA|JAL|NCA|NH|JL)0+/, '$1') : "UNKNOWN";
+    let flightIdRaw = fNoMatch ? fNoMatch[1] : "";
+    flightIdRaw = flightIdRaw.replace(/^0+/, '');
+    if (flightIdRaw === '') flightIdRaw = '0';
+    
+    const routeMatch = text.match(/([A-Z]{4})\s*-\s*([A-Z]{4})/);
+    const rInfo = routeMatch ? `${routeMatch[1]} - ${routeMatch[2]}` : "UNKNOWN";
+    const destIcao = routeMatch ? routeMatch[2] : null;
+    const regMatch = text.match(/(JA\d{3}[A-Z]?)/);
+    const pReg = regMatch ? regMatch[1] : "JA796A";
+
+    let ptow, pldw, pPzfw = 400.0, alt, isa, toElev, ldElev, fltTimeH, fltTimeM, stdH, stdM, pTaxi = 20;
+
+    const zfwMatch = text.match(/(?:ZFW|PZFW)\s+([0-9,.]+)/);
+    if (zfwMatch) {
+      let v = parseFloat(zfwMatch[1].replace(/,/g, ''));
+      if (v > 2000) v = v / 1000;
+      pPzfw = v;
+    }
+    const ptowMatch = text.match(/(?:PTOW|TOW)\s+([0-9,.]+)/);
+    if (ptowMatch) {
+      let v = parseFloat(ptowMatch[1].replace(/,/g, ''));
+      if (v > 2000) v = Math.round(v / 1000);
+      ptow = v;
+    }
+    const pldwMatch = text.match(/(?:PLDW|LDW|LAW)\s+([0-9,.]+)/);
+    if (pldwMatch) {
+      let v = parseFloat(pldwMatch[1].replace(/,/g, ''));
+      if (v > 2000) v = Math.round(v / 1000);
+      pldw = v;
+    }
+
+    const crzMatch = text.match(/(?:CRZ|LVL)\s+(?:SYS\s+)?(?:FL)?(\d{3})/);
+    if (crzMatch) alt = parseInt(crzMatch[1], 10) * 100;
+    
+    const isaMatch = text.match(/ISA\s*([PM+-])\s*(\d{1,2})/);
+    if (isaMatch) {
+      isa = parseInt(isaMatch[2], 10);
+      if (isaMatch[1] === '-' || isaMatch[1] === 'M') isa = -isa;
+    }
+    
+    const elevRegex = /ELEV\s+(\d{1,4})/g;
+    let elevMatch;
+    let elevs = [];
+    while ((elevMatch = elevRegex.exec(text)) !== null) {
+        elevs.push(parseInt(elevMatch[1], 10));
+    }
+    if (elevs.length >= 2) {
+      toElev = elevs[0];
+      ldElev = elevs[elevs.length - 1];
+    } else if (elevs.length === 1) {
+      ldElev = elevs[0];
+    }
+    
+    const fltMatch = text.match(/(?:FLT|FLTIME|FLT TIME)\s+(\d{2})\.?(\d{2})/);
+    if (fltMatch) {
+      fltTimeH = parseInt(fltMatch[1], 10);
+      fltTimeM = parseInt(fltMatch[2], 10);
+    }
+
+    const stdMatch = text.match(/STD\s+(\d{2})\.?(\d{2})/);
+    if (stdMatch) {
+      stdH = parseInt(stdMatch[1], 10);
+      stdM = parseInt(stdMatch[2], 10);
+    }
+
+    const taxiMatch = text.match(/(?:AVG|TAXI|OUT):\s*\d+\/(\d+)MIN/);
+    if (taxiMatch) pTaxi = parseInt(taxiMatch[1], 10);
+
+    const dateMatch = text.match(/\b(\d{2}[A-Z]{3}\d{2})\b/);
+    const pDate = dateMatch ? dateMatch[1] : "";
+
+    const cleanText = text.replace(/\(\s+/g, '(');
+    const tokens = cleanText.split(/\s+/);
+    let ignoreList = new Set(["ELEV", "RDIS", "TMP", "ZWIND", "SAT", "SPOT", "ETO", "ZTME", "ALT", "FUEL", "POS", "ATO", "DIST", "FL", "RMG", "RJTT", "KJFK", "KEWR", "PANC", "CYVR", "RJCC", "DEC", "CLM", "LRC", "PROG", "STEP", "CLIMB", "MINTMP", "COMPUTED", "COMPANY", "CLEARANCE", "MW/TP", "WSCP", "NONE", "OAT", "INTENTION", "SPEED", "ROUTE", "DATA", "AWY", "OFP", "LOG", "RMK", "NAV", "FOB", "PLN", "ACT", "DIFF", "MEMO", "TIME", "MAX", "WT", "PAGE", "DIS", "WND", "SHR", "TRK", "INFO", "IFR", "VFR"]);
+    
+    if (fNoMatch) ignoreList.add(fNoMatch[0]);
+    if (flightIdRaw) ignoreList.add(flightIdRaw);
+    if (routeMatch) {
+        ignoreList.delete(routeMatch[1]);
+        ignoreList.delete(routeMatch[2]);
+    }
+
+    let recentTimes = [];
+    let pendingFob = null;
+    let pendingAlt = "";
+
+    for (let i = 0; i < tokens.length; i++) {
+        let token = tokens[i];
+        
+        if (/^\d{2}\.\d{2}$/.test(token)) {
+            const parts = token.split('.');
+            const mins = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+            if (recentTimes[recentTimes.length - 1] !== mins) {
+                recentTimes.push(mins);
+            }
+            if (recentTimes.length > 2) recentTimes.shift(); 
+            continue;
+        }
+        if (/^\d{2,3}\.\d$/.test(token) && parseFloat(token) < 300) { 
+             pendingFob = parseFloat(token); continue;
+        }
+        if (/^[1-6]\d{4}$/.test(token)) {
+             const h = parseInt(token, 10);
+             if (h >= 10000 && h <= 60000) pendingAlt = `FL${Math.floor(h / 100)}`;
+             continue;
+        }
+
+        let cleanToken = token.replace(/^-+/, '').replace(/-+$/, '');
+        const isCoord = /^[NS]\d{4,5}[EW]\d{4,6}$/.test(cleanToken);
+        const isAlphaWp = /^[A-Z][A-Z0-9]{1,5}$/.test(cleanToken) && !ignoreList.has(cleanToken);
+        const isArincWp = /^\d{2}[NSWE]\d{2}$/.test(cleanToken);
+        const isSpecialWp = ["TOC", "TOD"].includes(cleanToken);
+
+        if (!isCoord && (isAlphaWp || isArincWp || isSpecialWp)) {
+            if (recentTimes.length === 0 && !isSpecialWp) {
+                continue; 
+            }
+
+            let ctme = recentTimes.length > 0 ? recentTimes[0] : 0;
+            let rtme = recentTimes.length > 1 ? recentTimes[1] : 0;
+            if (recentTimes.length === 1) rtme = 0; 
+            
+            if (newPlan.length > 0 && newPlan[newPlan.length - 1].wp === cleanToken) {
+                continue;
+            }
+            
+            if (/^NH\d+[A-Z]?$/.test(cleanToken)) {
+                continue;
+            }
+
+            newPlan.push({ wp: cleanToken, ctme: ctme, rtme: rtme, fob: pendingFob !== null ? pendingFob : 0, plnAlt: pendingAlt, plnTmp: "", plnWind: "", isaDev: isa || 0 });
+            
+            if (destIcao && cleanToken === destIcao) {
+                break; 
+            }
+            if (rtme === 0 && newPlan.length > 1 && cleanToken !== "TOC") {
+                break; 
+            }
+
+            pendingFob = null; 
+            pendingAlt = ""; 
+            recentTimes = []; 
+        }
+    }
+
+    if (!alt) {
+        const toc = newPlan.find(wp => wp.plnAlt);
+        if (toc && toc.plnAlt) alt = parseInt(toc.plnAlt.replace('FL', ''), 10) * 100;
+    }
+
+    if (newPlan.length >= 2) {
+        const last = newPlan[newPlan.length - 1];
+        const prev = newPlan[newPlan.length - 2];
+        if (last.wp === prev.wp) {
+            newPlan.pop();
+        }
+    }
+
+    // 抽出できなかった場合は最後のWayPointのCTMEを飛行時間として代用する
+    if ((fltTimeH === undefined || isNaN(fltTimeH)) && newPlan.length > 0) {
+        const destWp = newPlan[newPlan.length - 1];
+        if (destWp.ctme > 0) {
+            fltTimeH = Math.floor(destWp.ctme / 60);
+            fltTimeM = destWp.ctme % 60;
+        }
+    }
+
+    const fullRouteStr = newPlan.map(p => p.wp).join(' ');
+
+    return { 
+        newPlan, fNo, flightIdRaw, rInfo, destIcao, pReg, pPzfw, pTaxi, pDate, 
+        ptow, pldw, alt, isa, toElev, ldElev, fltTimeH, fltTimeM, stdH, stdM,
+        fullRouteStr, timestamp: Date.now()
+    };
+  };
+
+  const handleAppPdfUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setIsParsingPdf(true);
+    window.dispatchEvent(new CustomEvent('show-toast', { detail: 'PDFを解析しています...' }));
+    
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        if (!window.pdfjsLib) {
+          const script = document.createElement('script');
+          script.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+          await new Promise(res => { script.onload = res; document.head.appendChild(script); });
+          window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+        }
+        
+        const typedarray = new Uint8Array(event.target.result);
+        const pdf = await window.pdfjsLib.getDocument(typedarray).promise;
+        let fullText = "";
+        
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          fullText += content.items.map(item => item.str).join(" ") + "\n";
+        }
+
+        const parsedData = parseNavlogPDFText(fullText);
+        
+        if (parsedData.newPlan.length > 0) {
+            setNavlogData(parsedData); 
+            
+            handleApplyFlightPlan({ 
+                flightId: parsedData.flightIdRaw, 
+                reg: parsedData.pReg,
+                route: parsedData.fullRouteStr, 
+                dest: parsedData.destIcao,
+                ptow: parsedData.ptow,
+                pldw: parsedData.pldw,
+                alt: parsedData.alt,
+                isa: parsedData.isa,
+                toElev: parsedData.toElev,
+                ldElev: parsedData.ldElev,
+                fltTimeH: parsedData.fltTimeH,
+                fltTimeM: parsedData.fltTimeM,
+                stdH: parsedData.stdH,
+                stdM: parsedData.stdM,
+                avgTaxi: parsedData.pTaxi
+            });
+        } else { 
+            window.dispatchEvent(new CustomEvent('show-toast', { detail: 'フライトプランの読み取りに失敗しました。PDFの形式を確認してください。' })); 
+        }
+      } catch (err) { 
+        console.error(err); 
+        window.dispatchEvent(new CustomEvent('show-toast', { detail: 'PDFの解析に失敗しました。ファイルが破損しているか、非対応の形式です。' })); 
+      } 
+      finally { 
+        setIsParsingPdf(false); 
+        e.target.value = ''; 
+      }
+    };
+    reader.readAsArrayBuffer(file);
   };
 
   const parsedFlightData = useMemo(() => {
@@ -180,9 +459,6 @@ export default function App() {
   const forceANASelection = () => { handleAirlineSelect('code', 'NH'); }; const handleTrafficSelect = (t) => { setSelectedAirlineCode(t.airlineCode); setSelectedAirline(t.airline); setSelectedCallsign(t.callsign); setSelectedFlightId(t.flightNo); }; const formatTime = (mins) => { if (mins == null) return "--:--"; const h = Math.floor(mins / 60) % 24, m = mins % 60; return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`; };
   const fltInfoProps = { currentFlightInfo: displayFlightInfo, selectedDep, selectedArr, formatTime, trafficTimeRange, setTrafficTimeRange, depTrafficMode, setDepTrafficMode, arrTrafficMode, setArrTrafficMode, relatedTraffic, handleAirlineSelect, setSelectedDep, setSelectedArr, setSelectedFlightId, selectedFlightId, selectedAirlineCode, selectedAirline, selectedCallsign, availableFlights, airlineCodes, airlines, callsigns, availableDeps, availableArrs, forceANASelection, handleTrafficSelect, onApplyFlightPlan: handleApplyFlightPlan };
 
-  // ==========================================
-  // [計算] 統合されたパフォーマンス計算ロジック
-  // ==========================================
   const computed = useMemo(() => {
     let engineStr = "GE"; if (state.selectedType === "777-200" || state.selectedType === "777-300") { engineStr = "PW"; } const isPW = engineStr === "PW";
     const mKey = typeof modelKeyMap !== 'undefined' && modelKeyMap[state.selectedType] ? modelKeyMap[state.selectedType] : '772'; 
@@ -195,10 +471,8 @@ export default function App() {
     
     const isEngInop = state.landingCondition === "1 ENG INOP"; const appAdd = state.appSpeedAdditive;
     
-    // 巡航性能（MAX ALT）計算ロジック
     const wt1000 = clampedCruiseWeight / 1000; 
     const optAltRaw = interpolateObjArray(wt1000, perfTable, 1) || 30000; 
-    
     const buffIndex = state.buffetMargin === '1.5G' ? 3 : 2;
     const bufLimitRaw = interpolateObjArray(wt1000, perfTable, buffIndex) || 40000; 
     
@@ -216,17 +490,12 @@ export default function App() {
     thrustLimit = Math.round(thrustLimit); 
     const bufLimit = Math.round(bufLimitRaw); 
     const structuralAlt = 43100;
-
     const maxAlt = Math.min(structuralAlt, bufLimit, thrustLimit); 
     
     let limitReason = "N/A";
-    if (maxAlt === structuralAlt) {
-      limitReason = "Structural Limit";
-    } else if (maxAlt === bufLimit) {
-      limitReason = `Buffet Limit (${state.buffetMargin})`;
-    } else {
-      limitReason = "Thrust Limit";
-    }
+    if (maxAlt === structuralAlt) { limitReason = "Structural Limit"; } 
+    else if (maxAlt === bufLimit) { limitReason = `Buffet Limit (${state.buffetMargin})`; } 
+    else { limitReason = "Thrust Limit"; }
 
     let mmo = (mKey === "772") ? 0.87 : 0.89, vmo = mKey === "77W" || mKey === "77F" ? Math.min(350, Math.round(330 + (state.cruiseAltitude / 30000) * 20)) : 330;
     const vref30Arr = typeof VREF_DATA !== 'undefined' ? VREF_DATA[mKey]?.vref30 : null; const vref30 = vref30Arr ? interpolateDirectArray(clampedCruiseWeight / 1000, vref30Arr.map(v => v[0]), vref30Arr.map(v => v[1])) : 140; const flapUpManeuver = vref30 ? Math.round(vref30 + 80) : "N/A";
@@ -428,13 +697,12 @@ export default function App() {
         }
       `}</style>
       <Toast />
-      <PasteModal isOpen={isPasteModalOpen} onClose={() => setIsPasteModalOpen(false)} onApply={handleApplyFlightPlan} />
-      <WifiPwdModal isOpen={isWifiModalOpen} onClose={() => setIsWifiModalOpen(false)} />
       <DrmModal isOpen={isDrmModalOpen} onClose={() => setIsDrmModalOpen(false)} initialFlightNo={flightId} />
       <SmartCatModal isOpen={isSmartCatModalOpen} onClose={() => setIsSmartCatModalOpen(false)} />
       <QuickGuideModal isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} />
 
-      {/* ★ 追加: 初回セットアップバナー */}
+      <input type="file" accept="application/pdf" className="hidden" ref={pdfInputRef} onChange={handleAppPdfUpload} />
+
       {showSetupBanner && (
         <div className="bg-[#0b2447] border border-blue-500/50 rounded-xl p-3 mx-1 mt-1 shadow-md relative overflow-hidden animate-in slide-in-from-top-4 flex items-center justify-between gap-3">
           <div className="flex-1 min-w-0">
@@ -443,98 +711,43 @@ export default function App() {
                 <span className="truncate">アプリを「ホーム画面に追加」して快適に！</span>
              </div>
              <p className="text-[10px] sm:text-xs text-blue-100 leading-tight">
-               全画面表示のため、ブラウザの共有メニュー（<SafeIcon name="Share" className="w-3 h-3 inline pb-0.5" />）から<span className="text-amber-400 font-bold mx-0.5">「ホーム画面に追加」</span>をお願いします。
-<span className="text-emerald-300 font-bold flex items-center gap-1 mt-0.5">
-                 <SafeIcon name="Info" className="w-3 h-3" />
-                 アプリの使い方は上部メニューの「HELP」ボタンからご覧ください。
-               </span>             </p>
+               全画面表示のため、ブラウザの共有メニューから<span className="text-amber-400 font-bold mx-0.5">「ホーム画面に追加」</span>をお願いします。
+             </p>
           </div>
-          <button 
-            onClick={handleCloseBanner}
-            className="shrink-0 bg-blue-600 hover:bg-blue-500 text-white font-bold py-1.5 px-3 rounded-lg text-xs transition-colors shadow-sm whitespace-nowrap border border-blue-400/30"
-          >
+          <button onClick={handleCloseBanner} className="shrink-0 bg-blue-600 hover:bg-blue-500 text-white font-bold py-1.5 px-3 rounded-lg text-xs transition-colors shadow-sm whitespace-nowrap border border-blue-400/30">
             閉じる
           </button>
         </div>
       )}
 
       <div className="flex flex-col gap-1.5 w-full flex-none mb-1 px-1 mt-1">
-        {/* ヘッダー全体：常に上下2段（1段目：タイトル、2段目：ボタン群） */}
         <div className="flex flex-col pt-1 pb-1 border-b-2 border-slate-700/80 gap-1.5">
-          
-          {/* タイトル & 便名バッジ & バージョン */}
           <div className="flex items-center flex-wrap gap-1 text-blue-400 font-black tracking-tighter text-[11px] sm:text-sm">
             <div className="flex items-center gap-1">
               <SafeIcon name="Plane" className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> 
               <span>7PT B777 PERFORMANCE TOOL</span>
             </div>
             <div className="flex items-center gap-1">
-              <span className="text-amber-400 font-mono text-[9px] border border-amber-500/30 px-1 rounded bg-amber-500/10 tracking-normal font-bold">
-                ver 6.3
-              </span>
-              {flightId && (
-                <span className="text-slate-300 font-mono text-[9px] border border-slate-600 px-1 rounded bg-slate-800 tracking-normal font-bold">
-                  ANA{flightId}
-                </span>
-              )}
+              <span className="text-amber-400 font-mono text-[9px] border border-amber-500/30 px-1 rounded bg-amber-500/10 tracking-normal font-bold">ver 6.7</span>
+              {flightId && (<span className="text-slate-300 font-mono text-[9px] border border-slate-600 px-1 rounded bg-slate-800 tracking-normal font-bold">ANA{flightId}</span>)}
             </div>
           </div>
 
-          {/* ボタン群：独立した1行として横スクロール可能にする */}
           <div className="flex items-center gap-1 w-full overflow-x-auto hide-scrollbar pb-0.5">
+              <WifiButton type="PANA" url="http://portal.inflight.ana-panasonic.aero/" label="PANA" hoverClass="hover:bg-sky-600" colorClass="text-sky-400 border-sky-500/50 text-[9px] sm:text-[10px] shrink-0" onLongPress={() => setIsWifiModalOpen(true)} />
               
-              {/* Panasonic Wifi */}
-              <WifiButton 
-                type="PANA" 
-                url="http://portal.inflight.ana-panasonic.aero/" 
-                label="PANA" 
-                hoverClass="hover:bg-sky-600" 
-                colorClass="text-sky-400 border-sky-500/50 text-[9px] sm:text-[10px] shrink-0" 
-                onLongPress={() => setIsWifiModalOpen(true)} 
-              />
-              
-              {/* Inmarsat Wifi */}
-              <button 
-                onClick={() => window.open('https://wifi.inflight.viasat.com/', '_blank')}
-                className="bg-slate-700 hover:bg-indigo-600 text-indigo-400 border border-indigo-500/50 hover:text-white px-1 py-0.5 md:px-1.5 md:py-0.5 rounded flex items-center justify-center gap-0.5 transition-colors shadow-sm select-none shrink-0"
-                title="Inmarsat Wi-Fi"
-              >
+              <button onClick={() => window.open('https://wifi.inflight.viasat.com/', '_blank')} className="bg-slate-700 hover:bg-indigo-600 text-indigo-400 border border-indigo-500/50 hover:text-white px-1 py-0.5 md:px-1.5 md:py-0.5 rounded flex items-center justify-center gap-0.5 transition-colors shadow-sm select-none shrink-0" title="Inmarsat Wi-Fi">
                 <SafeIcon name="Wifi" className="w-2.5 h-2.5 md:w-3 md:h-3 pointer-events-none" />
                 <span className="text-[8px] md:text-[9px] lg:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">INMA</span>
               </button>
 
-              <WifiButton 
-                type="DOM" 
-                url="https://www.ana-inflight-wifi.com/" 
-                label="DOM" 
-                hoverClass="hover:bg-emerald-600" 
-                colorClass="text-emerald-400 border-emerald-500/50 text-[9px] sm:text-[10px] shrink-0" 
-                onLongPress={() => { }} 
-              />
+              <WifiButton type="DOM" url="https://www.ana-inflight-wifi.com/" label="DOM" hoverClass="hover:bg-emerald-600" colorClass="text-emerald-400 border-emerald-500/50 text-[9px] sm:text-[10px] shrink-0" onLongPress={() => { }} />
 
-              <button onClick={() => setIsPasteModalOpen(true)} className="animate-glow-pulse bg-emerald-600 hover:bg-emerald-500 text-white px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border border-emerald-400 shrink-0" title="PDF/TXT 読込">
-                <SafeIcon name="ClipboardPaste" className="w-3 h-3 pointer-events-none" />
-                <span className="text-[9px] sm:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">LOAD</span>
+              <button onClick={() => pdfInputRef.current.click()} disabled={isParsingPdf} className="animate-glow-pulse bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border border-emerald-400 shadow-sm shrink-0" title="PDFを読み込んで全画面に一発反映">
+                <SafeIcon name="FileText" className="w-3 h-3 pointer-events-none" />
+                <span className="text-[9px] sm:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">{isParsingPdf ? 'READING' : 'LOAD PDF'}</span>
               </button>
-
-              <button onClick={() => {
-                const to = "ml_notice_drm@ana.co.jp";
-                const subject = flightId ? encodeURIComponent(`DRM Report ANA${flightId}`) : encodeURIComponent("DRM Report");
-                
-                const gmailAppUrl = `googlegmail:///co?to=${to}&subject=${subject}`;
-                const mailtoUrl = `mailto:${to}?subject=${subject}`;
-
-                window.location.href = gmailAppUrl;
-                setTimeout(() => {
-                  window.location.href = mailtoUrl;
-                }, 300);
-                
-                window.dispatchEvent(new CustomEvent('show-toast', { detail: 'メールアプリを起動しています...' }));
-              }} className="bg-slate-700 hover:bg-purple-600 text-purple-400 hover:text-white px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border border-slate-500 hover:border-purple-400 shadow-sm shrink-0" title="DRM宛にメールを作成">
-                <SafeIcon name="Mail" className="w-3 h-3 pointer-events-none" />
-                <span className="text-[9px] sm:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">DRM</span>
-              </button>
-
+              
               <button onClick={() => { if (!state.selectedReg || state.selectedReg === "N/A" || state.selectedReg === "") { window.dispatchEvent(new CustomEvent('show-toast', { detail: '機番を選択してください' })); return; } const buddycomUrl = typeof BUDDYCOM_LINKS !== 'undefined' ? BUDDYCOM_LINKS[state.selectedReg] : null; if (buddycomUrl) { const pastedFlightName = flightId ? `ANA${flightId}` : ""; if (pastedFlightName) { copyToClipboard(pastedFlightName); window.dispatchEvent(new CustomEvent('show-toast', { detail: `便名(${pastedFlightName})をコピーして起動しました` })); } else { window.dispatchEvent(new CustomEvent('show-toast', { detail: 'Buddycomを起動しました' })); } setTimeout(() => { window.open(buddycomUrl, '_blank'); }, 1000); } else { window.dispatchEvent(new CustomEvent('show-toast', { detail: 'この機番のBuddycomリンクは未登録です' })); } }} className={`px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border shadow-sm shrink-0 ${state.selectedReg && state.selectedReg !== "N/A" && state.selectedReg !== "" ? 'bg-slate-700 hover:bg-orange-600 text-orange-400 hover:text-white border-slate-500 hover:border-orange-400' : 'bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed'}`} title="Buddycomを開く"><SafeIcon name="Radio" className="w-3 h-3 pointer-events-none" /><span className="text-[9px] sm:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">BDYC</span></button>
               
               <button onClick={() => { let flightQuery = ""; if (flightId) { flightQuery = `NH${flightId}`; } else if (selectedFlightId && selectedFlightId !== "N/A" && selectedFlightId !== "") { if (selectedAirlineCode && selectedAirlineCode !== "N/A" && selectedAirlineCode !== "") { flightQuery = `${selectedAirlineCode}${selectedFlightId}`; } else { flightQuery = `NH${selectedFlightId}`; } } if (flightQuery) { copyToClipboard(flightQuery); window.dispatchEvent(new CustomEvent('show-toast', { detail: `便名(${flightQuery})をコピーしました。検索窓にペーストしてください` })); } else { window.dispatchEvent(new CustomEvent('show-toast', { detail: 'FR24アプリを起動します' })); } setTimeout(() => { window.open('https://www.flightradar24.com', '_blank'); }, 1000); }} className="bg-slate-700 hover:bg-yellow-600 text-yellow-400 hover:text-white px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border border-slate-500 hover:border-yellow-400 shadow-sm shrink-0" title="Flight Radar 24を開く"><SafeIcon name="Radar" className="w-3 h-3 pointer-events-none" /><span className="text-[9px] sm:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">FR24</span></button>
@@ -544,59 +757,32 @@ export default function App() {
                 <span className="text-[9px] sm:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">ALC</span>
               </button>
 
-              <button 
-                onClick={() => window.open('https://aswbe.ana.co.jp/webapps/checkin/checkin-search?CONNECTION_KIND=JPN&LANG=ja&SITE_ID=ASW_TOP', '_blank')} 
-                className="bg-slate-700 hover:bg-sky-600 text-sky-400 hover:text-white px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border border-slate-500 hover:border-sky-400 shadow-sm shrink-0" 
-                title="ANAオンラインチェックイン"
-              >
+              <button onClick={() => window.open('https://aswbe.ana.co.jp/webapps/checkin/checkin-search?CONNECTION_KIND=JPN&LANG=ja&SITE_ID=ASW_TOP', '_blank')} className="bg-slate-700 hover:bg-sky-600 text-sky-400 hover:text-white px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border border-slate-500 hover:border-sky-400 shadow-sm shrink-0" title="ANAオンラインチェックイン">
                 <SafeIcon name="UserCheck" className="w-3 h-3 pointer-events-none" />
                 <span className="text-[9px] sm:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">CKIN</span>
               </button>
 
-              <button 
-                onClick={() => setIsGuideOpen(true)} 
-                className="bg-slate-700 hover:bg-rose-600 text-rose-400 hover:text-white px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border border-slate-500 hover:border-rose-400 shadow-sm shrink-0" 
-                title="使い方ガイド"
-              >
-                <SafeIcon name="HelpCircle" className="w-3 h-3 pointer-events-none" />
-                <span className="text-[9px] sm:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">HELP</span>
-              </button>
-
-              <button 
-                onClick={() => {
-                  if ('serviceWorker' in navigator) {
-                    navigator.serviceWorker.getRegistrations().then((registrations) => {
-                      for (let registration of registrations) {
-                        registration.unregister();
-                      }
-                    });
-                  }
-                  window.dispatchEvent(new CustomEvent('show-toast', { detail: '最新バージョンを取得して再起動します...' }));
-                  setTimeout(() => { window.location.reload(true); }, 1500);
-                }}
-                className="bg-slate-700 hover:bg-emerald-600 text-emerald-400 hover:text-white px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border border-emerald-500 hover:border-emerald-400 shadow-sm shrink-0"
-                title="アプリを消さずに最新版へアップデート"
-              >
+              <button onClick={() => { setIsDrmModalOpen(true); }} className="bg-slate-700 hover:bg-purple-600 text-purple-400 hover:text-white px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border border-slate-500 shadow-sm shrink-0"><span className="text-[9px] sm:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">DRM</span></button>
+              <button onClick={() => { setIsGuideOpen(true); }} className="bg-slate-700 hover:bg-rose-600 text-rose-400 hover:text-white px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border border-slate-500 shadow-sm shrink-0"><span className="text-[9px] sm:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">HELP</span></button>
+              
+              <button onClick={() => { if ('serviceWorker' in navigator) { navigator.serviceWorker.getRegistrations().then((registrations) => { for (let registration of registrations) { registration.unregister(); } }); } window.dispatchEvent(new CustomEvent('show-toast', { detail: '最新バージョンを取得して再起動します...' })); setTimeout(() => { window.location.reload(true); }, 1500); }} className="bg-slate-700 hover:bg-emerald-600 text-emerald-400 hover:text-white px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border border-emerald-500 hover:border-emerald-400 shadow-sm shrink-0" title="アプリを消さずに最新版へアップデート">
                 <SafeIcon name="DownloadCloud" className="w-3 h-3 pointer-events-none" />
                 <span className="text-[9px] sm:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">UPDT</span>
               </button>
           </div>
         </div>
 
-       {/* タブボタン部分：iPhone（縦画面）では自動で折り返し、iPad等（横画面）では横一列に並べる */}
         <div className="flex flex-wrap sm:flex-nowrap gap-1 py-1 w-full sm:overflow-x-auto sm:hide-scrollbar">
           {tabs.map(tab => {
             if (tab === 'スマカタ') {
               return (
                 <button key={tab} onClick={() => setIsSmartCatModalOpen(true)} className="px-2 py-1.5 text-[10px] sm:text-[11px] font-bold rounded-md transition-all shadow-sm bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700/50 flex items-center justify-center gap-1 flex-grow sm:flex-grow-0 min-w-[22%] sm:min-w-0">
-                  <SafeIcon name="BookOpen" className="w-3 h-3" /> 
-                  <span className="leading-none">スマカタ</span>
+                  <SafeIcon name="BookOpen" className="w-3 h-3" /> <span className="leading-none">スマカタ</span>
                 </button>
               );
             }
             return (
               <button key={tab} onClick={() => setActiveTab(tab)} className={`px-2 py-1.5 text-[10px] sm:text-[11px] font-bold rounded-md transition-all shadow-sm flex items-center justify-center gap-1 flex-grow sm:flex-grow-0 min-w-[22%] sm:min-w-0 ${activeTab === tab ? "bg-amber-600 text-white shadow-amber-900/50 scale-[1.01]" : "bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700/50"}`}>
-                {tab === 'XWIND' && <SafeIcon name="Wind" className="w-3 h-3" />}
                 <span className="leading-none">{tab}</span>
               </button>
             );
@@ -604,13 +790,7 @@ export default function App() {
         </div>
       </div>
 
-      {activeTab === 'DASHBOARD' && (
-        <div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden">
-          {typeof DashboardView !== 'undefined' && (
-            <DashboardView state={state} updateState={updateState} computed={computed} aircraftRegistrationList={typeof aircraftRegistrationList !== 'undefined' ? aircraftRegistrationList : []} handleRegChange={handleRegChange} setAircraftType={setAircraftType} cruiseWtInputText={cruiseWtInputText} setCruiseWtInputText={setCruiseWtInputText} ldgWtInputText={ldgWtInputText} setLdgWtInputText={setLdgWtInputText} />
-          )}
-        </div>
-      )}
+      {activeTab === 'DASHBOARD' && (<div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden">{typeof DashboardView !== 'undefined' && (<DashboardView state={state} updateState={updateState} computed={computed} aircraftRegistrationList={typeof aircraftRegistrationList !== 'undefined' ? aircraftRegistrationList : []} handleRegChange={handleRegChange} setAircraftType={setAircraftType} cruiseWtInputText={cruiseWtInputText} setCruiseWtInputText={setCruiseWtInputText} ldgWtInputText={ldgWtInputText} setLdgWtInputText={setLdgWtInputText} />)}</div>)}
       {activeTab === 'TFC INFO' && (<div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden">{typeof FltInfoView !== 'undefined' && <FltInfoView p={fltInfoProps} />}</div>)}
       {activeTab === 'WX/MNM' && (<div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden">{typeof WxMnmReference !== 'undefined' && <WxMnmReference />}</div>)}
       {activeTab === 'ETOPS' && (<div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden">{typeof EtopsView !== 'undefined' && <EtopsView globalRoute={globalRoute} globalDest={globalDest} globalEtopsAltns={globalEtopsAltns} globalEtopsTime={globalEtopsTime} />}</div>)} 
@@ -622,28 +802,13 @@ export default function App() {
               state={state} 
               updateState={updateState} 
               onApplyFlightPlan={handleApplyFlightPlan} 
+              navlogData={navlogData} 
             />
           )}
         </div>
       )}
       {activeTab === 'DOCS' && (<div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden">{typeof Docs2View !== 'undefined' && <Docs2View />}</div>)}
-      {activeTab === 'REST CALC' && (<div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden">
-        {typeof RestView !== 'undefined' && <RestView
-        flightHours={restCrewSize === 3 ? restFlightHours3 : restFlightHours4} setFlightHours={restCrewSize === 3 ? setRestFlightHours3 : setRestFlightHours4}
-        flightMins={restCrewSize === 3 ? restFlightMins3 : restFlightMins4} setFlightMins={restCrewSize === 3 ? setRestFlightMins3 : setRestFlightMins4}
-        stdHours={stdHours} setStdHours={setStdHours}
-        stdMins={stdMins} setStdMins={setStdMins}
-        isTakeoffAuto={isTakeoffAuto} setIsTakeoffAuto={setIsTakeoffAuto}
-        takeoffHours={restTakeoffHours} setTakeoffHours={setRestTakeoffHours}
-        takeoffMins={restTakeoffMins} setTakeoffMins={setRestTakeoffMins}
-        offsetMins={restOffsetMins} setOffsetMins={setRestOffsetMins}
-        landingOffsetMins={restLandingOffsetMins} setLandingOffsetMins={setRestLandingOffsetMins}
-        crewSize={restCrewSize} setCrewSize={setRestCrewSize}
-        firstRestMins={restFirstRestMins} setFirstRestMins={setRestFirstRestMins}
-        lastRestMins={restLastRestMins} setLastRestMins={setRestLastRestMins}
-        firstHalfMins={restFirstHalfMins} setFirstHalfMins={setRestFirstHalfMins}
-        taxiOutMins={taxiOutMins} />}
-      </div>)}
+      {activeTab === 'REST CALC' && (<div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden">{typeof RestView !== 'undefined' && <RestView flightHours={restCrewSize === 3 ? restFlightHours3 : restFlightHours4} setFlightHours={restCrewSize === 3 ? setRestFlightHours3 : setRestFlightHours4} flightMins={restCrewSize === 3 ? restFlightMins3 : restFlightMins4} setFlightMins={restCrewSize === 3 ? setRestFlightMins3 : setRestFlightMins4} stdHours={stdHours} setStdHours={setStdHours} stdMins={stdMins} setStdMins={setStdMins} isTakeoffAuto={isTakeoffAuto} setIsTakeoffAuto={setIsTakeoffAuto} takeoffHours={restTakeoffHours} setTakeoffHours={setRestTakeoffHours} takeoffMins={restTakeoffMins} setTakeoffMins={setRestTakeoffMins} offsetMins={restOffsetMins} setOffsetMins={setRestOffsetMins} landingOffsetMins={restLandingOffsetMins} setLandingOffsetMins={setRestLandingOffsetMins} crewSize={restCrewSize} setCrewSize={setRestCrewSize} firstRestMins={restFirstRestMins} setFirstRestMins={setRestFirstRestMins} lastRestMins={restLastRestMins} setLastRestMins={setRestLastRestMins} firstHalfMins={restFirstHalfMins} setFirstHalfMins={setRestFirstHalfMins} taxiOutMins={taxiOutMins} />}</div>)}
       {activeTab === 'BUDDY COMM' && (<div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden">{typeof BuddyCommView !== 'undefined' && <BuddyCommView p={{ aircraftRegistrationList: typeof aircraftRegistrationList !== 'undefined' ? aircraftRegistrationList : [], selectedReg: state.selectedReg, handleRegChange }} />}</div>)}
       {activeTab === 'APP CALC' && (<div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden">{typeof ApproachCalcView !== 'undefined' && <ApproachCalcView />}</div>)}
       {activeTab === 'XWIND' && (<div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden mt-0.5">{typeof XwindView !== 'undefined' && <XwindView />}</div>)}
