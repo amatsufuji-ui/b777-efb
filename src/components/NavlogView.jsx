@@ -206,57 +206,77 @@ const SyncModal = ({ isOpen, onClose, actuals, onSync, showMessage }) => {
     );
 };
 
+// --- SVG 折れ線グラフ Modal ---
 const GraphModal = ({ isOpen, onClose, flightData }) => {
     if (!isOpen) return null;
     const validPoints = flightData.filter(d => d.ato && (d.timeDiffStr !== '' || d.fuelDiff !== null));
     
+    const width = 800;
+    const height = 300;
+    const paddingX = 60;
+    const paddingY = 40;
+
+    const maxT = Math.max(...validPoints.map(p => Math.abs(parseInt(p.timeDiffStr)||0)), 5);
+    const maxF = Math.max(...validPoints.map(p => Math.abs(p.fuelDiff||0)), 2);
+
+    const getX = (index) => paddingX + (index * ((width - paddingX * 2) / Math.max(validPoints.length - 1, 1)));
+    const getY_T = (val) => (height / 2) - (val / maxT) * ((height - paddingY * 2) / 2);
+    const getY_F = (val) => (height / 2) - (val / maxF) * ((height - paddingY * 2) / 2);
+
+    const pointsT = validPoints.map((pt, i) => `${getX(i)},${getY_T(parseInt(pt.timeDiffStr)||0)}`).join(' ');
+    const pointsF = validPoints.map((pt, i) => `${getX(i)},${getY_F(pt.fuelDiff||0)}`).join(' ');
+
     return (
         <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
-            <div className="bg-slate-800 border border-slate-600 rounded-xl p-4 max-w-2xl w-full shadow-2xl flex flex-col items-center">
+            <div className="bg-slate-800 border border-slate-600 rounded-xl p-4 max-w-4xl w-full shadow-2xl flex flex-col items-center">
                 <div className="w-full flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
                     <h3 className="text-white font-bold">Trend Graph (TIME & FUEL)</h3>
                     <button onClick={onClose} className="text-slate-400 hover:text-white font-bold text-xl leading-none">&times;</button>
                 </div>
                 
-                <div className="w-full bg-slate-900 rounded-lg p-4 min-h-[300px] flex items-end justify-between relative border border-slate-700 overflow-x-auto hide-scrollbar">
+                <div className="w-full bg-slate-900 rounded-lg p-4 min-h-[300px] flex items-center justify-center relative border border-slate-700 overflow-x-auto hide-scrollbar">
                     {validPoints.length === 0 ? (
-                        <div className="w-full text-center text-slate-500 py-10">Data not available</div>
+                        <div className="text-slate-500 py-10">Data not available</div>
                     ) : (
-                        validPoints.map((pt, i) => {
-                            const maxTimeDiff = Math.max(...validPoints.map(p => Math.abs(parseInt(p.timeDiffStr)||0)), 10);
-                            const tVal = parseInt(pt.timeDiffStr) || 0;
-                            const tHeight = Math.abs(tVal) / maxTimeDiff * 50; 
+                        <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="w-full h-auto min-w-[600px] select-none">
+                            {/* Center Zero Line */}
+                            <line x1={paddingX} y1={height/2} x2={width - paddingX} y2={height/2} stroke="#475569" strokeWidth="2" strokeDasharray="5,5" />
                             
-                            const maxFuelDiff = Math.max(...validPoints.map(p => Math.abs(p.fuelDiff||0)), 5);
-                            const fVal = pt.fuelDiff || 0;
-                            const fHeight = Math.abs(fVal) / maxFuelDiff * 50;
+                            {/* Time Polyline (Blue/Cyan) */}
+                            {validPoints.length > 1 && <polyline fill="none" stroke="#38bdf8" strokeWidth="3" points={pointsT} />}
+                            
+                            {/* Fuel Polyline (Green/Emerald) */}
+                            {validPoints.length > 1 && <polyline fill="none" stroke="#34d399" strokeWidth="3" points={pointsF} />}
 
-                            return (
-                                <div key={i} className="flex flex-col items-center w-12 shrink-0 group relative cursor-pointer mx-1">
-                                    <div className="absolute -top-10 opacity-0 group-hover:opacity-100 bg-slate-700 text-xs px-2 py-1 rounded whitespace-nowrap text-white z-10 transition-opacity">
-                                        {pt.wp}<br/>T: {tVal > 0 ? '+'+tVal : tVal} / F: {fVal > 0 ? '+'+fVal.toFixed(1) : fVal.toFixed(1)}
-                                    </div>
-                                    <div className="h-[120px] w-full flex flex-col justify-end items-center border-b border-slate-600 relative">
-                                        <div className={`w-3 rounded-t-sm absolute bottom-0 mb-[60px] ${tVal >= 0 ? 'bg-red-400/80' : 'bg-green-400/80'}`} style={{ height: `${tHeight}px`, transform: tVal >= 0 ? 'translateY(-100%)' : '' }}></div>
-                                        <div className="absolute bottom-0 mb-[60px] w-full border-t border-dashed border-slate-500"></div>
-                                        <div className={`w-3 rounded-b-sm absolute bottom-0 mb-[60px] ${tVal < 0 ? 'bg-green-400/80' : 'bg-red-400/80'}`} style={{ height: `${tVal < 0 ? tHeight : 0}px` }}></div>
-                                    </div>
-                                    <div className="h-[120px] w-full flex flex-col justify-end items-center mt-2 relative">
-                                        <div className={`w-3 rounded-t-sm absolute bottom-0 mb-[60px] ${fVal >= 0 ? 'bg-green-400/80' : 'bg-red-400/80'}`} style={{ height: `${fHeight}px`, transform: fVal >= 0 ? 'translateY(-100%)' : '' }}></div>
-                                        <div className="absolute bottom-0 mb-[60px] w-full border-t border-dashed border-slate-500"></div>
-                                        <div className={`w-3 rounded-b-sm absolute bottom-0 mb-[60px] ${fVal < 0 ? 'bg-red-400/80' : 'bg-green-400/80'}`} style={{ height: `${fVal < 0 ? fHeight : 0}px` }}></div>
-                                    </div>
-                                    <span className="text-[9px] text-slate-400 mt-2 truncate w-full text-center">{pt.wp}</span>
-                                </div>
-                            );
-                        })
+                            {/* Data Points & Labels */}
+                            {validPoints.map((pt, i) => {
+                                const cx = getX(i);
+                                const tVal = parseInt(pt.timeDiffStr)||0;
+                                const fVal = pt.fuelDiff||0;
+                                const cyT = getY_T(tVal);
+                                const cyF = getY_F(fVal);
+                                return (
+                                    <g key={i}>
+                                        <line x1={cx} y1={paddingY} x2={cx} y2={height - paddingY} stroke="#334155" strokeWidth="1" strokeDasharray="3,3" />
+                                        
+                                        <circle cx={cx} cy={cyT} r="5" fill="#38bdf8" />
+                                        <text x={cx} y={cyT - 10} fill="#38bdf8" fontSize="12" textAnchor="middle" fontWeight="bold">{tVal > 0 ? '+'+tVal : tVal}</text>
+
+                                        <circle cx={cx} cy={cyF} r="5" fill="#34d399" />
+                                        <text x={cx} y={cyF + 20} fill="#34d399" fontSize="12" textAnchor="middle" fontWeight="bold">{fVal > 0 ? '+'+fVal.toFixed(1) : fVal.toFixed(1)}</text>
+                                        
+                                        <text x={cx} y={height - 10} fill="#94a3b8" fontSize="11" textAnchor="middle" transform={`rotate(-30 ${cx},${height - 10})`} fontWeight="bold">{pt.wp}</text>
+                                    </g>
+                                );
+                            })}
+                        </svg>
                     )}
                 </div>
                 
-                <div className="w-full flex justify-between mt-4 text-xs text-slate-400 px-4">
-                    <div className="flex gap-4">
-                        <span className="flex items-center gap-1"><div className="w-3 h-3 bg-red-400 rounded-sm"></div> Late / Burn More</span>
-                        <span className="flex items-center gap-1"><div className="w-3 h-3 bg-green-400 rounded-sm"></div> Early / Burn Less</span>
+                <div className="w-full flex justify-center mt-4 text-sm text-slate-400 px-4">
+                    <div className="flex gap-6 font-bold">
+                        <span className="flex items-center gap-2"><div className="w-4 h-1 bg-sky-400 rounded-full"></div> Time Diff (Mins)</span>
+                        <span className="flex items-center gap-2"><div className="w-4 h-1 bg-emerald-400 rounded-full"></div> Fuel Diff (kLbs)</span>
                     </div>
                 </div>
             </div>
@@ -320,7 +340,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
         if(navlogData.pDate) setParsedDate(navlogData.pDate);
         hasAutoScrolled.current = false;
         
-        // メモを保持する
+        // メモ情報（memo）を絶対に消去せず既存のキーを完全保護して結合
         setActuals(prev => {
             const preserved = { ...prev };
             return preserved;
@@ -414,9 +434,9 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
       let timeDiffStr = "";
       if (wpActual.ato && takeoffMinutes !== null) {
         const atoMins = timeToMinutes(wpActual.ato);
-        const originalEtoMins = takeoffMinutes + wpPlan.ctme;
+        const originalEtoMins = takeoffMinutes + wpPlan.ctme; // 離陸時刻 + CTME
         if (atoMins !== null) {
-          let diff = atoMins - originalEtoMins;
+          let diff = atoMins - originalEtoMins; // ATO - (離陸時刻 + CTME)
           if (diff < -720) diff += 1440; if (diff > 720) diff -= 1440;
           timeDiffStr = formatTimeDiff(diff);
         }
@@ -477,7 +497,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#05070a] text-[#cbd5e1] font-sans overflow-hidden rounded-xl border border-slate-700/50 relative">
+    <div className="flex flex-col h-full w-full bg-[#05070a] text-[#cbd5e1] font-sans overflow-hidden rounded-xl border border-slate-700/50 relative">
       
       <MemoModal 
         isOpen={memoModal.isOpen} 
@@ -501,8 +521,8 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
         showMessage={(msg) => window.dispatchEvent(new CustomEvent('show-toast', { detail: msg }))}
       />
 
-      {/* スッキリ固定されたヘッダー（他タブのデザインと完全同期） */}
-      <header className="bg-gradient-to-r from-slate-900 via-[#131c2f] to-slate-900 border-b border-slate-700/80 px-2 sm:px-3 py-1.5 shrink-0 shadow-lg z-20">
+      {/* 完全固定ヘッダー (絶対にスクロールしない領域) */}
+      <header className="shrink-0 bg-gradient-to-r from-slate-900 via-[#131c2f] to-slate-900 border-b border-slate-700/80 px-2 sm:px-3 py-1.5 shadow-lg z-20">
         <div className="max-w-[1400px] mx-auto flex flex-wrap justify-between items-center gap-2">
           
           <div className="flex items-center gap-2">
@@ -593,25 +613,27 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
         </div>
       </header>
 
-      {/* スクロールエリア（iPad縦置き対応：幅の最適化と横スクロールの連動） */}
-      <div className="flex-1 overflow-y-auto p-1 sm:p-2 w-full relative custom-scrollbar">
-        <div className="max-w-[1400px] mx-auto bg-slate-900/60 rounded-lg shadow-xl border border-slate-700/80 mb-16 overflow-x-auto hide-scrollbar">
+      {/* スクロール領域 (flex-1 min-h-0 で親要素の高さ制限を受け、テーブル行のみ縦スクロール) */}
+      <div className="flex-1 w-full overflow-auto custom-scrollbar p-1 sm:p-2 bg-[#05070a]">
+        <div className="max-w-[1400px] min-w-[700px] mx-auto rounded-lg border border-slate-700/80 bg-slate-900/60 pb-16 shadow-xl relative">
           
-          {/* テーブル見出し（iPad縦置き時でも崩れないコンパクト列幅設定） */}
-          <div className="grid grid-cols-[85px_65px_1fr_50px_65px_1fr_1.8fr_85px_35px] bg-[#0f172a] p-1.5 font-black text-slate-400 text-[10px] sm:text-[11px] border-b border-slate-700 sticky top-0 z-10 shadow-md text-center items-end min-w-[700px]">
-            <div className="text-left pl-1">WAYPOINT</div>
-            <div className="text-slate-500">CTME<br/><span className="text-[8px]">RTME</span></div>
-            <div className="text-blue-300">ETO (Rev)<br/>ATO</div>
-            <div>TIME<br/>DIFF</div>
-            <div className="text-slate-500">PLN FOB</div>
-            <div className="text-green-300">RMG FUEL<br/><span className="text-[8px]">DIFF</span></div>
-            <div>ACT (ALT / TMP / WIND)</div>
-            <div className="text-purple-300">MAX ALT<br/><span className="text-[8px] text-slate-500">WT</span></div>
-            <div>MEMO</div>
+          {/* ★ スクロール時に最上部に固定されるテーブルの列名（sticky top-0） ★ */}
+          <div className="sticky top-0 z-30 bg-[#0f172a] border-b border-slate-700 shadow-md rounded-t-lg">
+            <div className="grid grid-cols-[85px_65px_1fr_50px_65px_1fr_1.8fr_85px_35px] p-1.5 font-black text-slate-400 text-[10px] sm:text-[11px] text-center items-end">
+              <div className="text-left pl-1">WAYPOINT</div>
+              <div className="text-slate-500">CTME<br/><span className="text-[8px]">RTME</span></div>
+              <div className="text-blue-300">ETO (Rev)<br/>ATO</div>
+              <div>TIME<br/>DIFF</div>
+              <div className="text-slate-500">PLN FOB</div>
+              <div className="text-green-300">RMG FUEL<br/><span className="text-[8px]">DIFF</span></div>
+              <div>ACT (ALT / TMP / WIND)</div>
+              <div className="text-purple-300">MAX ALT<br/><span className="text-[8px] text-slate-500">WT</span></div>
+              <div>MEMO</div>
+            </div>
           </div>
           
-          {/* ログ一覧データ行 */}
-          <div className="divide-y divide-slate-800/80 min-w-[700px]">
+          {/* スクロールするデータ行 */}
+          <div className="divide-y divide-slate-800/80">
             {calculatedData.flightData.map((row, idx) => (
               <div key={idx} ref={el => rowRefs.current[idx] = el} className="grid grid-cols-[85px_65px_1fr_50px_65px_1fr_1.8fr_85px_35px] py-1 px-1.5 items-center hover:bg-slate-800/60 transition-colors group text-center gap-x-1">
                 <div className="font-mono text-sm sm:text-base font-black text-left pl-1 text-slate-200 truncate">{row.wp}</div>
