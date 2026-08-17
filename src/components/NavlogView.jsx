@@ -75,7 +75,6 @@ const interpolateAlt = (weight, tableData, is15g, isaDev) => {
   return `FL${Math.round(maxAlt / 100)}`;
 };
 
-// --- SYNC DATA HELPERS ---
 const SYNC_HEADER = "7PT|";
 const packData = (data) => {
     const parts = [];
@@ -105,7 +104,6 @@ const unpackData = (str) => {
     return res;
 };
 
-// --- MODALS ---
 const SyncModal = ({ isOpen, onClose, actuals, onSync, showMessage }) => {
     const [activeTab, setActiveTab] = useState('export');
     const [isScanning, setIsScanning] = useState(false);
@@ -322,7 +320,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
         if(navlogData.pDate) setParsedDate(navlogData.pDate);
         hasAutoScrolled.current = false;
         
-        // 既存のメモを維持しつつ、新しいプランへマージ
+        // メモを保持する
         setActuals(prev => {
             const preserved = { ...prev };
             return preserved;
@@ -479,7 +477,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#05070a] text-slate-200 overflow-hidden rounded-xl border border-slate-700/50 relative">
+    <div className="flex flex-col h-full bg-[#05070a] text-[#cbd5e1] font-sans overflow-hidden rounded-xl border border-slate-700/50 relative">
       
       <MemoModal 
         isOpen={memoModal.isOpen} 
@@ -503,87 +501,90 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
         showMessage={(msg) => window.dispatchEvent(new CustomEvent('show-toast', { detail: msg }))}
       />
 
-      {/* スッキリさせた固定ヘッダー部分 */}
-      <header className="bg-[#131c2f] border-b border-slate-700/80 px-2 sm:px-4 py-2 shrink-0 shadow-lg z-20">
-        <div className="max-w-[1400px] mx-auto flex flex-col lg:flex-row justify-between items-start lg:items-center gap-2">
+      {/* スッキリ固定されたヘッダー（他タブのデザインと完全同期） */}
+      <header className="bg-gradient-to-r from-slate-900 via-[#131c2f] to-slate-900 border-b border-slate-700/80 px-2 sm:px-3 py-1.5 shrink-0 shadow-lg z-20">
+        <div className="max-w-[1400px] mx-auto flex flex-wrap justify-between items-center gap-2">
           
-          <div className="flex items-center gap-3">
-            <h1 className="text-lg sm:text-xl font-black text-blue-400 uppercase tracking-widest flex items-center gap-1.5">
-              <SafeIcon name="Map" className="w-4 h-4"/>{flightNo}
+          <div className="flex items-center gap-2">
+            <div className="bg-blue-500/20 p-1 rounded border border-blue-500/30 shadow-inner">
+              <SafeIcon name="Map" className="w-3.5 h-3.5 text-blue-400"/>
+            </div>
+            <h1 className="text-sm sm:text-base font-black text-white uppercase tracking-widest leading-none drop-shadow-sm">
+              {flightNo}
             </h1>
-            <span className="text-xs font-bold text-slate-300 bg-slate-800 px-2 py-0.5 rounded border border-slate-600 shadow-inner">
+            <span className="text-[10px] sm:text-[11px] font-black font-mono text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/30 tracking-wider">
                 {routeInfo}
             </span>
-            <div className="flex gap-1.5 items-center">
-                <span className="text-[10px] font-mono font-bold text-slate-400 border border-slate-600/50 rounded px-1.5 py-0.5">{parsedReg}</span>
-                {parsedDate && <span className="text-[10px] font-mono font-bold text-blue-300 border border-blue-500/30 rounded px-1.5 py-0.5">{parsedDate}</span>}
-                <span className="text-[10px] font-mono font-bold text-slate-400 border border-slate-600/50 rounded px-1.5 py-0.5">ZFW: {parsedPzfw}</span>
-                <span className="text-[10px] font-mono font-bold text-slate-400 border border-slate-600/50 rounded px-1.5 py-0.5">TAXI: {parsedTaxi}M</span>
+            <div className="flex gap-1 items-center font-mono">
+                <span className="text-[9px] font-bold text-slate-300 bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5">{parsedReg}</span>
+                {parsedDate && <span className="text-[9px] font-bold text-blue-300 bg-blue-900/40 border border-blue-500/40 rounded px-1.5 py-0.5">{parsedDate}</span>}
+                <span className="text-[9px] font-bold text-slate-300 bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5">ZFW:{parsedPzfw}</span>
+                <span className="text-[9px] font-bold text-slate-300 bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5">TAXI:{parsedTaxi}M</span>
             </div>
           </div>
           
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
             
-            <div className="flex items-center gap-3 bg-slate-900/60 px-3 py-1 rounded-lg border border-slate-700 shadow-inner">
+            <div className="flex items-center gap-2 bg-[#0f172a] px-2 py-1 rounded-lg border border-slate-700 shadow-inner">
                 <div className="flex flex-col items-center">
-                    <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-1">EST LND</span>
-                    <span className="text-sm font-mono font-black text-white leading-none">{calculatedData.estLandingTimeStr || "----"}</span>
+                    <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-0.5">EST LND</span>
+                    <span className="text-xs font-mono font-extrabold text-white leading-none">{calculatedData.estLandingTimeStr || "----"}</span>
                 </div>
-                <div className="w-px h-6 bg-slate-700"></div>
+                <div className="w-px h-5 bg-slate-700"></div>
                 <div className="flex flex-col items-center">
-                    <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-1">BLOCK IN</span>
-                    <span className="text-sm font-mono font-black text-yellow-400 leading-none">{calculatedData.estBlockInStr || "----"}</span>
+                    <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-0.5">BLOCK IN</span>
+                    <span className="text-xs font-mono font-extrabold text-amber-400 leading-none">{calculatedData.estBlockInStr || "----"}</span>
                 </div>
             </div>
 
-            <div className="flex items-center gap-2">
-                <button onClick={scrollToCurrentFix} className="bg-indigo-600 hover:bg-indigo-500 border border-indigo-400 text-white px-3 py-1.5 rounded text-[10px] font-black tracking-widest shadow-sm transition-colors flex items-center gap-1">
+            <div className="flex items-center gap-1">
+                <button onClick={scrollToCurrentFix} className="bg-slate-700 hover:bg-indigo-600 border border-indigo-500/50 text-indigo-300 hover:text-white px-2 py-1 rounded text-[9px] font-black tracking-wider shadow-sm transition-colors flex items-center gap-0.5">
                     <SafeIcon name="MapPin" className="w-3 h-3" /> NOW
                 </button>
-                <button onClick={() => setIsSyncModalOpen(true)} className="bg-emerald-600 hover:bg-emerald-500 border border-emerald-400 text-white px-3 py-1.5 rounded text-[10px] font-black tracking-widest shadow-sm transition-colors flex items-center gap-1">
+                <button onClick={() => setIsSyncModalOpen(true)} className="bg-slate-700 hover:bg-emerald-600 border border-emerald-500/50 text-emerald-300 hover:text-white px-2 py-1 rounded text-[9px] font-black tracking-wider shadow-sm transition-colors flex items-center gap-0.5">
                     <SafeIcon name="RefreshCw" className="w-3 h-3" /> SYNC
                 </button>
             </div>
 
-            <div className="flex gap-3 items-center bg-slate-900/60 px-2 py-1 rounded-lg border border-slate-700 shadow-inner ml-2">
+            <div className="flex gap-2 items-center bg-[#0f172a] px-2 py-0.5 rounded-lg border border-slate-700 shadow-inner">
               <div className="flex flex-col items-center">
-                <label className="text-[9px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-1">Takeoff (Z)</label>
-                <input type="text" placeholder="HHMM" maxLength={4} value={takeoffTime} onChange={(e) => setTakeoffTime(e.target.value.replace(/[^0-9]/g, ''))} className="bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5 text-xs font-mono font-black text-white text-center w-14 focus:outline-none focus:border-blue-500 transition-colors" />
+                <label className="text-[8px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-0.5">Takeoff(Z)</label>
+                <input type="text" placeholder="HHMM" maxLength={4} value={takeoffTime} onChange={(e) => setTakeoffTime(e.target.value.replace(/[^0-9]/g, ''))} className="bg-slate-800 border border-slate-600 rounded px-1 py-0.5 text-xs font-mono font-black text-white text-center w-12 focus:outline-none focus:border-blue-500 transition-colors" />
               </div>
               
-              <div className="w-px h-6 bg-slate-700"></div>
+              <div className="w-px h-5 bg-slate-700"></div>
               
-              <div className="flex flex-col items-center min-w-[50px]">
-                <label className="text-[9px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-1">Time Diff</label>
-                <span className={`text-sm font-mono font-black leading-none ${parseInt(calculatedData.latestAtoTimeDiffStr) > 0 ? 'text-red-400' : parseInt(calculatedData.latestAtoTimeDiffStr) < 0 ? 'text-green-400' : 'text-slate-200'}`}>
+              <div className="flex flex-col items-center min-w-[45px]">
+                <label className="text-[8px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-0.5">Time Diff</label>
+                <span className={`text-xs font-mono font-extrabold leading-none ${parseInt(calculatedData.latestAtoTimeDiffStr) > 0 ? 'text-red-400' : parseInt(calculatedData.latestAtoTimeDiffStr) < 0 ? 'text-green-400' : 'text-slate-200'}`}>
                     {calculatedData.latestAtoTimeDiffStr || "±0"}
                 </span>
               </div>
 
-              <div className="w-px h-6 bg-slate-700"></div>
+              <div className="w-px h-5 bg-slate-700"></div>
 
-              <div className="flex flex-col items-center min-w-[70px]">
-                <label className="text-[9px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-1">Fuel Diff</label>
-                <div className="flex items-center gap-1.5">
+              <div className="flex flex-col items-center min-w-[60px]">
+                <label className="text-[8px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-0.5">Fuel Diff</label>
+                <div className="flex items-center gap-1">
                   {calculatedData.lastValidWpIndex !== -1 ? (
-                    <span className={`text-sm font-mono font-black leading-none ${calculatedData.totalBurnDiff >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    <span className={`text-xs font-mono font-extrabold leading-none ${calculatedData.totalBurnDiff >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                       {calculatedData.totalBurnDiff > 0 ? '+' : ''}{calculatedData.totalBurnDiff.toFixed(1)}
                     </span>
-                  ) : (<span className="text-slate-500 font-mono text-sm font-black leading-none">--.-</span>)}
+                  ) : (<span className="text-slate-500 font-mono text-xs font-bold leading-none">--.-</span>)}
                   
-                  <button onClick={() => setIsGraphOpen(true)} className="bg-slate-700 hover:bg-slate-600 border border-slate-500 rounded px-1 flex items-center justify-center transition-colors" title="Trend Graph">
-                    <span className="text-[12px] leading-none mb-[2px]">📊</span>
+                  <button onClick={() => setIsGraphOpen(true)} className="bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded px-1 py-0.5 flex items-center justify-center transition-colors" title="Trend Graph">
+                    <span className="text-[10px] leading-none">📊</span>
                   </button>
                 </div>
               </div>
 
-              <div className="w-px h-6 bg-slate-700"></div>
+              <div className="w-px h-5 bg-slate-700"></div>
               
               <div className="flex flex-col items-center">
-                 <label className="text-[9px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-1">MAX ALT</label>
-                 <div className="flex items-center bg-slate-800 rounded border border-slate-600 cursor-pointer overflow-hidden shadow-inner" onClick={() => setIs15gLimit(!is15gLimit)}>
-                    <div className={`px-1.5 py-[2px] text-[9px] font-black ${!is15gLimit ? 'bg-blue-600 text-white' : 'text-slate-500'}`}>1.3G</div>
-                    <div className={`px-1.5 py-[2px] text-[9px] font-black ${is15gLimit ? 'bg-red-600 text-white' : 'text-slate-500'}`}>1.5G</div>
+                 <label className="text-[8px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-0.5">MAX ALT</label>
+                 <div className="flex items-center bg-slate-900 rounded border border-slate-700 cursor-pointer overflow-hidden shadow-inner" onClick={() => setIs15gLimit(!is15gLimit)}>
+                    <div className={`px-1 py-[1px] text-[8px] font-black ${!is15gLimit ? 'bg-blue-600 text-white' : 'text-slate-500'}`}>1.3G</div>
+                    <div className={`px-1 py-[1px] text-[8px] font-black ${is15gLimit ? 'bg-red-600 text-white' : 'text-slate-500'}`}>1.5G</div>
                  </div>
               </div>
             </div>
@@ -592,78 +593,78 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
         </div>
       </header>
 
-      {/* スクロールするリスト部分 */}
+      {/* スクロールエリア（iPad縦置き対応：幅の最適化と横スクロールの連動） */}
       <div className="flex-1 overflow-y-auto p-1 sm:p-2 w-full relative custom-scrollbar">
-        <div className="max-w-[1400px] mx-auto bg-slate-800/80 rounded-lg shadow-xl border border-slate-700 mb-20 relative">
+        <div className="max-w-[1400px] mx-auto bg-slate-900/60 rounded-lg shadow-xl border border-slate-700/80 mb-16 overflow-x-auto hide-scrollbar">
           
-          <div className="grid grid-cols-[110px_80px_1fr_60px_80px_1fr_1.9fr_100px_40px] bg-slate-900 p-2 font-bold text-slate-400 text-[11px] sm:text-xs border-b border-slate-700 sticky top-0 z-10 shadow-md text-center items-end min-w-[950px]">
-            <div className="text-left pl-2">WAYPOINT</div>
-            <div className="text-slate-500">CTME<br/><span className="text-[9px]">RTME</span></div>
+          {/* テーブル見出し（iPad縦置き時でも崩れないコンパクト列幅設定） */}
+          <div className="grid grid-cols-[85px_65px_1fr_50px_65px_1fr_1.8fr_85px_35px] bg-[#0f172a] p-1.5 font-black text-slate-400 text-[10px] sm:text-[11px] border-b border-slate-700 sticky top-0 z-10 shadow-md text-center items-end min-w-[700px]">
+            <div className="text-left pl-1">WAYPOINT</div>
+            <div className="text-slate-500">CTME<br/><span className="text-[8px]">RTME</span></div>
             <div className="text-blue-300">ETO (Rev)<br/>ATO</div>
             <div>TIME<br/>DIFF</div>
             <div className="text-slate-500">PLN FOB</div>
-            <div className="text-green-300">RMG FUEL<br/><span className="text-[9px]">DIFF</span></div>
+            <div className="text-green-300">RMG FUEL<br/><span className="text-[8px]">DIFF</span></div>
             <div>ACT (ALT / TMP / WIND)</div>
-            <div className="text-purple-300">MAX ALT<br/><span className="text-[9px] text-slate-500">WT</span></div>
+            <div className="text-purple-300">MAX ALT<br/><span className="text-[8px] text-slate-500">WT</span></div>
             <div>MEMO</div>
           </div>
           
-          <div className="divide-y divide-slate-700/50 pb-4 min-w-[950px]">
+          {/* ログ一覧データ行 */}
+          <div className="divide-y divide-slate-800/80 min-w-[700px]">
             {calculatedData.flightData.map((row, idx) => (
-              <div key={idx} ref={el => rowRefs.current[idx] = el} className="grid grid-cols-[110px_80px_1fr_60px_80px_1fr_1.9fr_100px_40px] py-1.5 px-2 items-center hover:bg-slate-700/40 transition-colors group text-center gap-x-1">
-                <div className="font-mono text-lg sm:text-xl font-bold text-left pl-1 text-slate-200 truncate">{row.wp}</div>
+              <div key={idx} ref={el => rowRefs.current[idx] = el} className="grid grid-cols-[85px_65px_1fr_50px_65px_1fr_1.8fr_85px_35px] py-1 px-1.5 items-center hover:bg-slate-800/60 transition-colors group text-center gap-x-1">
+                <div className="font-mono text-sm sm:text-base font-black text-left pl-1 text-slate-200 truncate">{row.wp}</div>
                 
-                <div className="flex flex-col items-center">
-                    <span className="font-mono text-sm text-slate-400">{formatTimePlus(row.ctme)}</span>
-                    <span className="font-mono text-[10px] text-slate-500">{formatTimePlus(row.rtme)}</span>
+                <div className="flex flex-col items-center leading-tight">
+                    <span className="font-mono text-xs text-slate-400 font-bold">{formatTimePlus(row.ctme)}</span>
+                    <span className="font-mono text-[9px] text-slate-500">{formatTimePlus(row.rtme)}</span>
                 </div>
                 
-                <div className="flex flex-col px-1 gap-1 items-center">
-                  <span className="text-blue-400 font-mono text-sm font-bold h-4 sm:h-5">{row.revisedEtoStr || "----"}</span>
-                  <input type="text" placeholder="ATO" maxLength={4} value={row.ato} onChange={(e) => handleUpdateActual(row.wp, 'ato', e.target.value.replace(/[^0-9]/g, ''))} className={`w-full bg-slate-900 border rounded py-1.5 sm:py-2 text-center font-mono text-lg sm:text-xl focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors ${row.ato ? 'border-blue-500/50 text-white' : 'border-slate-600 text-slate-400'}`} />
+                <div className="flex flex-col px-0.5 gap-0.5 items-center">
+                  <span className="text-blue-400 font-mono text-xs font-extrabold h-3.5 sm:h-4">{row.revisedEtoStr || "----"}</span>
+                  <input type="text" placeholder="ATO" maxLength={4} value={row.ato} onChange={(e) => handleUpdateActual(row.wp, 'ato', e.target.value.replace(/[^0-9]/g, ''))} className={`w-full bg-[#05070a] border rounded py-1 text-center font-mono text-sm sm:text-base font-bold focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors ${row.ato ? 'border-blue-500/50 text-white' : 'border-slate-700 text-slate-400'}`} />
                 </div>
                 
-                <div className={`font-mono text-sm font-bold ${parseInt(row.timeDiffStr) > 0 ? 'text-red-400' : parseInt(row.timeDiffStr) < 0 ? 'text-green-400' : 'text-slate-400'}`}>{row.timeDiffStr}</div>
+                <div className={`font-mono text-xs font-bold ${parseInt(row.timeDiffStr) > 0 ? 'text-red-400' : parseInt(row.timeDiffStr) < 0 ? 'text-green-400' : 'text-slate-400'}`}>{row.timeDiffStr}</div>
 
-                <div className="font-mono text-sm text-slate-500">{row.fob ? row.fob.toFixed(1) : ''}</div>
+                <div className="font-mono text-xs text-slate-400 font-bold">{row.fob ? row.fob.toFixed(1) : ''}</div>
 
-                <div className="flex flex-col px-1 gap-1 items-center">
-                  <span className={`font-mono text-[10px] h-3 sm:h-4 ${row.fuelDiff > 0 ? 'text-green-400' : row.fuelDiff < 0 ? 'text-red-400' : ''}`}>
+                <div className="flex flex-col px-0.5 gap-0.5 items-center">
+                  <span className={`font-mono text-[9px] h-3 ${row.fuelDiff > 0 ? 'text-green-400 font-bold' : row.fuelDiff < 0 ? 'text-red-400 font-bold' : ''}`}>
                       {row.fuelDiff !== null ? (`${row.fuelDiff > 0 ? '+' : ''}${row.fuelDiff.toFixed(1)}`) : ''}
                   </span>
-                  <input type="text" placeholder="RMG" value={row.afob} onChange={(e) => handleUpdateActual(row.wp, 'afob', e.target.value.replace(/[^0-9.]/g, ''))} className={`w-full bg-slate-900 border rounded py-1.5 sm:py-2 text-center font-mono text-lg sm:text-xl focus:outline-none focus:ring-1 focus:ring-green-500 transition-colors ${row.afob ? 'border-green-500/50 text-white' : 'border-slate-600 text-slate-400'}`} />
+                  <input type="text" placeholder="RMG" value={row.afob} onChange={(e) => handleUpdateActual(row.wp, 'afob', e.target.value.replace(/[^0-9.]/g, ''))} className={`w-full bg-[#05070a] border rounded py-1 text-center font-mono text-sm sm:text-base font-bold focus:outline-none focus:ring-1 focus:ring-green-500 transition-colors ${row.afob ? 'border-green-500/50 text-white' : 'border-slate-700 text-slate-400'}`} />
                 </div>
 
-                <div className="grid grid-cols-3 gap-1 sm:gap-2 px-1">
+                <div className="grid grid-cols-3 gap-0.5 px-0.5">
                     <div className="flex flex-col items-center justify-center">
-                        <span className="text-[10px] text-slate-500 font-mono mb-0.5 h-3"></span>
-                        <input type="text" placeholder="ACT" value={row.actAlt} onChange={(e) => handleUpdateActual(row.wp, 'actAlt', e.target.value.toUpperCase())} className="w-full bg-slate-900 border border-slate-600 rounded text-center text-base font-mono py-2 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none placeholder-slate-500 transition-colors shadow-inner" />
-                        <span className="text-[10px] text-slate-500 font-mono mt-0.5 h-3">{row.plnAlt || "-"}</span>
+                        <input type="text" placeholder="ACT" value={row.actAlt} onChange={(e) => handleUpdateActual(row.wp, 'actAlt', e.target.value.toUpperCase())} className="w-full bg-[#05070a] border border-slate-700 rounded text-center text-xs font-mono font-bold py-1 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-inner" />
+                        <span className="text-[8px] text-slate-500 font-mono mt-0.5 h-2.5">{row.plnAlt || "-"}</span>
                     </div>
                     <div className="flex flex-col items-center justify-center">
-                        <span className="text-[10px] text-purple-400 font-mono mb-0.5 h-3 font-bold">{row.isaDev ? `ISA${row.isaDev > 0 ? '+' : ''}${row.isaDev}` : ""}</span>
-                        <input type="text" placeholder="ACT" value={row.actTmp} onChange={(e) => handleUpdateActual(row.wp, 'actTmp', e.target.value)} className="w-full bg-slate-900 border border-slate-600 rounded text-center text-base font-mono py-2 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none placeholder-slate-500 transition-colors shadow-inner" />
-                        <span className="text-[10px] text-slate-500 font-mono mt-0.5 h-3">{row.plnTmp || "-"}</span>
+                        <input type="text" placeholder="ACT" value={row.actTmp} onChange={(e) => handleUpdateActual(row.wp, 'actTmp', e.target.value)} className="w-full bg-[#05070a] border border-slate-700 rounded text-center text-xs font-mono font-bold py-1 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-inner" />
+                        <span className="text-[8px] text-purple-400 font-mono font-bold mt-0.5 h-2.5">{row.isaDev ? `I${row.isaDev > 0 ? '+' : ''}${row.isaDev}` : "-"}</span>
                     </div>
                     <div className="flex flex-col items-center justify-center">
-                        <span className="text-[10px] text-slate-500 font-mono mb-0.5 h-3"></span>
-                        <input type="text" placeholder="ACT" value={row.actWind} onChange={(e) => handleUpdateActual(row.wp, 'actWind', e.target.value)} className="w-full bg-slate-900 border border-slate-600 rounded text-center text-base font-mono py-2 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none placeholder-slate-500 transition-colors shadow-inner" />
-                        <span className="text-[10px] text-slate-500 font-mono mt-0.5 h-3">{row.plnWind || "-"}</span>
+                        <input type="text" placeholder="ACT" value={row.actWind} onChange={(e) => handleUpdateActual(row.wp, 'actWind', e.target.value)} className="w-full bg-[#05070a] border border-slate-700 rounded text-center text-xs font-mono font-bold py-1 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-inner" />
+                        <span className="text-[8px] text-slate-500 font-mono mt-0.5 h-2.5">{row.plnWind || "-"}</span>
                     </div>
                 </div>
 
-                <div className="flex flex-col items-center justify-center pt-2">
-                    <span className="font-mono text-xl sm:text-2xl font-bold text-purple-400">{row.maxAlt}</span>
-                    <span className="text-[9px] text-slate-500 font-mono mt-1">W: {row.currentWeight}</span>
+                <div className="flex flex-col items-center justify-center pt-0.5 leading-none">
+                    <span className="font-mono text-base sm:text-lg font-black text-purple-400">{row.maxAlt}</span>
+                    <span className="text-[8px] text-slate-500 font-mono mt-0.5">W:{row.currentWeight}</span>
                 </div>
 
+                {/* MEMO ボタン */}
                 <div className="flex justify-center items-center">
                     <button 
                         onClick={() => setMemoModal({ isOpen: true, wp: row.wp, text: row.memo })}
-                        className={`p-1.5 rounded-lg transition-colors border shadow-sm flex items-center justify-center ${row.memo ? 'bg-amber-600 border-amber-500 text-white' : 'bg-slate-700 border-slate-600 text-slate-400 hover:text-white hover:bg-slate-600'}`}
+                        className={`p-1 rounded transition-colors border shadow-sm flex items-center justify-center ${row.memo ? 'bg-amber-600 border-amber-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white hover:bg-slate-700'}`}
                         title={row.memo ? "Edit Memo" : "Add Memo"}
                     >
-                        <span className="text-[14px] leading-none mt-0.5">📝</span>
+                        <span className="text-[11px] leading-none">📝</span>
                     </button>
                 </div>
 

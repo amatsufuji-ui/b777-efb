@@ -35,6 +35,7 @@ export default function App() {
   const [isParsingPdf, setIsParsingPdf] = useState(false);
   const [navlogData, setNavlogData] = useState(null);
 
+  // REST CALC用ステート群
   const [restFlightHours3, setRestFlightHours3] = useState(8); 
   const [restFlightMins3, setRestFlightMins3] = useState(0); 
   const [restFlightHours4, setRestFlightHours4] = useState(12); 
@@ -156,17 +157,10 @@ export default function App() {
       }
       return next;
     });
-    
     if (data.flightId) { setFlightId(data.flightId); setSelectedFlightId(data.flightId); setSelectedAirlineCode("NH"); setSelectedAirline("ANA"); setSelectedCallsign("ALL NIPPON"); }
     
-    if (data.fltTimeH !== undefined && data.fltTimeH !== null && !isNaN(data.fltTimeH)) { 
-        setRestFlightHours3(data.fltTimeH); 
-        setRestFlightHours4(data.fltTimeH); 
-    }
-    if (data.fltTimeM !== undefined && data.fltTimeM !== null && !isNaN(data.fltTimeM)) { 
-        setRestFlightMins3(data.fltTimeM); 
-        setRestFlightMins4(data.fltTimeM); 
-    }
+    if (data.fltTimeH !== undefined) { setRestFlightHours3(data.fltTimeH); setRestFlightHours4(data.fltTimeH); }
+    if (data.fltTimeM !== undefined) { setRestFlightMins3(data.fltTimeM); setRestFlightMins4(data.fltTimeM); }
     
     if (data.stdH !== undefined) { setStdHours(data.stdH); setStdMins(data.stdM); setIsTakeoffAuto(true); }
     if (data.avgTaxi !== undefined) setTaxiOutMins(data.avgTaxi); else setTaxiOutMins(20);
@@ -309,10 +303,6 @@ export default function App() {
             if (newPlan.length > 0 && newPlan[newPlan.length - 1].wp === cleanToken) {
                 continue;
             }
-            
-            if (/^NH\d+[A-Z]?$/.test(cleanToken)) {
-                continue;
-            }
 
             newPlan.push({ wp: cleanToken, ctme: ctme, rtme: rtme, fob: pendingFob !== null ? pendingFob : 0, plnAlt: pendingAlt, plnTmp: "", plnWind: "", isaDev: isa || 0 });
             
@@ -339,15 +329,6 @@ export default function App() {
         const prev = newPlan[newPlan.length - 2];
         if (last.wp === prev.wp) {
             newPlan.pop();
-        }
-    }
-
-    // 抽出できなかった場合は最後のWayPointのCTMEを飛行時間として代用する
-    if ((fltTimeH === undefined || isNaN(fltTimeH)) && newPlan.length > 0) {
-        const destWp = newPlan[newPlan.length - 1];
-        if (destWp.ctme > 0) {
-            fltTimeH = Math.floor(destWp.ctme / 60);
-            fltTimeM = destWp.ctme % 60;
         }
     }
 
@@ -747,7 +728,7 @@ export default function App() {
                 <SafeIcon name="FileText" className="w-3 h-3 pointer-events-none" />
                 <span className="text-[9px] sm:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">{isParsingPdf ? 'READING' : 'LOAD PDF'}</span>
               </button>
-              
+
               <button onClick={() => { if (!state.selectedReg || state.selectedReg === "N/A" || state.selectedReg === "") { window.dispatchEvent(new CustomEvent('show-toast', { detail: '機番を選択してください' })); return; } const buddycomUrl = typeof BUDDYCOM_LINKS !== 'undefined' ? BUDDYCOM_LINKS[state.selectedReg] : null; if (buddycomUrl) { const pastedFlightName = flightId ? `ANA${flightId}` : ""; if (pastedFlightName) { copyToClipboard(pastedFlightName); window.dispatchEvent(new CustomEvent('show-toast', { detail: `便名(${pastedFlightName})をコピーして起動しました` })); } else { window.dispatchEvent(new CustomEvent('show-toast', { detail: 'Buddycomを起動しました' })); } setTimeout(() => { window.open(buddycomUrl, '_blank'); }, 1000); } else { window.dispatchEvent(new CustomEvent('show-toast', { detail: 'この機番のBuddycomリンクは未登録です' })); } }} className={`px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border shadow-sm shrink-0 ${state.selectedReg && state.selectedReg !== "N/A" && state.selectedReg !== "" ? 'bg-slate-700 hover:bg-orange-600 text-orange-400 hover:text-white border-slate-500 hover:border-orange-400' : 'bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed'}`} title="Buddycomを開く"><SafeIcon name="Radio" className="w-3 h-3 pointer-events-none" /><span className="text-[9px] sm:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">BDYC</span></button>
               
               <button onClick={() => { let flightQuery = ""; if (flightId) { flightQuery = `NH${flightId}`; } else if (selectedFlightId && selectedFlightId !== "N/A" && selectedFlightId !== "") { if (selectedAirlineCode && selectedAirlineCode !== "N/A" && selectedAirlineCode !== "") { flightQuery = `${selectedAirlineCode}${selectedFlightId}`; } else { flightQuery = `NH${selectedFlightId}`; } } if (flightQuery) { copyToClipboard(flightQuery); window.dispatchEvent(new CustomEvent('show-toast', { detail: `便名(${flightQuery})をコピーしました。検索窓にペーストしてください` })); } else { window.dispatchEvent(new CustomEvent('show-toast', { detail: 'FR24アプリを起動します' })); } setTimeout(() => { window.open('https://www.flightradar24.com', '_blank'); }, 1000); }} className="bg-slate-700 hover:bg-yellow-600 text-yellow-400 hover:text-white px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border border-slate-500 hover:border-yellow-400 shadow-sm shrink-0" title="Flight Radar 24を開く"><SafeIcon name="Radar" className="w-3 h-3 pointer-events-none" /><span className="text-[9px] sm:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">FR24</span></button>
