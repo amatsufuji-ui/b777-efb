@@ -159,8 +159,8 @@ export default function App() {
     });
     if (data.flightId) { setFlightId(data.flightId); setSelectedFlightId(data.flightId); setSelectedAirlineCode("NH"); setSelectedAirline("ANA"); setSelectedCallsign("ALL NIPPON"); }
     
-    if (data.fltTimeH !== undefined) { setRestFlightHours3(data.fltTimeH); setRestFlightHours4(data.fltTimeH); }
-    if (data.fltTimeM !== undefined) { setRestFlightMins3(data.fltTimeM); setRestFlightMins4(data.fltTimeM); }
+    if (data.fltTimeH !== undefined && data.fltTimeH !== null && !isNaN(data.fltTimeH)) { setRestFlightHours3(data.fltTimeH); setRestFlightHours4(data.fltTimeH); }
+    if (data.fltTimeM !== undefined && data.fltTimeM !== null && !isNaN(data.fltTimeM)) { setRestFlightMins3(data.fltTimeM); setRestFlightMins4(data.fltTimeM); }
     
     if (data.stdH !== undefined) { setStdHours(data.stdH); setStdMins(data.stdM); setIsTakeoffAuto(true); }
     if (data.avgTaxi !== undefined) setTaxiOutMins(data.avgTaxi); else setTaxiOutMins(20);
@@ -231,10 +231,12 @@ export default function App() {
       ldElev = elevs[0];
     }
     
-    const fltMatch = text.match(/(?:FLT|FLTIME|FLT TIME)\s+(\d{2})\.?(\d{2})/);
-    if (fltMatch) {
-      fltTimeH = parseInt(fltMatch[1], 10);
-      fltTimeM = parseInt(fltMatch[2], 10);
+    const ftMatch = text.match(/F\/T\s*(\d{1,2})\s*HR\s*(\d{1,2})\s*MIN/i) || 
+                    text.match(/(?:FLT|FLTIME|FLT TIME)\s+(\d{2})\.?(\d{2})/i) ||
+                    text.match(/BOF\s+[A-Z]{4}\s+(\d{2})\/(\d{2})/i);
+    if (ftMatch) {
+      fltTimeH = parseInt(ftMatch[1], 10);
+      fltTimeM = parseInt(ftMatch[2], 10);
     }
 
     const stdMatch = text.match(/STD\s+(\d{2})\.?(\d{2})/);
@@ -322,6 +324,14 @@ export default function App() {
     if (!alt) {
         const toc = newPlan.find(wp => wp.plnAlt);
         if (toc && toc.plnAlt) alt = parseInt(toc.plnAlt.replace('FL', ''), 10) * 100;
+    }
+
+    if ((fltTimeH === undefined || isNaN(fltTimeH)) && newPlan.length > 0) {
+        const destWp = newPlan[newPlan.length - 1];
+        if (destWp.ctme > 0) {
+            fltTimeH = Math.floor(destWp.ctme / 60);
+            fltTimeM = destWp.ctme % 60;
+        }
     }
 
     if (newPlan.length >= 2) {
