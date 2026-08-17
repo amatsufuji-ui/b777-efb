@@ -52,26 +52,6 @@ export default function App() {
   const [restLastRestMins, setRestLastRestMins] = useState(60); 
   const [restFirstHalfMins, setRestFirstHalfMins] = useState(0);
 
-  useEffect(() => {
-    const isHidden = localStorage.getItem('hideSetupGuide');
-    if (isHidden !== 'true') {
-      setShowSetupBanner(true);
-    }
-  }, []);
-
-  const handleCloseBanner = () => {
-    localStorage.setItem('hideSetupGuide', 'true');
-    setShowSetupBanner(false);
-  };
-
-  useEffect(() => {
-    if (isTakeoffAuto) { 
-        const totalMins = stdHours * 60 + stdMins + taxiOutMins; 
-        setRestTakeoffHours(Math.floor(totalMins / 60) % 24); 
-        setRestTakeoffMins(totalMins % 60); 
-    }
-  }, [stdHours, stdMins, isTakeoffAuto, taxiOutMins]);
-
   const [selectedDep, setSelectedDep] = useState(""); const [selectedArr, setSelectedArr] = useState(""); const [selectedFlightId, setSelectedFlightId] = useState(""); const [selectedAirlineCode, setSelectedAirlineCode] = useState(""); const [selectedAirline, setSelectedAirline] = useState(""); const [selectedCallsign, setSelectedCallsign] = useState(""); const [trafficTimeRange, setTrafficTimeRange] = useState(30); const [depTrafficMode, setDepTrafficMode] = useState("DEP"); const [arrTrafficMode, setArrTrafficMode] = useState("OFF");
   
   const [state, setState] = useState({ 
@@ -90,6 +70,40 @@ export default function App() {
   const [globalDest, setGlobalDest] = useState("");
   const [globalEtopsAltns, setGlobalEtopsAltns] = useState([]);
   const [globalEtopsTime, setGlobalEtopsTime] = useState("");
+
+  // アプリ再起動時の状態復元（クラッシュ対策）
+  useEffect(() => {
+    const isHidden = localStorage.getItem('hideSetupGuide');
+    if (isHidden !== 'true') setShowSetupBanner(true);
+
+    const savedApp = localStorage.getItem('appStateBackup_v3');
+    if (savedApp) {
+      try {
+        const parsed = JSON.parse(savedApp);
+        if (parsed.state) setState(parsed.state);
+        if (parsed.flightId) {
+          setFlightId(parsed.flightId);
+          setSelectedFlightId(parsed.flightId);
+        }
+        if (parsed.navlogData) {
+          parsed.navlogData.isNew = false; // 再起動時の復元では新規読み込みフラグを折る
+          setNavlogData(parsed.navlogData);
+        }
+      } catch(e) {}
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('appStateBackup_v3', JSON.stringify({ state, flightId, navlogData }));
+  }, [state, flightId, navlogData]);
+
+  useEffect(() => {
+    if (isTakeoffAuto) { 
+        const totalMins = stdHours * 60 + stdMins + taxiOutMins; 
+        setRestTakeoffHours(Math.floor(totalMins / 60) % 24); 
+        setRestTakeoffMins(totalMins % 60); 
+    }
+  }, [stdHours, stdMins, isTakeoffAuto, taxiOutMins]);
 
   useEffect(() => { setCruiseWtInputText(formatWeightDisplay(state.cruiseWeight)); }, [state.cruiseWeight]); 
   useEffect(() => { setLdgWtInputText(formatWeightDisplay(state.landingWeight)); }, [state.landingWeight]);
@@ -214,7 +228,6 @@ export default function App() {
     const crzMatch = text.match(/(?:CRZ|LVL)\s+(?:SYS\s+)?(?:FL)?(\d{3})/);
     if (crzMatch) alt = parseInt(crzMatch[1], 10) * 100;
     
-    // 全体サマリーのISA DEV抽出
     const isaMatch = text.match(/ISA\s*([PM+-])\s*(\d{1,2})/i);
     if (isaMatch) {
       let val = parseInt(isaMatch[2], 10);
@@ -303,14 +316,12 @@ export default function App() {
              continue;
         }
 
-        // 外気温度 (-56, -45, M56, M45)
         if (/^(?:-[0-9]{2}|M[0-9]{2})$/i.test(token)) {
             let cleanTmp = token.replace(/M/i, '-');
             pendingTmp = cleanTmp;
             continue;
         }
 
-        // 風 (280/045, 050/012, 280045)
         if (/^\d{3}\/?\d{2,3}$/.test(token)) {
             let cleanWind = token;
             if (!cleanWind.includes('/')) {
@@ -320,21 +331,20 @@ export default function App() {
             continue;
         }
 
-        // 括弧内のISA DEV直接抽出 (例: (17), ( 17 ), (-05), (M02), (P12))
-        if (/^\(?\s*([PM+-]?\d{1,2})\s*\)?$/.test(token)) {
-            let match = token.match(/([PM+-]?\d{1,2})/i);
-            if (match) {
-              let valStr = match[1].toUpperCase();
-              let num = parseInt(valStr.replace(/[PM+]/g, ''), 10);
-              if (valStr.includes('-') || valStr.includes('M')) num = -num;
-              if (!isNaN(num) && num >= -40 && num <= 40) {
-                pendingIsa = num;
-              }
+        let cleanToken = token.replace(/^-+/, '').replace(/-+$/, '');
+
+        // 括弧内のISA DEV直接抽出
+        let isaBrackMatch = cleanToken.match(/^\(\s*([PM+-]?\d{1,2})\s*\)$/i);
+        if (isaBrackMatch) {
+            let valStr = isaBrackMatch[1].toUpperCase();
+            let num = parseInt(valStr.replace(/[PM+]/g, ''), 10);
+            if (valStr.includes('-') || valStr.includes('M')) num = -num;
+            if (!isNaN(num) && num >= -40 && num <= 40) {
+              pendingIsa = num;
             }
             continue;
         }
 
-        let cleanToken = token.replace(/^-+/, '').replace(/-+$/, '');
         const isCoord = /^[NS]\d{4,5}[EW]\d{4,6}$/.test(cleanToken);
         const isAlphaWp = /^[A-Z][A-Z0-9]{1,5}$/.test(cleanToken) && !ignoreList.has(cleanToken);
         const isArincWp = /^\d{2}[NSWE]\d{2}$/.test(cleanToken);
@@ -355,6 +365,15 @@ export default function App() {
 
             let currentWpIsa = pendingIsa !== null ? pendingIsa : isa;
 
+            if (pendingAlt && pendingTmp && pendingIsa === null) {
+              const flNum = parseInt(pendingAlt.replace('FL', ''), 10);
+              const actualTmp = parseInt(pendingTmp, 10);
+              if (!isNaN(flNum) && !isNaN(actualTmp)) {
+                const stdTmpAtAlt = 15 - (2 * flNum);
+                currentWpIsa = actualTmp - stdTmpAtAlt;
+              }
+            }
+
             newPlan.push({ 
               wp: cleanToken, 
               ctme: ctme, 
@@ -363,7 +382,8 @@ export default function App() {
               plnAlt: pendingAlt, 
               plnTmp: pendingTmp, 
               plnWind: pendingWind, 
-              isaDev: currentWpIsa 
+              isaDev: currentWpIsa,
+              hasExplicitIsa: pendingIsa !== null
             });
             
             if (destIcao && cleanToken === destIcao) {
@@ -384,12 +404,13 @@ export default function App() {
         if (toc && toc.plnAlt) alt = parseInt(toc.plnAlt.replace('FL', ''), 10) * 100;
     }
 
-    // TOC直後の最初の巡航ウェイポイントまたはTOCのISA DEVをDASHBOARD用に採用
+    // TOC以降で最も早く出現した明示的なISA DEVをDASHBOARD用に設定
     const tocIndex = newPlan.findIndex(wp => wp.wp === "TOC");
-    if (tocIndex !== -1 && newPlan[tocIndex + 1] && newPlan[tocIndex + 1].isaDev !== undefined) {
-        isa = newPlan[tocIndex + 1].isaDev;
-    } else if (tocIndex !== -1 && newPlan[tocIndex].isaDev !== undefined) {
-        isa = newPlan[tocIndex].isaDev;
+    if (tocIndex !== -1) {
+        const wpWithIsa = newPlan.find((wp, idx) => idx >= tocIndex && wp.hasExplicitIsa);
+        if (wpWithIsa && wpWithIsa.isaDev !== undefined && !isNaN(wpWithIsa.isaDev)) {
+            isa = wpWithIsa.isaDev;
+        }
     }
 
     if ((fltTimeH === undefined || isNaN(fltTimeH)) && newPlan.length > 0) {
@@ -446,6 +467,7 @@ export default function App() {
         const parsedData = parseNavlogPDFText(fullText);
         
         if (parsedData.newPlan.length > 0) {
+            parsedData.isNew = true; // 新規ロードフラグを付与
             setNavlogData(parsedData); 
             
             handleApplyFlightPlan({ 
@@ -785,7 +807,7 @@ export default function App() {
               <span>7PT B777 PERFORMANCE TOOL</span>
             </div>
             <div className="flex items-center gap-1">
-              <span className="text-amber-400 font-mono text-[9px] border border-amber-500/30 px-1 rounded bg-amber-500/10 tracking-normal font-bold">ver 7.2</span>
+              <span className="text-amber-400 font-mono text-[9px] border border-amber-500/30 px-1 rounded bg-amber-500/10 tracking-normal font-bold">ver 7.3</span>
               {flightId && (<span className="text-slate-300 font-mono text-[9px] border border-slate-600 px-1 rounded bg-slate-800 tracking-normal font-bold">ANA{flightId}</span>)}
             </div>
           </div>
