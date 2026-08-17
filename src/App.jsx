@@ -190,7 +190,7 @@ export default function App() {
     const regMatch = text.match(/(JA\d{3}[A-Z]?)/);
     const pReg = regMatch ? regMatch[1] : "JA796A";
 
-    let ptow, pldw, pPzfw = 400.0, alt, isa, toElev, ldElev, fltTimeH, fltTimeM, stdH, stdM, pTaxi = 20;
+    let ptow, pldw, pPzfw = 400.0, alt, isa, toElev, ldElev, fltTimeH, fltTimeM, stdH, stdM, staH, staM, pTaxi = 20;
 
     const zfwMatch = text.match(/(?:ZFW|PZFW)\s+([0-9,.]+)/);
     if (zfwMatch) {
@@ -245,6 +245,12 @@ export default function App() {
     if (stdMatch) {
       stdH = parseInt(stdMatch[1], 10);
       stdM = parseInt(stdMatch[2], 10);
+    }
+
+    const staMatch = text.match(/STA\s+(\d{2})(\d{2})Z/i) || text.match(/STA\s+(\d{2})\.?(\d{2})/i);
+    if (staMatch) {
+      staH = parseInt(staMatch[1], 10);
+      staM = parseInt(staMatch[2], 10);
     }
 
     const taxiMatch = text.match(/(?:AVG|TAXI|OUT):\s*\d+\/(\d+)MIN/);
@@ -313,13 +319,11 @@ export default function App() {
 
             newPlan.push({ wp: cleanToken, ctme: ctme, rtme: rtme, fob: pendingFob !== null ? pendingFob : 0, plnAlt: pendingAlt, plnTmp: "", plnWind: "", isaDev: isa || 0 });
             
+            // ★目的地に到達したら1ページ目であっても正しく終了する
             if (destIcao && cleanToken === destIcao) {
                 break; 
             }
-            if (rtme === 0 && newPlan.length > 1 && cleanToken !== "TOC") {
-                break; 
-            }
-
+            
             pendingFob = null; 
             pendingAlt = ""; 
             recentTimes = []; 
@@ -351,7 +355,7 @@ export default function App() {
 
     return { 
         newPlan, fNo, flightIdRaw, rInfo, destIcao, pReg, pPzfw, pTaxi, pDate, 
-        ptow, pldw, alt, isa, toElev, ldElev, fltTimeH, fltTimeM, stdH, stdM,
+        ptow, pldw, alt, isa, toElev, ldElev, fltTimeH, fltTimeM, stdH, stdM, staH, staM,
         fullRouteStr, timestamp: Date.now()
     };
   };
@@ -724,7 +728,7 @@ export default function App() {
               <span>7PT B777 PERFORMANCE TOOL</span>
             </div>
             <div className="flex items-center gap-1">
-              <span className="text-amber-400 font-mono text-[9px] border border-amber-500/30 px-1 rounded bg-amber-500/10 tracking-normal font-bold">ver 7.0</span>
+              <span className="text-amber-400 font-mono text-[9px] border border-amber-500/30 px-1 rounded bg-amber-500/10 tracking-normal font-bold">ver 7.1</span>
               {flightId && (<span className="text-slate-300 font-mono text-[9px] border border-slate-600 px-1 rounded bg-slate-800 tracking-normal font-bold">ANA{flightId}</span>)}
             </div>
           </div>
@@ -787,7 +791,7 @@ export default function App() {
       </div>
 
       <div className="flex flex-col w-full flex-1 min-h-0 relative overflow-hidden">
-        {activeTab === 'DASHBOARD' && (<div className="flex flex-col gap-1 w-full h-full"><DashboardView state={state} updateState={updateState} computed={computed} aircraftRegistrationList={aircraftRegistrationList} handleRegChange={handleRegChange} setAircraftType={setAircraftType} cruiseWtInputText={cruiseWtInputText} setCruiseWtInputText={setCruiseWtInputText} ldgWtInputText={ldgWtInputText} setLdgWtInputText={setLdgWtInputText} /></div>)}
+        {activeTab === 'DASHBOARD' && (<div className="flex flex-col gap-1 w-full h-full"><DashboardView state={state} updateState={updateState} computed={computed} aircraftRegistrationList={typeof aircraftRegistrationList !== 'undefined' ? aircraftRegistrationList : []} handleRegChange={handleRegChange} setAircraftType={setAircraftType} cruiseWtInputText={cruiseWtInputText} setCruiseWtInputText={setCruiseWtInputText} ldgWtInputText={ldgWtInputText} setLdgWtInputText={setLdgWtInputText} /></div>)}
         {activeTab === 'TFC INFO' && (<div className="flex flex-col gap-1 w-full h-full"><FltInfoView p={fltInfoProps} /></div>)}
         {activeTab === 'WX/MNM' && (<div className="flex flex-col gap-1 w-full h-full"><WxMnmReference /></div>)}
         {activeTab === 'ETOPS' && (<div className="flex flex-col gap-1 w-full h-full"><EtopsView globalRoute={globalRoute} globalDest={globalDest} globalEtopsAltns={globalEtopsAltns} globalEtopsTime={globalEtopsTime} /></div>)} 

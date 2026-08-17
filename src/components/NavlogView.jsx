@@ -327,6 +327,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
   const [parsedPzfw, setParsedPzfw] = useState(475.6);
   const [parsedTaxi, setParsedTaxi] = useState(13); 
   const [parsedDate, setParsedDate] = useState("16JUL26");
+  const [parsedSta, setParsedSta] = useState("");
   const [is15gLimit, setIs15gLimit] = useState(false);
 
   useEffect(() => {
@@ -338,9 +339,12 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
         setParsedPzfw(navlogData.pPzfw);
         setParsedTaxi(navlogData.pTaxi);
         if(navlogData.pDate) setParsedDate(navlogData.pDate);
+        if(navlogData.staH !== undefined && navlogData.staM !== undefined) {
+            setParsedSta(`${String(navlogData.staH).padStart(2, '0')}${String(navlogData.staM).padStart(2, '0')}`);
+        }
         hasAutoScrolled.current = false;
         
-        // 既存のメモを維持
+        // メモ情報（memo）を絶対に消去せず既存のキーを完全保護して結合
         setActuals(prev => {
             const preserved = { ...prev };
             return preserved;
@@ -363,15 +367,16 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                 if (parsed.parsedPzfw) setParsedPzfw(parsed.parsedPzfw);
                 if (parsed.parsedTaxi) setParsedTaxi(parsed.parsedTaxi);
                 if (parsed.parsedDate) setParsedDate(parsed.parsedDate);
+                if (parsed.parsedSta) setParsedSta(parsed.parsedSta);
             }
         } catch(e) {}
     }
   }, []);
 
   useEffect(() => {
-    const backup = { flightPlan, actuals, flightNo, routeInfo, parsedReg, parsedPzfw, parsedTaxi, parsedDate, takeoffTime };
+    const backup = { flightPlan, actuals, flightNo, routeInfo, parsedReg, parsedPzfw, parsedTaxi, parsedDate, parsedSta, takeoffTime };
     localStorage.setItem('navlogFlightDataBackup', JSON.stringify(backup));
-  }, [flightPlan, actuals, flightNo, routeInfo, parsedReg, parsedPzfw, parsedTaxi, parsedDate, takeoffTime]);
+  }, [flightPlan, actuals, flightNo, routeInfo, parsedReg, parsedPzfw, parsedTaxi, parsedDate, parsedSta, takeoffTime]);
 
   const handleUpdateActual = (wp, field, value) => {
     setActuals(prev => ({ ...prev, [wp]: { ...prev[wp], [field]: value } }));
@@ -434,9 +439,9 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
       let timeDiffStr = "";
       if (wpActual.ato && takeoffMinutes !== null) {
         const atoMins = timeToMinutes(wpActual.ato);
-        const originalEtoMins = takeoffMinutes + wpPlan.ctme; // ★ 離陸時刻 + CTME
+        const originalEtoMins = takeoffMinutes + wpPlan.ctme; 
         if (atoMins !== null) {
-          let diff = atoMins - originalEtoMins; // ★ ATO - (離陸時刻 + CTME)
+          let diff = atoMins - originalEtoMins; 
           if (diff < -720) diff += 1440; if (diff > 720) diff -= 1440;
           timeDiffStr = formatTimeDiff(diff);
         }
@@ -545,28 +550,8 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
           
           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
             
-            <div className="flex items-center gap-2 bg-[#0f172a] px-2 py-1 rounded-lg border border-slate-700 shadow-inner">
-                <div className="flex flex-col items-center">
-                    <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-0.5">EST LND</span>
-                    <span className="text-xs font-mono font-extrabold text-white leading-none">{calculatedData.estLandingTimeStr || "----"}</span>
-                </div>
-                <div className="w-px h-5 bg-slate-700"></div>
-                <div className="flex flex-col items-center">
-                    <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-0.5">BLOCK IN</span>
-                    <span className="text-xs font-mono font-extrabold text-amber-400 leading-none">{calculatedData.estBlockInStr || "----"}</span>
-                </div>
-            </div>
-
-            <div className="flex items-center gap-1">
-                <button onClick={scrollToCurrentFix} className="bg-slate-700 hover:bg-indigo-600 border border-indigo-500/50 text-indigo-300 hover:text-white px-2 py-1 rounded text-[9px] font-black tracking-wider shadow-sm transition-colors flex items-center gap-0.5">
-                    <SafeIcon name="MapPin" className="w-3 h-3" /> NOW
-                </button>
-                <button onClick={() => setIsSyncModalOpen(true)} className="bg-slate-700 hover:bg-emerald-600 border border-emerald-500/50 text-emerald-300 hover:text-white px-2 py-1 rounded text-[9px] font-black tracking-wider shadow-sm transition-colors flex items-center gap-0.5">
-                    <SafeIcon name="RefreshCw" className="w-3 h-3" /> SYNC
-                </button>
-            </div>
-
-            <div className="flex gap-2 items-center bg-[#0f172a] px-2 py-0.5 rounded-lg border border-slate-700 shadow-inner">
+            {/* 時間ブロック: TAKEOFF, EST LND, BLOCK IN, STA */}
+            <div className="flex items-center gap-2 bg-[#0f172a] px-2 py-0.5 rounded-lg border border-slate-700 shadow-inner">
               <div className="flex flex-col items-center">
                 <label className="text-[8px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-0.5">Takeoff(Z)</label>
                 <input type="text" placeholder="HHMM" maxLength={4} value={takeoffTime} onChange={(e) => setTakeoffTime(e.target.value.replace(/[^0-9]/g, ''))} className="bg-slate-800 border border-slate-600 rounded px-1 py-0.5 text-xs font-mono font-black text-white text-center w-12 focus:outline-none focus:border-blue-500 transition-colors" />
@@ -574,39 +559,71 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
               
               <div className="w-px h-5 bg-slate-700"></div>
               
-              <div className="flex flex-col items-center min-w-[45px]">
-                <label className="text-[8px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-0.5">Time Diff</label>
-                <span className={`text-xs font-mono font-extrabold leading-none ${parseInt(calculatedData.latestAtoTimeDiffStr) > 0 ? 'text-red-400' : parseInt(calculatedData.latestAtoTimeDiffStr) < 0 ? 'text-green-400' : 'text-slate-200'}`}>
+              <div className="flex flex-col items-center justify-center pt-0.5 min-w-[45px]">
+                <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-0.5">EST LND</span>
+                <span className="text-xs font-mono font-extrabold text-white leading-none h-4 flex items-center">{calculatedData.estLandingTimeStr || "----"}</span>
+              </div>
+              
+              <div className="w-px h-5 bg-slate-700"></div>
+
+              <div className="flex flex-col items-center justify-center pt-0.5 min-w-[45px]">
+                <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-0.5">BLOCK IN</span>
+                <span className="text-xs font-mono font-extrabold text-amber-400 leading-none h-4 flex items-center">{calculatedData.estBlockInStr || "----"}</span>
+              </div>
+
+              <div className="w-px h-5 bg-slate-700"></div>
+
+              <div className="flex flex-col items-center justify-center pt-0.5 min-w-[36px]">
+                <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-0.5">STA(Z)</span>
+                <span className="text-xs font-mono font-extrabold text-slate-300 leading-none h-4 flex items-center">{parsedSta || "----"}</span>
+              </div>
+            </div>
+
+            {/* DIFF と MAX ALT ブロック */}
+            <div className="flex items-center gap-2 bg-[#0f172a] px-2 py-0.5 rounded-lg border border-slate-700 shadow-inner">
+              <div className="flex flex-col items-center min-w-[45px] pt-0.5">
+                <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-0.5">Time Diff</span>
+                <span className={`text-xs font-mono font-extrabold leading-none h-4 flex items-center ${parseInt(calculatedData.latestAtoTimeDiffStr) > 0 ? 'text-red-400' : parseInt(calculatedData.latestAtoTimeDiffStr) < 0 ? 'text-green-400' : 'text-slate-200'}`}>
                     {calculatedData.latestAtoTimeDiffStr || "±0"}
                 </span>
               </div>
 
               <div className="w-px h-5 bg-slate-700"></div>
 
-              <div className="flex flex-col items-center min-w-[60px]">
-                <label className="text-[8px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-0.5">Fuel Diff</label>
-                <div className="flex items-center gap-1">
+              <div className="flex flex-col items-center min-w-[60px] pt-0.5">
+                <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-0.5">Fuel Diff</span>
+                <div className="flex items-center gap-1 h-4">
                   {calculatedData.lastValidWpIndex !== -1 ? (
                     <span className={`text-xs font-mono font-extrabold leading-none ${calculatedData.totalBurnDiff >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                       {calculatedData.totalBurnDiff > 0 ? '+' : ''}{calculatedData.totalBurnDiff.toFixed(1)}
                     </span>
                   ) : (<span className="text-slate-500 font-mono text-xs font-bold leading-none">--.-</span>)}
                   
-                  <button onClick={() => setIsGraphOpen(true)} className="bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded px-1 py-0.5 flex items-center justify-center transition-colors" title="Trend Graph">
-                    <span className="text-[10px] leading-none">📊</span>
+                  <button onClick={() => setIsGraphOpen(true)} className="bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded px-1 flex items-center justify-center transition-colors h-[18px]" title="Trend Graph">
+                    <span className="text-[10px] leading-none mb-[2px]">📊</span>
                   </button>
                 </div>
               </div>
 
               <div className="w-px h-5 bg-slate-700"></div>
               
-              <div className="flex flex-col items-center">
-                 <label className="text-[8px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-0.5">MAX ALT</label>
-                 <div className="flex items-center bg-slate-900 rounded border border-slate-700 cursor-pointer overflow-hidden shadow-inner" onClick={() => setIs15gLimit(!is15gLimit)}>
-                    <div className={`px-1 py-[1px] text-[8px] font-black ${!is15gLimit ? 'bg-blue-600 text-white' : 'text-slate-500'}`}>1.3G</div>
-                    <div className={`px-1 py-[1px] text-[8px] font-black ${is15gLimit ? 'bg-red-600 text-white' : 'text-slate-500'}`}>1.5G</div>
+              <div className="flex flex-col items-center pt-0.5">
+                 <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-0.5">MAX ALT</span>
+                 <div className="flex items-center bg-slate-900 rounded border border-slate-700 cursor-pointer overflow-hidden shadow-inner h-4" onClick={() => setIs15gLimit(!is15gLimit)}>
+                    <div className={`px-1 h-full flex items-center text-[8px] font-black ${!is15gLimit ? 'bg-blue-600 text-white' : 'text-slate-500'}`}>1.3G</div>
+                    <div className={`px-1 h-full flex items-center text-[8px] font-black ${is15gLimit ? 'bg-red-600 text-white' : 'text-slate-500'}`}>1.5G</div>
                  </div>
               </div>
+            </div>
+
+            {/* ボタン ブロック */}
+            <div className="flex items-center gap-1 ml-auto sm:ml-0">
+                <button onClick={scrollToCurrentFix} className="bg-slate-700 hover:bg-indigo-600 border border-indigo-500/50 text-indigo-300 hover:text-white px-2 py-1.5 rounded text-[9px] font-black tracking-wider shadow-sm transition-colors flex items-center gap-0.5">
+                    <SafeIcon name="MapPin" className="w-3 h-3" /> NOW
+                </button>
+                <button onClick={() => setIsSyncModalOpen(true)} className="bg-slate-700 hover:bg-emerald-600 border border-emerald-500/50 text-emerald-300 hover:text-white px-2 py-1.5 rounded text-[9px] font-black tracking-wider shadow-sm transition-colors flex items-center gap-0.5">
+                    <SafeIcon name="RefreshCw" className="w-3 h-3" /> SYNC
+                </button>
             </div>
 
           </div>
@@ -619,7 +636,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
             <div className="min-w-[700px] max-w-[1400px] mx-auto pb-16">
               
               {/* テーブルヘッダー (sticky で追従) */}
-              <div className="sticky top-0 z-30 bg-[#0f172a] border-b border-slate-700 shadow-md rounded-t-lg">
+              <div className="sticky top-0 z-30 bg-[#0f172a] border-b border-slate-700 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.3)] rounded-t-lg">
                 <div className="grid grid-cols-[85px_65px_1fr_50px_65px_1fr_1.8fr_85px_35px] p-1.5 font-black text-slate-400 text-[10px] sm:text-[11px] text-center items-end">
                   <div className="text-left pl-1">WAYPOINT</div>
                   <div className="text-slate-500">CTME<br/><span className="text-[8px]">RTME</span></div>
