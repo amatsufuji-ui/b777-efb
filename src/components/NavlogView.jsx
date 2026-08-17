@@ -1,4 +1,6 @@
+// NavlogView.jsx
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { SafeIcon } from './SharedComponents';
 
 const MAX_ALT_DATA = {
   "772": [ [320, 43100, 43100, 43100, 43100, 43100, 43100], [340, 43100, 43100, 43100, 43100, 43100, 43100], [360, 42100, 43100, 43100, 43100, 43000, 42300], [380, 41000, 43100, 43100, 42900, 42200, 41400], [400, 40000, 43100, 42300, 42100, 41300, 40500], [420, 39000, 43100, 41400, 41200, 40500, 39600], [440, 38000, 42900, 40500, 40400, 39600, 38700], [460, 37100, 42100, 39600, 39600, 38800, 37900], [480, 36300, 41300, 38800, 38700, 37900, 37100], [500, 35500, 40500, 37900, 37900, 37100, 36100], [520, 34800, 39600, 37000, 37100, 36200, 35200], [540, 34000, 38800, 36100, 36200, 35400, 34300], [560, 33600, 38000, 35200, 35400, 34500, 33500] ],
@@ -71,6 +73,139 @@ const interpolateAlt = (weight, tableData, is15g, isaDev) => {
   
   const maxAlt = Math.min(buffetAlt, thrustAlt);
   return `FL${Math.round(maxAlt / 100)}`;
+};
+
+// --- SYNC DATA HELPERS ---
+const SYNC_HEADER = "7PT|";
+const packData = (data) => {
+    const parts = [];
+    for (const [wp, v] of Object.entries(data)) {
+        if (v.ato || v.afob || v.actAlt || v.actTmp || v.actWind || v.memo) {
+            const alt = v.actAlt ? v.actAlt.replace('FL', '') : '';
+            const wind = v.actWind ? v.actWind.replace('/', '') : '';
+            parts.push(`${wp},${v.ato||''},${v.afob||''},${alt},${v.actTmp||''},${wind},${encodeURIComponent(v.memo||'')}`);
+        }
+    }
+    return parts.length > 0 ? SYNC_HEADER + parts.join('|') : "";
+};
+
+const unpackData = (str) => {
+    if (!str || !str.startsWith(SYNC_HEADER)) return null;
+    const content = str.substring(SYNC_HEADER.length);
+    if (!content) return {};
+    const res = {};
+    content.split('|').forEach(row => {
+        const [wp, ato, afob, actAlt, actTmp, actWind, encodedMemo] = row.split(',');
+        if (wp) {
+            const restoredAlt = actAlt ? (actAlt.startsWith('FL') ? actAlt : `FL${actAlt}`) : '';
+            const restoredWind = actWind ? (actWind.length === 6 ? `${actWind.substring(0,3)}/${actWind.substring(3)}` : actWind) : '';
+            res[wp] = { ato: ato||'', afob: afob||'', actAlt: restoredAlt, actTmp: actTmp||'', actWind: restoredWind, memo: decodeURIComponent(encodedMemo||'') };
+        }
+    });
+    return res;
+};
+
+// --- MODALS ---
+const SyncModal = ({ isOpen, onClose, actuals, onSync, showMessage }) => {
+    const [activeTab, setActiveTab] = useState('export');
+    const [isScanning, setIsScanning] = useState(false);
+    const canvasRef = useRef(null);
+    const fileInputRef = useRef(null);
+
+    useEffect(() => {
+        if (isOpen && activeTab === 'export' && canvasRef.current) {
+            const drawQR = () => {
+                const dataStr = packData(actuals);
+                const valueToEncode = dataStr || "7PT|NODATA";
+                new window.QRious({ element: canvasRef.current, value: valueToEncode, size: 400, padding: 20, background: 'white', foreground: 'black', level: 'L' });
+            };
+            if (!window.QRious) {
+                const script = document.createElement('script');
+                script.src = "https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js";
+                script.onload = drawQR;
+                document.head.appendChild(script);
+            } else { drawQR(); }
+        }
+    }, [isOpen, activeTab, actuals]);
+
+    const handleFileUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        setIsScanning(true);
+        const scan = () => {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const context = canvas.getContext('2d', { willReadFrequently: true });
+                    const tryScan = (targetSize) => {
+                        let w = img.width, h = img.height;
+                        if (w > h) { if (w > targetSize) { h *= targetSize / w; w = targetSize; } } 
+                        else { if (h > targetSize) { w *= targetSize / h; h = targetSize; } }
+                        canvas.width = w; canvas.height = h;
+                        context.fillStyle = "white"; context.fillRect(0, 0, w, h);
+                        context.drawImage(img, 0, 0, w, h);
+                        const imgData = context.getImageData(0, 0, w, h);
+                        return window.jsQR(imgData.data, imgData.width, imgData.height, { inversionAttempts: "attemptBoth" });
+                    };
+                    try {
+                        let code = tryScan(1200) || tryScan(800) || tryScan(500);
+                        if (code) {
+                            setIsScanning(false);
+                            const parsedData = unpackData(code.data);
+                            if (parsedData && Object.keys(parsedData).length > 0) {
+                                onSync(parsedData); onClose(); showMessage("データを同期しました！");
+                            } else { showMessage("QRコードは読み取れましたが、データが空か形式が違います。"); }
+                        } else {
+                            setIsScanning(false); showMessage("QRコードを検出できませんでした。撮り直してください。");
+                        }
+                    } catch (err) { console.error(err); setIsScanning(false); showMessage("解析中にエラーが発生しました。"); }
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+            e.target.value = '';
+        };
+        if (!window.jsQR) {
+            const script = document.createElement('script');
+            script.src = "https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js";
+            script.onload = scan; document.head.appendChild(script);
+        } else { scan(); }
+    };
+
+    if (!isOpen) return null;
+    return (
+        <div className="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
+            <div className="bg-slate-800 border border-slate-600 rounded-xl max-w-md w-full shadow-2xl flex flex-col overflow-hidden">
+                <div className="flex border-b border-slate-700">
+                    <button className={`flex-1 py-4 text-sm font-bold ${activeTab === 'export' ? 'bg-blue-600 text-white' : 'text-slate-400 bg-slate-700'}`} onClick={() => setActiveTab('export')}>QRを表示 (送る)</button>
+                    <button className={`flex-1 py-4 text-sm font-bold ${activeTab === 'import' ? 'bg-blue-600 text-white' : 'text-slate-400 bg-slate-700'}`} onClick={() => setActiveTab('import')}>カメラで読む (受ける)</button>
+                </div>
+                <div className="p-6 flex-1 min-h-[420px] flex flex-col items-center justify-center">
+                    {activeTab === 'export' ? (
+                        <div className="flex flex-col items-center w-full">
+                            <div className="bg-white p-4 rounded-xl mb-6 shadow-[0_0_30px_rgba(255,255,255,0.15)]"><canvas ref={canvasRef}></canvas></div>
+                            <p className="text-slate-300 text-sm text-center">相手の端末にこのQRコードを見せてください。</p>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col items-center w-full space-y-8">
+                            <div className="text-center space-y-3">
+                                <h3 className="text-xl font-bold text-blue-400">相手のQRコードを撮影する</h3>
+                            </div>
+                            <input type="file" accept="image/*" capture="environment" onChange={handleFileUpload} ref={fileInputRef} className="hidden" />
+                            <button onClick={() => fileInputRef.current.click()} disabled={isScanning} className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 text-white font-bold py-6 rounded-xl shadow-lg flex items-center justify-center space-x-3 transition-transform active:scale-95">
+                                {isScanning ? <span>解析中...</span> : <span>写真を撮って読み取る</span>}
+                            </button>
+                        </div>
+                    )}
+                </div>
+                <div className="p-4 border-t border-slate-700 bg-slate-900 flex justify-end">
+                    <button onClick={onClose} className="w-full py-3 bg-slate-700 hover:bg-slate-600 rounded-lg font-bold text-slate-200 transition-colors">閉じる (CLOSE)</button>
+                </div>
+            </div>
+        </div>
+    );
 };
 
 const GraphModal = ({ isOpen, onClose, flightData }) => {
@@ -158,8 +293,10 @@ const MemoModal = ({ isOpen, initialMemo, wpName, onClose, onSave }) => {
 export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, navlogData }) => {
   const [takeoffTime, setTakeoffTime] = useState('');
   const [actuals, setActuals] = useState({});
+  const [toastMessage, setToastMessage] = useState("");
   
   const [isGraphOpen, setIsGraphOpen] = useState(false);
+  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const [memoModal, setMemoModal] = useState({ isOpen: false, wp: '', text: '' });
 
   const rowRefs = useRef([]);
@@ -185,7 +322,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
         if(navlogData.pDate) setParsedDate(navlogData.pDate);
         hasAutoScrolled.current = false;
         
-        // 既存のメモを維持
+        // 既存のメモを維持しつつ、新しいプランへマージ
         setActuals(prev => {
             const preserved = { ...prev };
             return preserved;
@@ -220,6 +357,22 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
 
   const handleUpdateActual = (wp, field, value) => {
     setActuals(prev => ({ ...prev, [wp]: { ...prev[wp], [field]: value } }));
+  };
+
+  const handleSyncData = (importedData) => {
+    setActuals(prev => {
+        const merged = { ...prev };
+        for (const wp in importedData) {
+            if (!merged[wp]) merged[wp] = {};
+            if (importedData[wp].ato) merged[wp].ato = importedData[wp].ato;
+            if (importedData[wp].afob) merged[wp].afob = importedData[wp].afob;
+            if (importedData[wp].actAlt) merged[wp].actAlt = importedData[wp].actAlt;
+            if (importedData[wp].actTmp) merged[wp].actTmp = importedData[wp].actTmp;
+            if (importedData[wp].actWind) merged[wp].actWind = importedData[wp].actWind;
+            if (importedData[wp].memo) merged[wp].memo = importedData[wp].memo;
+        }
+        return merged;
+    });
   };
 
   const calculatedData = useMemo(() => {
@@ -326,7 +479,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
   };
 
   return (
-    <div className="flex flex-col h-full bg-slate-900 text-slate-200 overflow-hidden">
+    <div className="flex flex-col h-full bg-[#05070a] text-slate-200 overflow-hidden rounded-xl border border-slate-700/50 relative">
       
       <MemoModal 
         isOpen={memoModal.isOpen} 
@@ -342,87 +495,106 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
         flightData={calculatedData.flightData}
       />
 
-      <header className="bg-slate-800 border-b border-slate-700 p-2 sm:p-4 shrink-0 shadow-lg z-20 relative">
-        <div className="max-w-[1400px] mx-auto flex flex-col xl:flex-row justify-between items-start xl:items-end gap-4">
-          <div>
-            <h1 className="text-2xl sm:text-4xl font-bold text-blue-400 tracking-wider">{flightNo}</h1>
-            <p className="text-xs sm:text-sm text-slate-400 font-semibold mt-1">{routeInfo}</p>
-            <div className="flex flex-wrap items-center gap-2 mt-2">
-                <span className="bg-slate-700 text-slate-300 text-xs px-2 py-1 rounded font-mono">{parsedReg} ({REG_MAP[parsedReg] || "77W"})</span>
-                {parsedDate && <span className="bg-blue-900 text-blue-200 text-xs px-2 py-1 rounded font-mono font-bold">{parsedDate}</span>}
-                <span className="bg-slate-700 text-slate-300 text-xs px-2 py-1 rounded font-mono">PZFW: {parsedPzfw}</span>
-                <span className="bg-slate-700 text-slate-300 text-xs px-2 py-1 rounded font-mono">TAXI: {parsedTaxi}M</span>
+      <SyncModal 
+        isOpen={isSyncModalOpen} 
+        onClose={() => setIsSyncModalOpen(false)} 
+        actuals={actuals}
+        onSync={handleSyncData}
+        showMessage={(msg) => window.dispatchEvent(new CustomEvent('show-toast', { detail: msg }))}
+      />
+
+      {/* スッキリさせた固定ヘッダー部分 */}
+      <header className="bg-[#131c2f] border-b border-slate-700/80 px-2 sm:px-4 py-2 shrink-0 shadow-lg z-20">
+        <div className="max-w-[1400px] mx-auto flex flex-col lg:flex-row justify-between items-start lg:items-center gap-2">
+          
+          <div className="flex items-center gap-3">
+            <h1 className="text-lg sm:text-xl font-black text-blue-400 uppercase tracking-widest flex items-center gap-1.5">
+              <SafeIcon name="Map" className="w-4 h-4"/>{flightNo}
+            </h1>
+            <span className="text-xs font-bold text-slate-300 bg-slate-800 px-2 py-0.5 rounded border border-slate-600 shadow-inner">
+                {routeInfo}
+            </span>
+            <div className="flex gap-1.5 items-center">
+                <span className="text-[10px] font-mono font-bold text-slate-400 border border-slate-600/50 rounded px-1.5 py-0.5">{parsedReg}</span>
+                {parsedDate && <span className="text-[10px] font-mono font-bold text-blue-300 border border-blue-500/30 rounded px-1.5 py-0.5">{parsedDate}</span>}
+                <span className="text-[10px] font-mono font-bold text-slate-400 border border-slate-600/50 rounded px-1.5 py-0.5">ZFW: {parsedPzfw}</span>
+                <span className="text-[10px] font-mono font-bold text-slate-400 border border-slate-600/50 rounded px-1.5 py-0.5">TAXI: {parsedTaxi}M</span>
             </div>
           </div>
           
-          <div className="flex flex-wrap gap-2 sm:gap-4 items-center">
+          <div className="flex flex-wrap items-center gap-2">
             
-            <div className="flex gap-2 sm:gap-4 bg-slate-900/50 p-2 rounded-lg border border-slate-700">
-                <div className="flex flex-col items-center px-1 sm:px-2">
-                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">EST LND</span>
-                    <span className="text-lg sm:text-xl font-mono text-white">{calculatedData.estLandingTimeStr || "----"}</span>
+            <div className="flex items-center gap-3 bg-slate-900/60 px-3 py-1 rounded-lg border border-slate-700 shadow-inner">
+                <div className="flex flex-col items-center">
+                    <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-1">EST LND</span>
+                    <span className="text-sm font-mono font-black text-white leading-none">{calculatedData.estLandingTimeStr || "----"}</span>
                 </div>
-                <div className="w-px bg-slate-700"></div>
-                <div className="flex flex-col items-center px-1 sm:px-2">
-                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">BLOCK IN</span>
-                    <span className="text-lg sm:text-xl font-mono text-yellow-400">{calculatedData.estBlockInStr || "----"}</span>
+                <div className="w-px h-6 bg-slate-700"></div>
+                <div className="flex flex-col items-center">
+                    <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-1">BLOCK IN</span>
+                    <span className="text-sm font-mono font-black text-yellow-400 leading-none">{calculatedData.estBlockInStr || "----"}</span>
                 </div>
             </div>
 
-            <div className="flex gap-2">
-              <button onClick={scrollToCurrentFix} className="bg-indigo-700 hover:bg-indigo-600 border border-indigo-500 text-white px-2 sm:px-3 py-2 sm:py-3 rounded-lg text-xs sm:text-sm font-bold shadow-md flex items-center transition-colors">
-                <span>📍 NOW</span>
-              </button>
-              <button onClick={() => {}} className="bg-emerald-700 hover:bg-emerald-600 border border-emerald-500 text-white px-2 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm font-bold shadow-md flex items-center transition-colors">
-                <span>SEND LOG</span>
-              </button>
+            <div className="flex items-center gap-2">
+                <button onClick={scrollToCurrentFix} className="bg-indigo-600 hover:bg-indigo-500 border border-indigo-400 text-white px-3 py-1.5 rounded text-[10px] font-black tracking-widest shadow-sm transition-colors flex items-center gap-1">
+                    <SafeIcon name="MapPin" className="w-3 h-3" /> NOW
+                </button>
+                <button onClick={() => setIsSyncModalOpen(true)} className="bg-emerald-600 hover:bg-emerald-500 border border-emerald-400 text-white px-3 py-1.5 rounded text-[10px] font-black tracking-widest shadow-sm transition-colors flex items-center gap-1">
+                    <SafeIcon name="RefreshCw" className="w-3 h-3" /> SYNC
+                </button>
             </div>
 
-            <div className="flex gap-2 sm:gap-4 items-center bg-slate-900 p-2 sm:p-3 rounded-lg border border-slate-700">
-              <div className="flex flex-col">
-                <label className="text-[10px] text-slate-400 font-bold mb-1 uppercase tracking-wider">Takeoff (Z)</label>
-                <input type="text" placeholder="HHMM" maxLength={4} value={takeoffTime} onChange={(e) => setTakeoffTime(e.target.value.replace(/[^0-9]/g, ''))} className="bg-slate-800 border border-slate-600 rounded px-2 sm:px-3 py-1.5 sm:py-2 text-base sm:text-xl font-mono text-white text-center w-16 sm:w-24 focus:outline-none focus:border-blue-500 transition-colors" />
+            <div className="flex gap-3 items-center bg-slate-900/60 px-2 py-1 rounded-lg border border-slate-700 shadow-inner ml-2">
+              <div className="flex flex-col items-center">
+                <label className="text-[9px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-1">Takeoff (Z)</label>
+                <input type="text" placeholder="HHMM" maxLength={4} value={takeoffTime} onChange={(e) => setTakeoffTime(e.target.value.replace(/[^0-9]/g, ''))} className="bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5 text-xs font-mono font-black text-white text-center w-14 focus:outline-none focus:border-blue-500 transition-colors" />
               </div>
-              <div className="h-8 sm:h-10 w-px bg-slate-700"></div>
               
-              <div className="flex flex-col items-center justify-center min-w-[60px]">
-                <label className="text-[10px] text-slate-400 font-bold mb-1 uppercase tracking-wider">Time Diff</label>
-                <span className={`text-xl sm:text-2xl font-mono font-bold ${parseInt(calculatedData.latestAtoTimeDiffStr) > 0 ? 'text-red-400' : parseInt(calculatedData.latestAtoTimeDiffStr) < 0 ? 'text-green-400' : 'text-slate-200'}`}>
+              <div className="w-px h-6 bg-slate-700"></div>
+              
+              <div className="flex flex-col items-center min-w-[50px]">
+                <label className="text-[9px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-1">Time Diff</label>
+                <span className={`text-sm font-mono font-black leading-none ${parseInt(calculatedData.latestAtoTimeDiffStr) > 0 ? 'text-red-400' : parseInt(calculatedData.latestAtoTimeDiffStr) < 0 ? 'text-green-400' : 'text-slate-200'}`}>
                     {calculatedData.latestAtoTimeDiffStr || "±0"}
                 </span>
               </div>
-              <div className="h-8 sm:h-10 w-px bg-slate-700"></div>
 
-              <div className="flex flex-col min-w-[80px] sm:min-w-[110px]">
-                <label className="text-[10px] text-slate-400 font-bold mb-1 uppercase tracking-wider">Fuel Diff</label>
-                <div className="flex items-center gap-2 h-full">
+              <div className="w-px h-6 bg-slate-700"></div>
+
+              <div className="flex flex-col items-center min-w-[70px]">
+                <label className="text-[9px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-1">Fuel Diff</label>
+                <div className="flex items-center gap-1.5">
                   {calculatedData.lastValidWpIndex !== -1 ? (
-                    <span className={`text-xl sm:text-2xl font-mono font-bold ${calculatedData.totalBurnDiff >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    <span className={`text-sm font-mono font-black leading-none ${calculatedData.totalBurnDiff >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                       {calculatedData.totalBurnDiff > 0 ? '+' : ''}{calculatedData.totalBurnDiff.toFixed(1)}
                     </span>
-                  ) : (<span className="text-slate-500 font-mono text-lg sm:text-xl">--.-</span>)}
+                  ) : (<span className="text-slate-500 font-mono text-sm font-black leading-none">--.-</span>)}
                   
-                  <button onClick={() => setIsGraphOpen(true)} className="bg-slate-700 hover:bg-slate-600 border border-slate-500 p-1 rounded transition-colors shadow-sm flex items-center justify-center" title="Show Trend Graph">
-                    <span className="text-[14px] leading-none">📊</span>
+                  <button onClick={() => setIsGraphOpen(true)} className="bg-slate-700 hover:bg-slate-600 border border-slate-500 rounded px-1 flex items-center justify-center transition-colors" title="Trend Graph">
+                    <span className="text-[12px] leading-none mb-[2px]">📊</span>
                   </button>
                 </div>
               </div>
 
-              <div className="h-8 sm:h-10 w-px bg-slate-700"></div>
+              <div className="w-px h-6 bg-slate-700"></div>
+              
               <div className="flex flex-col items-center">
-                 <label className="text-[10px] text-slate-400 font-bold mb-1 uppercase tracking-wider">MAX ALT</label>
-                 <div className="flex items-center bg-slate-800 rounded-lg p-1 border border-slate-600 cursor-pointer" onClick={() => setIs15gLimit(!is15gLimit)}>
-                    <div className={`px-2 py-1 text-[10px] sm:text-xs font-bold rounded ${!is15gLimit ? 'bg-blue-600 text-white' : 'text-slate-500'}`}>1.3G</div>
-                    <div className={`px-2 py-1 text-[10px] sm:text-xs font-bold rounded ${is15gLimit ? 'bg-red-600 text-white' : 'text-slate-500'}`}>1.5G</div>
+                 <label className="text-[9px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-1">MAX ALT</label>
+                 <div className="flex items-center bg-slate-800 rounded border border-slate-600 cursor-pointer overflow-hidden shadow-inner" onClick={() => setIs15gLimit(!is15gLimit)}>
+                    <div className={`px-1.5 py-[2px] text-[9px] font-black ${!is15gLimit ? 'bg-blue-600 text-white' : 'text-slate-500'}`}>1.3G</div>
+                    <div className={`px-1.5 py-[2px] text-[9px] font-black ${is15gLimit ? 'bg-red-600 text-white' : 'text-slate-500'}`}>1.5G</div>
                  </div>
               </div>
             </div>
+
           </div>
         </div>
       </header>
 
-      <div className="flex-1 overflow-auto p-1 sm:p-2 w-full relative">
-        <div className="max-w-[1400px] mx-auto bg-slate-800 rounded-lg shadow-xl border border-slate-700 mb-20 relative">
+      {/* スクロールするリスト部分 */}
+      <div className="flex-1 overflow-y-auto p-1 sm:p-2 w-full relative custom-scrollbar">
+        <div className="max-w-[1400px] mx-auto bg-slate-800/80 rounded-lg shadow-xl border border-slate-700 mb-20 relative">
           
           <div className="grid grid-cols-[110px_80px_1fr_60px_80px_1fr_1.9fr_100px_40px] bg-slate-900 p-2 font-bold text-slate-400 text-[11px] sm:text-xs border-b border-slate-700 sticky top-0 z-10 shadow-md text-center items-end min-w-[950px]">
             <div className="text-left pl-2">WAYPOINT</div>
