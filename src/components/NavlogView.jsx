@@ -340,7 +340,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
         if(navlogData.pDate) setParsedDate(navlogData.pDate);
         hasAutoScrolled.current = false;
         
-        // メモ情報（memo）を絶対に消去せず既存のキーを完全保護して結合
+        // 既存のメモを維持
         setActuals(prev => {
             const preserved = { ...prev };
             return preserved;
@@ -434,9 +434,9 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
       let timeDiffStr = "";
       if (wpActual.ato && takeoffMinutes !== null) {
         const atoMins = timeToMinutes(wpActual.ato);
-        const originalEtoMins = takeoffMinutes + wpPlan.ctme; // 離陸時刻 + CTME
+        const originalEtoMins = takeoffMinutes + wpPlan.ctme; // ★ 離陸時刻 + CTME
         if (atoMins !== null) {
-          let diff = atoMins - originalEtoMins; // ATO - (離陸時刻 + CTME)
+          let diff = atoMins - originalEtoMins; // ★ ATO - (離陸時刻 + CTME)
           if (diff < -720) diff += 1440; if (diff > 720) diff -= 1440;
           timeDiffStr = formatTimeDiff(diff);
         }
@@ -497,7 +497,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
   };
 
   return (
-    <div className="flex flex-col h-full w-full bg-[#05070a] text-[#cbd5e1] font-sans overflow-hidden rounded-xl border border-slate-700/50 relative">
+    <div className="flex flex-col h-full w-full absolute inset-0 bg-[#05070a] text-[#cbd5e1] font-sans overflow-hidden rounded-xl border border-slate-700/50">
       
       <MemoModal 
         isOpen={memoModal.isOpen} 
@@ -521,7 +521,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
         showMessage={(msg) => window.dispatchEvent(new CustomEvent('show-toast', { detail: msg }))}
       />
 
-      {/* 完全固定ヘッダー (絶対にスクロールしない領域) */}
+      {/* 絶対にスクロールしない固定ヘッダー部分 */}
       <header className="shrink-0 bg-gradient-to-r from-slate-900 via-[#131c2f] to-slate-900 border-b border-slate-700/80 px-2 sm:px-3 py-1.5 shadow-lg z-20">
         <div className="max-w-[1400px] mx-auto flex flex-wrap justify-between items-center gap-2">
           
@@ -613,86 +613,88 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
         </div>
       </header>
 
-      {/* スクロール領域 (flex-1 min-h-0 で親要素の高さ制限を受け、テーブル行のみ縦スクロール) */}
-      <div className="flex-1 w-full overflow-auto custom-scrollbar p-1 sm:p-2 bg-[#05070a]">
-        <div className="max-w-[1400px] min-w-[700px] mx-auto rounded-lg border border-slate-700/80 bg-slate-900/60 pb-16 shadow-xl relative">
-          
-          {/* ★ スクロール時に最上部に固定されるテーブルの列名（sticky top-0） ★ */}
-          <div className="sticky top-0 z-30 bg-[#0f172a] border-b border-slate-700 shadow-md rounded-t-lg">
-            <div className="grid grid-cols-[85px_65px_1fr_50px_65px_1fr_1.8fr_85px_35px] p-1.5 font-black text-slate-400 text-[10px] sm:text-[11px] text-center items-end">
-              <div className="text-left pl-1">WAYPOINT</div>
-              <div className="text-slate-500">CTME<br/><span className="text-[8px]">RTME</span></div>
-              <div className="text-blue-300">ETO (Rev)<br/>ATO</div>
-              <div>TIME<br/>DIFF</div>
-              <div className="text-slate-500">PLN FOB</div>
-              <div className="text-green-300">RMG FUEL<br/><span className="text-[8px]">DIFF</span></div>
-              <div>ACT (ALT / TMP / WIND)</div>
-              <div className="text-purple-300">MAX ALT<br/><span className="text-[8px] text-slate-500">WT</span></div>
-              <div>MEMO</div>
-            </div>
-          </div>
-          
-          {/* スクロールするデータ行 */}
-          <div className="divide-y divide-slate-800/80">
-            {calculatedData.flightData.map((row, idx) => (
-              <div key={idx} ref={el => rowRefs.current[idx] = el} className="grid grid-cols-[85px_65px_1fr_50px_65px_1fr_1.8fr_85px_35px] py-1 px-1.5 items-center hover:bg-slate-800/60 transition-colors group text-center gap-x-1">
-                <div className="font-mono text-sm sm:text-base font-black text-left pl-1 text-slate-200 truncate">{row.wp}</div>
-                
-                <div className="flex flex-col items-center leading-tight">
-                    <span className="font-mono text-xs text-slate-400 font-bold">{formatTimePlus(row.ctme)}</span>
-                    <span className="font-mono text-[9px] text-slate-500">{formatTimePlus(row.rtme)}</span>
+      {/* スクロール領域 (親の flex-1 overflow-hidden と自身の absolute/overflow-auto で確実に中身だけスクロールさせる) */}
+      <div className="flex-1 w-full relative overflow-hidden bg-slate-900/40">
+        <div className="absolute inset-0 overflow-auto custom-scrollbar p-1 sm:p-2">
+            <div className="min-w-[700px] max-w-[1400px] mx-auto pb-16">
+              
+              {/* テーブルヘッダー (sticky で追従) */}
+              <div className="sticky top-0 z-30 bg-[#0f172a] border-b border-slate-700 shadow-md rounded-t-lg">
+                <div className="grid grid-cols-[85px_65px_1fr_50px_65px_1fr_1.8fr_85px_35px] p-1.5 font-black text-slate-400 text-[10px] sm:text-[11px] text-center items-end">
+                  <div className="text-left pl-1">WAYPOINT</div>
+                  <div className="text-slate-500">CTME<br/><span className="text-[8px]">RTME</span></div>
+                  <div className="text-blue-300">ETO (Rev)<br/>ATO</div>
+                  <div>TIME<br/>DIFF</div>
+                  <div className="text-slate-500">PLN FOB</div>
+                  <div className="text-green-300">RMG FUEL<br/><span className="text-[8px]">DIFF</span></div>
+                  <div>ACT (ALT / TMP / WIND)</div>
+                  <div className="text-purple-300">MAX ALT<br/><span className="text-[8px] text-slate-500">WT</span></div>
+                  <div>MEMO</div>
                 </div>
-                
-                <div className="flex flex-col px-0.5 gap-0.5 items-center">
-                  <span className="text-blue-400 font-mono text-xs font-extrabold h-3.5 sm:h-4">{row.revisedEtoStr || "----"}</span>
-                  <input type="text" placeholder="ATO" maxLength={4} value={row.ato} onChange={(e) => handleUpdateActual(row.wp, 'ato', e.target.value.replace(/[^0-9]/g, ''))} className={`w-full bg-[#05070a] border rounded py-1 text-center font-mono text-sm sm:text-base font-bold focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors ${row.ato ? 'border-blue-500/50 text-white' : 'border-slate-700 text-slate-400'}`} />
-                </div>
-                
-                <div className={`font-mono text-xs font-bold ${parseInt(row.timeDiffStr) > 0 ? 'text-red-400' : parseInt(row.timeDiffStr) < 0 ? 'text-green-400' : 'text-slate-400'}`}>{row.timeDiffStr}</div>
-
-                <div className="font-mono text-xs text-slate-400 font-bold">{row.fob ? row.fob.toFixed(1) : ''}</div>
-
-                <div className="flex flex-col px-0.5 gap-0.5 items-center">
-                  <span className={`font-mono text-[9px] h-3 ${row.fuelDiff > 0 ? 'text-green-400 font-bold' : row.fuelDiff < 0 ? 'text-red-400 font-bold' : ''}`}>
-                      {row.fuelDiff !== null ? (`${row.fuelDiff > 0 ? '+' : ''}${row.fuelDiff.toFixed(1)}`) : ''}
-                  </span>
-                  <input type="text" placeholder="RMG" value={row.afob} onChange={(e) => handleUpdateActual(row.wp, 'afob', e.target.value.replace(/[^0-9.]/g, ''))} className={`w-full bg-[#05070a] border rounded py-1 text-center font-mono text-sm sm:text-base font-bold focus:outline-none focus:ring-1 focus:ring-green-500 transition-colors ${row.afob ? 'border-green-500/50 text-white' : 'border-slate-700 text-slate-400'}`} />
-                </div>
-
-                <div className="grid grid-cols-3 gap-0.5 px-0.5">
-                    <div className="flex flex-col items-center justify-center">
-                        <input type="text" placeholder="ACT" value={row.actAlt} onChange={(e) => handleUpdateActual(row.wp, 'actAlt', e.target.value.toUpperCase())} className="w-full bg-[#05070a] border border-slate-700 rounded text-center text-xs font-mono font-bold py-1 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-inner" />
-                        <span className="text-[8px] text-slate-500 font-mono mt-0.5 h-2.5">{row.plnAlt || "-"}</span>
-                    </div>
-                    <div className="flex flex-col items-center justify-center">
-                        <input type="text" placeholder="ACT" value={row.actTmp} onChange={(e) => handleUpdateActual(row.wp, 'actTmp', e.target.value)} className="w-full bg-[#05070a] border border-slate-700 rounded text-center text-xs font-mono font-bold py-1 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-inner" />
-                        <span className="text-[8px] text-purple-400 font-mono font-bold mt-0.5 h-2.5">{row.isaDev ? `I${row.isaDev > 0 ? '+' : ''}${row.isaDev}` : "-"}</span>
-                    </div>
-                    <div className="flex flex-col items-center justify-center">
-                        <input type="text" placeholder="ACT" value={row.actWind} onChange={(e) => handleUpdateActual(row.wp, 'actWind', e.target.value)} className="w-full bg-[#05070a] border border-slate-700 rounded text-center text-xs font-mono font-bold py-1 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-inner" />
-                        <span className="text-[8px] text-slate-500 font-mono mt-0.5 h-2.5">{row.plnWind || "-"}</span>
-                    </div>
-                </div>
-
-                <div className="flex flex-col items-center justify-center pt-0.5 leading-none">
-                    <span className="font-mono text-base sm:text-lg font-black text-purple-400">{row.maxAlt}</span>
-                    <span className="text-[8px] text-slate-500 font-mono mt-0.5">W:{row.currentWeight}</span>
-                </div>
-
-                {/* MEMO ボタン */}
-                <div className="flex justify-center items-center">
-                    <button 
-                        onClick={() => setMemoModal({ isOpen: true, wp: row.wp, text: row.memo })}
-                        className={`p-1 rounded transition-colors border shadow-sm flex items-center justify-center ${row.memo ? 'bg-amber-600 border-amber-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white hover:bg-slate-700'}`}
-                        title={row.memo ? "Edit Memo" : "Add Memo"}
-                    >
-                        <span className="text-[11px] leading-none">📝</span>
-                    </button>
-                </div>
-
               </div>
-            ))}
-          </div>
+              
+              {/* スクロールするデータ行 */}
+              <div className="divide-y divide-slate-800/80 bg-slate-900/60 rounded-b-lg border-x border-b border-slate-700/80">
+                {calculatedData.flightData.map((row, idx) => (
+                  <div key={idx} ref={el => rowRefs.current[idx] = el} className="grid grid-cols-[85px_65px_1fr_50px_65px_1fr_1.8fr_85px_35px] py-1 px-1.5 items-center hover:bg-slate-800/60 transition-colors group text-center gap-x-1">
+                    <div className="font-mono text-sm sm:text-base font-black text-left pl-1 text-slate-200 truncate">{row.wp}</div>
+                    
+                    <div className="flex flex-col items-center leading-tight">
+                        <span className="font-mono text-xs text-slate-400 font-bold">{formatTimePlus(row.ctme)}</span>
+                        <span className="font-mono text-[9px] text-slate-500">{formatTimePlus(row.rtme)}</span>
+                    </div>
+                    
+                    <div className="flex flex-col px-0.5 gap-0.5 items-center">
+                      <span className="text-blue-400 font-mono text-xs font-extrabold h-3.5 sm:h-4">{row.revisedEtoStr || "----"}</span>
+                      <input type="text" placeholder="ATO" maxLength={4} value={row.ato} onChange={(e) => handleUpdateActual(row.wp, 'ato', e.target.value.replace(/[^0-9]/g, ''))} className={`w-full bg-[#05070a] border rounded py-1 text-center font-mono text-sm sm:text-base font-bold focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors ${row.ato ? 'border-blue-500/50 text-white' : 'border-slate-700 text-slate-400'}`} />
+                    </div>
+                    
+                    <div className={`font-mono text-xs font-bold ${parseInt(row.timeDiffStr) > 0 ? 'text-red-400' : parseInt(row.timeDiffStr) < 0 ? 'text-green-400' : 'text-slate-400'}`}>{row.timeDiffStr}</div>
+
+                    <div className="font-mono text-xs text-slate-400 font-bold">{row.fob ? row.fob.toFixed(1) : ''}</div>
+
+                    <div className="flex flex-col px-0.5 gap-0.5 items-center">
+                      <span className={`font-mono text-[9px] h-3 ${row.fuelDiff > 0 ? 'text-green-400 font-bold' : row.fuelDiff < 0 ? 'text-red-400 font-bold' : ''}`}>
+                          {row.fuelDiff !== null ? (`${row.fuelDiff > 0 ? '+' : ''}${row.fuelDiff.toFixed(1)}`) : ''}
+                      </span>
+                      <input type="text" placeholder="RMG" value={row.afob} onChange={(e) => handleUpdateActual(row.wp, 'afob', e.target.value.replace(/[^0-9.]/g, ''))} className={`w-full bg-[#05070a] border rounded py-1 text-center font-mono text-sm sm:text-base font-bold focus:outline-none focus:ring-1 focus:ring-green-500 transition-colors ${row.afob ? 'border-green-500/50 text-white' : 'border-slate-700 text-slate-400'}`} />
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-0.5 px-0.5">
+                        <div className="flex flex-col items-center justify-center">
+                            <input type="text" placeholder="ACT" value={row.actAlt} onChange={(e) => handleUpdateActual(row.wp, 'actAlt', e.target.value.toUpperCase())} className="w-full bg-[#05070a] border border-slate-700 rounded text-center text-xs font-mono font-bold py-1 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-inner" />
+                            <span className="text-[8px] text-slate-500 font-mono mt-0.5 h-2.5">{row.plnAlt || "-"}</span>
+                        </div>
+                        <div className="flex flex-col items-center justify-center">
+                            <input type="text" placeholder="ACT" value={row.actTmp} onChange={(e) => handleUpdateActual(row.wp, 'actTmp', e.target.value)} className="w-full bg-[#05070a] border border-slate-700 rounded text-center text-xs font-mono font-bold py-1 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-inner" />
+                            <span className="text-[8px] text-purple-400 font-mono font-bold mt-0.5 h-2.5">{row.isaDev ? `I${row.isaDev > 0 ? '+' : ''}${row.isaDev}` : "-"}</span>
+                        </div>
+                        <div className="flex flex-col items-center justify-center">
+                            <input type="text" placeholder="ACT" value={row.actWind} onChange={(e) => handleUpdateActual(row.wp, 'actWind', e.target.value)} className="w-full bg-[#05070a] border border-slate-700 rounded text-center text-xs font-mono font-bold py-1 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-inner" />
+                            <span className="text-[8px] text-slate-500 font-mono mt-0.5 h-2.5">{row.plnWind || "-"}</span>
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col items-center justify-center pt-0.5 leading-none">
+                        <span className="font-mono text-base sm:text-lg font-black text-purple-400">{row.maxAlt}</span>
+                        <span className="text-[8px] text-slate-500 font-mono mt-0.5">W:{row.currentWeight}</span>
+                    </div>
+
+                    {/* MEMO ボタン */}
+                    <div className="flex justify-center items-center">
+                        <button 
+                            onClick={() => setMemoModal({ isOpen: true, wp: row.wp, text: row.memo })}
+                            className={`p-1 rounded transition-colors border shadow-sm flex items-center justify-center ${row.memo ? 'bg-amber-600 border-amber-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white hover:bg-slate-700'}`}
+                            title={row.memo ? "Edit Memo" : "Add Memo"}
+                        >
+                            <span className="text-[11px] leading-none">📝</span>
+                        </button>
+                    </div>
+
+                  </div>
+                ))}
+              </div>
+            </div>
         </div>
       </div>
     </div>

@@ -1,3 +1,4 @@
+// App.jsx
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import * as LucideIcons from 'lucide-react';
 
@@ -34,7 +35,6 @@ export default function App() {
   const [isParsingPdf, setIsParsingPdf] = useState(false);
   const [navlogData, setNavlogData] = useState(null);
 
-  // REST CALC用ステート群
   const [restFlightHours3, setRestFlightHours3] = useState(8); 
   const [restFlightMins3, setRestFlightMins3] = useState(0); 
   const [restFlightHours4, setRestFlightHours4] = useState(12); 
@@ -176,10 +176,13 @@ export default function App() {
     let newPlan = [];
     
     const fNoMatch = text.match(/(?:ANA|JAL|NCA|NH|JL)(\d{2,4}[A-Z]?)/);
-    const fNo = fNoMatch ? fNoMatch[0].replace(/(ANA|JAL|NCA|NH|JL)0+/, '$1') : "UNKNOWN";
+    let fNo = fNoMatch ? fNoMatch[0] : "UNKNOWN";
     let flightIdRaw = fNoMatch ? fNoMatch[1] : "";
     flightIdRaw = flightIdRaw.replace(/^0+/, '');
     if (flightIdRaw === '') flightIdRaw = '0';
+    if (fNoMatch) {
+      fNo = fNo.replace(/\d{2,4}/, flightIdRaw);
+    }
     
     const routeMatch = text.match(/([A-Z]{4})\s*-\s*([A-Z]{4})/);
     const rInfo = routeMatch ? `${routeMatch[1]} - ${routeMatch[2]}` : "UNKNOWN";
@@ -254,7 +257,10 @@ export default function App() {
     const tokens = cleanText.split(/\s+/);
     let ignoreList = new Set(["ELEV", "RDIS", "TMP", "ZWIND", "SAT", "SPOT", "ETO", "ZTME", "ALT", "FUEL", "POS", "ATO", "DIST", "FL", "RMG", "RJTT", "KJFK", "KEWR", "PANC", "CYVR", "RJCC", "DEC", "CLM", "LRC", "PROG", "STEP", "CLIMB", "MINTMP", "COMPUTED", "COMPANY", "CLEARANCE", "MW/TP", "WSCP", "NONE", "OAT", "INTENTION", "SPEED", "ROUTE", "DATA", "AWY", "OFP", "LOG", "RMK", "NAV", "FOB", "PLN", "ACT", "DIFF", "MEMO", "TIME", "MAX", "WT", "PAGE", "DIS", "WND", "SHR", "TRK", "INFO", "IFR", "VFR"]);
     
-    if (fNoMatch) ignoreList.add(fNoMatch[0]);
+    if (fNoMatch) {
+        ignoreList.add(fNoMatch[0]);
+        ignoreList.add(fNo);
+    }
     if (flightIdRaw) ignoreList.add(flightIdRaw);
     if (routeMatch) {
         ignoreList.delete(routeMatch[1]);
@@ -710,7 +716,7 @@ export default function App() {
         </div>
       )}
 
-      <div className="flex flex-col gap-1.5 w-full flex-none mb-1 px-1 mt-1">
+      <div className="flex flex-col gap-1.5 w-full flex-none mb-1 px-1 mt-1 shrink-0">
         <div className="flex flex-col pt-1 pb-1 border-b-2 border-slate-700/80 gap-1.5">
           <div className="flex items-center flex-wrap gap-1 text-blue-400 font-black tracking-tighter text-[11px] sm:text-sm">
             <div className="flex items-center gap-1">
@@ -718,7 +724,7 @@ export default function App() {
               <span>7PT B777 PERFORMANCE TOOL</span>
             </div>
             <div className="flex items-center gap-1">
-              <span className="text-amber-400 font-mono text-[9px] border border-amber-500/30 px-1 rounded bg-amber-500/10 tracking-normal font-bold">ver 6.9</span>
+              <span className="text-amber-400 font-mono text-[9px] border border-amber-500/30 px-1 rounded bg-amber-500/10 tracking-normal font-bold">ver 7.0</span>
               {flightId && (<span className="text-slate-300 font-mono text-[9px] border border-slate-600 px-1 rounded bg-slate-800 tracking-normal font-bold">ANA{flightId}</span>)}
             </div>
           </div>
@@ -780,13 +786,13 @@ export default function App() {
         </div>
       </div>
 
-      {activeTab === 'DASHBOARD' && (<div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden">{typeof DashboardView !== 'undefined' && (<DashboardView state={state} updateState={updateState} computed={computed} aircraftRegistrationList={typeof aircraftRegistrationList !== 'undefined' ? aircraftRegistrationList : []} handleRegChange={handleRegChange} setAircraftType={setAircraftType} cruiseWtInputText={cruiseWtInputText} setCruiseWtInputText={setCruiseWtInputText} ldgWtInputText={ldgWtInputText} setLdgWtInputText={setLdgWtInputText} />)}</div>)}
-      {activeTab === 'TFC INFO' && (<div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden">{typeof FltInfoView !== 'undefined' && <FltInfoView p={fltInfoProps} />}</div>)}
-      {activeTab === 'WX/MNM' && (<div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden">{typeof WxMnmReference !== 'undefined' && <WxMnmReference />}</div>)}
-      {activeTab === 'ETOPS' && (<div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden">{typeof EtopsView !== 'undefined' && <EtopsView globalRoute={globalRoute} globalDest={globalDest} globalEtopsAltns={globalEtopsAltns} globalEtopsTime={globalEtopsTime} />}</div>)} 
-      {activeTab === 'NAVLOG' && (
-        <div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden">
-          {typeof NavlogView !== 'undefined' && (
+      <div className="flex flex-col w-full flex-1 min-h-0 relative overflow-hidden">
+        {activeTab === 'DASHBOARD' && (<div className="flex flex-col gap-1 w-full h-full"><DashboardView state={state} updateState={updateState} computed={computed} aircraftRegistrationList={aircraftRegistrationList} handleRegChange={handleRegChange} setAircraftType={setAircraftType} cruiseWtInputText={cruiseWtInputText} setCruiseWtInputText={setCruiseWtInputText} ldgWtInputText={ldgWtInputText} setLdgWtInputText={setLdgWtInputText} /></div>)}
+        {activeTab === 'TFC INFO' && (<div className="flex flex-col gap-1 w-full h-full"><FltInfoView p={fltInfoProps} /></div>)}
+        {activeTab === 'WX/MNM' && (<div className="flex flex-col gap-1 w-full h-full"><WxMnmReference /></div>)}
+        {activeTab === 'ETOPS' && (<div className="flex flex-col gap-1 w-full h-full"><EtopsView globalRoute={globalRoute} globalDest={globalDest} globalEtopsAltns={globalEtopsAltns} globalEtopsTime={globalEtopsTime} /></div>)} 
+        {activeTab === 'NAVLOG' && (
+          <div className="flex flex-col w-full h-full">
             <NavlogView 
               flightId={flightId} 
               state={state} 
@@ -794,14 +800,14 @@ export default function App() {
               onApplyFlightPlan={handleApplyFlightPlan} 
               navlogData={navlogData} 
             />
-          )}
-        </div>
-      )}
-      {activeTab === 'DOCS' && (<div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden">{typeof Docs2View !== 'undefined' && <Docs2View />}</div>)}
-      {activeTab === 'REST CALC' && (<div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden">{typeof RestView !== 'undefined' && <RestView flightHours={restCrewSize === 3 ? restFlightHours3 : restFlightHours4} setFlightHours={restCrewSize === 3 ? setRestFlightHours3 : setRestFlightHours4} flightMins={restCrewSize === 3 ? restFlightMins3 : restFlightMins4} setFlightMins={restCrewSize === 3 ? setRestFlightMins3 : setRestFlightMins4} stdHours={stdHours} setStdHours={setStdHours} stdMins={stdMins} setStdMins={setStdMins} isTakeoffAuto={isTakeoffAuto} setIsTakeoffAuto={setIsTakeoffAuto} takeoffHours={restTakeoffHours} setTakeoffHours={setRestTakeoffHours} takeoffMins={restTakeoffMins} setTakeoffMins={setRestTakeoffMins} offsetMins={restOffsetMins} setOffsetMins={setRestOffsetMins} landingOffsetMins={restLandingOffsetMins} setLandingOffsetMins={setRestLandingOffsetMins} crewSize={restCrewSize} setCrewSize={setRestCrewSize} firstRestMins={restFirstRestMins} setFirstRestMins={setRestFirstRestMins} lastRestMins={restLastRestMins} setLastRestMins={setRestLastRestMins} firstHalfMins={restFirstHalfMins} setFirstHalfMins={setRestFirstHalfMins} taxiOutMins={taxiOutMins} />}</div>)}
-      {activeTab === 'BUDDY COMM' && (<div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden">{typeof BuddyCommView !== 'undefined' && <BuddyCommView p={{ aircraftRegistrationList: typeof aircraftRegistrationList !== 'undefined' ? aircraftRegistrationList : [], selectedReg: state.selectedReg, handleRegChange }} />}</div>)}
-      {activeTab === 'APP CALC' && (<div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden">{typeof ApproachCalcView !== 'undefined' && <ApproachCalcView />}</div>)}
-      {activeTab === 'XWIND' && (<div className="flex flex-col gap-1 w-full flex-1 h-full overflow-hidden mt-0.5">{typeof XwindView !== 'undefined' && <XwindView />}</div>)}
+          </div>
+        )}
+        {activeTab === 'DOCS' && (<div className="flex flex-col gap-1 w-full h-full"><Docs2View /></div>)}
+        {activeTab === 'REST CALC' && (<div className="flex flex-col gap-1 w-full h-full"><RestView flightHours={restCrewSize === 3 ? restFlightHours3 : restFlightHours4} setFlightHours={restCrewSize === 3 ? setRestFlightHours3 : setRestFlightHours4} flightMins={restCrewSize === 3 ? restFlightMins3 : restFlightMins4} setFlightMins={restCrewSize === 3 ? setRestFlightMins3 : setRestFlightMins4} stdHours={stdHours} setStdHours={setStdHours} stdMins={stdMins} setStdMins={setStdMins} isTakeoffAuto={isTakeoffAuto} setIsTakeoffAuto={setIsTakeoffAuto} takeoffHours={restTakeoffHours} setTakeoffHours={setRestTakeoffHours} takeoffMins={restTakeoffMins} setTakeoffMins={setRestTakeoffMins} offsetMins={restOffsetMins} setOffsetMins={setRestOffsetMins} landingOffsetMins={restLandingOffsetMins} setLandingOffsetMins={setRestLandingOffsetMins} crewSize={restCrewSize} setCrewSize={setRestCrewSize} firstRestMins={restFirstRestMins} setFirstRestMins={setRestFirstRestMins} lastRestMins={restLastRestMins} setLastRestMins={setRestLastRestMins} firstHalfMins={restFirstHalfMins} setFirstHalfMins={setRestFirstHalfMins} taxiOutMins={taxiOutMins} /></div>)}
+        {activeTab === 'BUDDY COMM' && (<div className="flex flex-col gap-1 w-full h-full"><BuddyCommView p={{ aircraftRegistrationList, selectedReg: state.selectedReg, handleRegChange }} /></div>)}
+        {activeTab === 'APP CALC' && (<div className="flex flex-col gap-1 w-full h-full"><ApproachCalcView /></div>)}
+        {activeTab === 'XWIND' && (<div className="flex flex-col gap-1 w-full h-full mt-0.5"><XwindView /></div>)}
+      </div>
     </div>
   );
 }
