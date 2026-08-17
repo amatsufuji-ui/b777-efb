@@ -125,7 +125,7 @@ export default function App() {
     setState(prev => {
       const next = { ...prev };
       if (data.reg) { const ac = typeof aircraftRegistrationList !== 'undefined' ? aircraftRegistrationList.find(a => a.reg === data.reg) : null; if (ac) { next.selectedReg = data.reg; next.selectedType = ac.type; } else { next.selectedReg = data.reg; } }
-      if (data.isa !== undefined) next.isaDev = data.isa;
+      if (data.isa !== undefined && !isNaN(data.isa)) next.isaDev = data.isa;
       if (data.alt !== undefined) next.cruiseAltitude = data.alt;
       
       if (data.ptow !== undefined) { 
@@ -190,7 +190,7 @@ export default function App() {
     const regMatch = text.match(/(JA\d{3}[A-Z]?)/);
     const pReg = regMatch ? regMatch[1] : "JA796A";
 
-    let ptow, pldw, pPzfw = 400.0, alt, isa, toElev, ldElev, fltTimeH, fltTimeM, stdH, stdM, staH, staM, pTaxi = 20;
+    let ptow, pldw, pPzfw = 400.0, alt, isa = 0, toElev, ldElev, fltTimeH, fltTimeM, stdH, stdM, staH, staM, pTaxi = 20;
 
     const zfwMatch = text.match(/(?:ZFW|PZFW)\s+([0-9,.]+)/);
     if (zfwMatch) {
@@ -214,10 +214,12 @@ export default function App() {
     const crzMatch = text.match(/(?:CRZ|LVL)\s+(?:SYS\s+)?(?:FL)?(\d{3})/);
     if (crzMatch) alt = parseInt(crzMatch[1], 10) * 100;
     
-    const isaMatch = text.match(/ISA\s*([PM+-])\s*(\d{1,2})/);
+    // 全体サマリーのISA DEV抽出
+    const isaMatch = text.match(/ISA\s*([PM+-])\s*(\d{1,2})/i);
     if (isaMatch) {
-      isa = parseInt(isaMatch[2], 10);
-      if (isaMatch[1] === '-' || isaMatch[1] === 'M') isa = -isa;
+      let val = parseInt(isaMatch[2], 10);
+      if (isaMatch[1] === '-' || isaMatch[1].toUpperCase() === 'M') val = -val;
+      isa = val;
     }
     
     const elevRegex = /ELEV\s+(\d{1,4})/g;
@@ -276,6 +278,9 @@ export default function App() {
     let recentTimes = [];
     let pendingFob = null;
     let pendingAlt = "";
+    let pendingTmp = "";
+    let pendingWind = "";
+    let pendingIsa = null;
 
     for (let i = 0; i < tokens.length; i++) {
         let token = tokens[i];
@@ -298,6 +303,37 @@ export default function App() {
              continue;
         }
 
+        // 外気温度 (-56, -45, M56, M45)
+        if (/^(?:-[0-9]{2}|M[0-9]{2})$/i.test(token)) {
+            let cleanTmp = token.replace(/M/i, '-');
+            pendingTmp = cleanTmp;
+            continue;
+        }
+
+        // 風 (280/045, 050/012, 280045)
+        if (/^\d{3}\/?\d{2,3}$/.test(token)) {
+            let cleanWind = token;
+            if (!cleanWind.includes('/')) {
+              cleanWind = cleanWind.substring(0, 3) + '/' + cleanWind.substring(3);
+            }
+            pendingWind = cleanWind;
+            continue;
+        }
+
+        // 括弧内のISA DEV直接抽出 (例: (17), ( 17 ), (-05), (M02), (P12))
+        if (/^\(?\s*([PM+-]?\d{1,2})\s*\)?$/.test(token)) {
+            let match = token.match(/([PM+-]?\d{1,2})/i);
+            if (match) {
+              let valStr = match[1].toUpperCase();
+              let num = parseInt(valStr.replace(/[PM+]/g, ''), 10);
+              if (valStr.includes('-') || valStr.includes('M')) num = -num;
+              if (!isNaN(num) && num >= -40 && num <= 40) {
+                pendingIsa = num;
+              }
+            }
+            continue;
+        }
+
         let cleanToken = token.replace(/^-+/, '').replace(/-+$/, '');
         const isCoord = /^[NS]\d{4,5}[EW]\d{4,6}$/.test(cleanToken);
         const isAlphaWp = /^[A-Z][A-Z0-9]{1,5}$/.test(cleanToken) && !ignoreList.has(cleanToken);
@@ -317,15 +353,28 @@ export default function App() {
                 continue;
             }
 
-            newPlan.push({ wp: cleanToken, ctme: ctme, rtme: rtme, fob: pendingFob !== null ? pendingFob : 0, plnAlt: pendingAlt, plnTmp: "", plnWind: "", isaDev: isa || 0 });
+            let currentWpIsa = pendingIsa !== null ? pendingIsa : isa;
+
+            newPlan.push({ 
+              wp: cleanToken, 
+              ctme: ctme, 
+              rtme: rtme, 
+              fob: pendingFob !== null ? pendingFob : 0, 
+              plnAlt: pendingAlt, 
+              plnTmp: pendingTmp, 
+              plnWind: pendingWind, 
+              isaDev: currentWpIsa 
+            });
             
-            // ★目的地に到達したら1ページ目であっても正しく終了する
             if (destIcao && cleanToken === destIcao) {
                 break; 
             }
             
             pendingFob = null; 
             pendingAlt = ""; 
+            pendingTmp = "";
+            pendingWind = "";
+            pendingIsa = null;
             recentTimes = []; 
         }
     }
@@ -333,6 +382,14 @@ export default function App() {
     if (!alt) {
         const toc = newPlan.find(wp => wp.plnAlt);
         if (toc && toc.plnAlt) alt = parseInt(toc.plnAlt.replace('FL', ''), 10) * 100;
+    }
+
+    // TOC直後の最初の巡航ウェイポイントまたはTOCのISA DEVをDASHBOARD用に採用
+    const tocIndex = newPlan.findIndex(wp => wp.wp === "TOC");
+    if (tocIndex !== -1 && newPlan[tocIndex + 1] && newPlan[tocIndex + 1].isaDev !== undefined) {
+        isa = newPlan[tocIndex + 1].isaDev;
+    } else if (tocIndex !== -1 && newPlan[tocIndex].isaDev !== undefined) {
+        isa = newPlan[tocIndex].isaDev;
     }
 
     if ((fltTimeH === undefined || isNaN(fltTimeH)) && newPlan.length > 0) {
@@ -728,7 +785,7 @@ export default function App() {
               <span>7PT B777 PERFORMANCE TOOL</span>
             </div>
             <div className="flex items-center gap-1">
-              <span className="text-amber-400 font-mono text-[9px] border border-amber-500/30 px-1 rounded bg-amber-500/10 tracking-normal font-bold">ver 7.1</span>
+              <span className="text-amber-400 font-mono text-[9px] border border-amber-500/30 px-1 rounded bg-amber-500/10 tracking-normal font-bold">ver 6.9</span>
               {flightId && (<span className="text-slate-300 font-mono text-[9px] border border-slate-600 px-1 rounded bg-slate-800 tracking-normal font-bold">ANA{flightId}</span>)}
             </div>
           </div>

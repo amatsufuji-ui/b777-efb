@@ -18,8 +18,8 @@ const REG_MAP = {
 
 const DEFAULT_FLIGHT_PLAN_DATA = [
   { wp: "RJTT", ctme: 0, rtme: 741, fob: 242.2, plnAlt: "", plnTmp: "", plnWind: "", isaDev: 0 },
-  { wp: "TOC", ctme: 16, rtme: 725, fob: 237.2, plnAlt: "FL310", plnTmp: "", plnWind: "", isaDev: 0 },
-  { wp: "GULBO", ctme: 24, rtme: 717, fob: 224.9, plnAlt: "FL310", plnTmp: "-28", plnWind: "310/014", isaDev: 18 },
+  { wp: "TOC", ctme: 16, rtme: 725, fob: 237.2, plnAlt: "FL310", plnTmp: "-47", plnWind: "280/040", isaDev: 17 },
+  { wp: "POROT", ctme: 24, rtme: 717, fob: 224.9, plnAlt: "FL310", plnTmp: "-26", plnWind: "314/015", isaDev: 17 },
   { wp: "KJFK", ctme: 741, rtme: 0, fob: 26.0, plnAlt: "FL041", plnTmp: "", plnWind: "", isaDev: 0 }
 ];
 
@@ -344,11 +344,9 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
         }
         hasAutoScrolled.current = false;
         
-        // メモ情報（memo）を絶対に消去せず既存のキーを完全保護して結合
-        setActuals(prev => {
-            const preserved = { ...prev };
-            return preserved;
-        });
+        // 新たなPDFが読み込まれた場合は実績値・メモ・TAKEOFFタイムをクリアする
+        setActuals({});
+        setTakeoffTime('');
     }
   }, [navlogData]);
 
@@ -677,18 +675,21 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                       <input type="text" placeholder="RMG" value={row.afob} onChange={(e) => handleUpdateActual(row.wp, 'afob', e.target.value.replace(/[^0-9.]/g, ''))} className={`w-full bg-[#05070a] border rounded py-1 text-center font-mono text-sm sm:text-base font-bold focus:outline-none focus:ring-1 focus:ring-green-500 transition-colors ${row.afob ? 'border-green-500/50 text-white' : 'border-slate-700 text-slate-400'}`} />
                     </div>
 
+                    {/* ★ 上にISA DEV、下にTMP（PLN/ACT入力）、下にWIND（PLN/ACT入力） ★ */}
                     <div className="grid grid-cols-3 gap-0.5 px-0.5">
                         <div className="flex flex-col items-center justify-center">
                             <input type="text" placeholder="ACT" value={row.actAlt} onChange={(e) => handleUpdateActual(row.wp, 'actAlt', e.target.value.toUpperCase())} className="w-full bg-[#05070a] border border-slate-700 rounded text-center text-xs font-mono font-bold py-1 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-inner" />
                             <span className="text-[8px] text-slate-500 font-mono mt-0.5 h-2.5">{row.plnAlt || "-"}</span>
                         </div>
                         <div className="flex flex-col items-center justify-center">
+                            <span className="text-[8px] text-purple-400 font-mono font-bold mb-0.5 h-2.5 leading-none">{row.isaDev !== undefined && !isNaN(row.isaDev) ? `ISA${row.isaDev >= 0 ? '+' : ''}${row.isaDev}` : "-"}</span>
                             <input type="text" placeholder="ACT" value={row.actTmp} onChange={(e) => handleUpdateActual(row.wp, 'actTmp', e.target.value)} className="w-full bg-[#05070a] border border-slate-700 rounded text-center text-xs font-mono font-bold py-1 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-inner" />
-                            <span className="text-[8px] text-purple-400 font-mono font-bold mt-0.5 h-2.5">{row.isaDev ? `I${row.isaDev > 0 ? '+' : ''}${row.isaDev}` : "-"}</span>
+                            <span className="text-[8px] text-slate-500 font-mono mt-0.5 h-2.5 leading-none">{row.plnTmp || "-"}</span>
                         </div>
                         <div className="flex flex-col items-center justify-center">
+                            <span className="text-[8px] text-slate-500 font-mono mb-0.5 h-2.5 leading-none"></span>
                             <input type="text" placeholder="ACT" value={row.actWind} onChange={(e) => handleUpdateActual(row.wp, 'actWind', e.target.value)} className="w-full bg-[#05070a] border border-slate-700 rounded text-center text-xs font-mono font-bold py-1 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-inner" />
-                            <span className="text-[8px] text-slate-500 font-mono mt-0.5 h-2.5">{row.plnWind || "-"}</span>
+                            <span className="text-[8px] text-slate-500 font-mono mt-0.5 h-2.5 leading-none">{row.plnWind || "-"}</span>
                         </div>
                     </div>
 

@@ -1,3 +1,4 @@
+// DashboardView.jsx
 import React from 'react';
 import { SafeIcon } from './SharedComponents';
 
