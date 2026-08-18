@@ -1,4 +1,3 @@
-// NavlogView.jsx
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { SafeIcon } from './SharedComponents';
 
@@ -319,6 +318,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
 
   const rowRefs = useRef([]);
   const hasAutoScrolled = useRef(false);
+  const lastLoadId = useRef(null);
 
   const [flightPlan, setFlightPlan] = useState(DEFAULT_FLIGHT_PLAN_DATA);
   const [flightNo, setFlightNo] = useState("ANA0110");
@@ -344,13 +344,11 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
         }
         hasAutoScrolled.current = false;
         
-        // 新たなPDFが読み込まれた場合は実績値・メモ・TAKEOFFタイムをクリアする（リロード時はisNewがfalse）
-        if (navlogData.isNew) {
+        // 新たなPDFが読み込まれた場合は実績値・メモ・TAKEOFFタイムをクリアする
+        if (navlogData.loadId && navlogData.loadId !== lastLoadId.current) {
             setActuals({});
             setTakeoffTime('');
-            navlogData.isNew = false;
-        } else {
-            setActuals(prev => ({ ...prev }));
+            lastLoadId.current = navlogData.loadId;
         }
     }
   }, [navlogData]);
@@ -379,8 +377,12 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
 
   // 状態の自動バックアップ
   useEffect(() => {
-    const backup = { flightPlan, actuals, flightNo, routeInfo, parsedReg, parsedPzfw, parsedTaxi, parsedDate, parsedSta, takeoffTime };
-    localStorage.setItem('navlogFlightDataBackup', JSON.stringify(backup));
+    try {
+        const backup = { flightPlan, actuals, flightNo, routeInfo, parsedReg, parsedPzfw, parsedTaxi, parsedDate, parsedSta, takeoffTime };
+        localStorage.setItem('navlogFlightDataBackup', JSON.stringify(backup));
+    } catch (e) {
+        console.error("Failed to backup Navlog data to localStorage", e);
+    }
   }, [flightPlan, actuals, flightNo, routeInfo, parsedReg, parsedPzfw, parsedTaxi, parsedDate, parsedSta, takeoffTime]);
 
   const handleUpdateActual = (wp, field, value) => {
