@@ -1,3 +1,4 @@
+// NavlogView.jsx
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { SafeIcon } from './SharedComponents';
 
@@ -13,6 +14,18 @@ const REG_MAP = {
   "JA751A": "773", "JA752A": "773", "JA753A": "773", "JA754A": "773", "JA755A": "773",
   "JA784A": "77W", "JA785A": "77W", "JA787A": "77W", "JA788A": "77W", "JA790A": "77W", "JA791A": "77W", "JA792A": "77W", "JA793A": "77W", "JA794A": "77W", "JA795A": "77W", "JA796A": "77W", "JA797A": "77W", "JA798A": "77W", "JA799A": "77W",
   "JA771F": "77F", "JA772F": "77F"
+};
+
+const ICAO_TZ = {
+    "RJTT": "Asia/Tokyo", "RJAA": "Asia/Tokyo", "RJCC": "Asia/Tokyo", "RJBB": "Asia/Tokyo", "ROAH": "Asia/Tokyo", "RJFF": "Asia/Tokyo", "RJGG": "Asia/Tokyo",
+    "KJFK": "America/New_York", "KEWR": "America/New_York", "KORD": "America/Chicago", 
+    "KLAX": "America/Los_Angeles", "KSFO": "America/Los_Angeles", "PANC": "America/Anchorage",
+    "PHNL": "Pacific/Honolulu", "CYVR": "America/Vancouver", "LFPG": "Europe/Paris",
+    "EGLL": "Europe/London", "EDDF": "Europe/Berlin", "EDDM": "Europe/Berlin", "YSSY": "Australia/Sydney", "VHHH": "Asia/Hong_Kong",
+    "WSSS": "Asia/Singapore", "VTBS": "Asia/Bangkok", "RCTP": "Asia/Taipei",
+    "RKSI": "Asia/Seoul", "ZBAA": "Asia/Shanghai", "ZSPD": "Asia/Shanghai",
+    "WMKK": "Asia/Kuala_Lumpur", "WIDD": "Asia/Jakarta", "VABB": "Asia/Kolkata", "VIDP": "Asia/Kolkata",
+    "YMML": "Australia/Melbourne", "NZAA": "Pacific/Auckland", "OMDB": "Asia/Dubai", "OTHH": "Asia/Dubai"
 };
 
 const DEFAULT_FLIGHT_PLAN_DATA = [
@@ -328,7 +341,11 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
   const [parsedTaxi, setParsedTaxi] = useState(13); 
   const [parsedDate, setParsedDate] = useState("16JUL26");
   const [parsedSta, setParsedSta] = useState("");
+  const [parsedDestIcao, setParsedDestIcao] = useState("KJFK");
   const [is15gLimit, setIs15gLimit] = useState(false);
+
+  const [localSta, setLocalSta] = useState("");
+  const [localBlockIn, setLocalBlockIn] = useState("");
 
   useEffect(() => {
     if (navlogData && navlogData.newPlan && navlogData.newPlan.length > 0) {
@@ -338,22 +355,25 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
         setParsedReg(navlogData.pReg);
         setParsedPzfw(navlogData.pPzfw);
         setParsedTaxi(navlogData.pTaxi);
-        if(navlogData.pDate) setParsedDate(navlogData.pDate);
-        if(navlogData.staH !== undefined && navlogData.staM !== undefined) {
+        
+        if (navlogData.pDate) setParsedDate(navlogData.pDate);
+        if (navlogData.destIcao) setParsedDestIcao(navlogData.destIcao);
+
+        if (navlogData.staH !== undefined && navlogData.staM !== undefined) {
             setParsedSta(`${String(navlogData.staH).padStart(2, '0')}${String(navlogData.staM).padStart(2, '0')}`);
         }
         hasAutoScrolled.current = false;
         
-        // 新たなPDFが読み込まれた場合は実績値・メモ・TAKEOFFタイムをクリアする
-        if (navlogData.loadId && navlogData.loadId !== lastLoadId.current) {
+        if (navlogData.isNew) {
             setActuals({});
             setTakeoffTime('');
-            lastLoadId.current = navlogData.loadId;
+            lastLoadId.current = Date.now();
+        } else {
+            setActuals(prev => ({ ...prev }));
         }
     }
   }, [navlogData]);
 
-  // アプリ再起動時のローカルストレージからの復元
   useEffect(() => {
     const saved = localStorage.getItem('navlogFlightDataBackup');
     if (saved) {
@@ -370,20 +390,18 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                 if (parsed.parsedTaxi) setParsedTaxi(parsed.parsedTaxi);
                 if (parsed.parsedDate) setParsedDate(parsed.parsedDate);
                 if (parsed.parsedSta) setParsedSta(parsed.parsedSta);
+                if (parsed.parsedDestIcao) setParsedDestIcao(parsed.parsedDestIcao);
             }
         } catch(e) {}
     }
   }, []);
 
-  // 状態の自動バックアップ
   useEffect(() => {
     try {
-        const backup = { flightPlan, actuals, flightNo, routeInfo, parsedReg, parsedPzfw, parsedTaxi, parsedDate, parsedSta, takeoffTime };
+        const backup = { flightPlan, actuals, flightNo, routeInfo, parsedReg, parsedPzfw, parsedTaxi, parsedDate, parsedSta, parsedDestIcao, takeoffTime };
         localStorage.setItem('navlogFlightDataBackup', JSON.stringify(backup));
-    } catch (e) {
-        console.error("Failed to backup Navlog data to localStorage", e);
-    }
-  }, [flightPlan, actuals, flightNo, routeInfo, parsedReg, parsedPzfw, parsedTaxi, parsedDate, parsedSta, takeoffTime]);
+    } catch (e) {}
+  }, [flightPlan, actuals, flightNo, routeInfo, parsedReg, parsedPzfw, parsedTaxi, parsedDate, parsedSta, parsedDestIcao, takeoffTime]);
 
   const handleUpdateActual = (wp, field, value) => {
     setActuals(prev => ({ ...prev, [wp]: { ...prev[wp], [field]: value } }));
@@ -472,8 +490,56 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
       });
     }
 
-    return { flightData: data, totalBurnDiff, lastValidWpIndex, estLandingTimeStr: minutesToTime(estLandingTimeMins), estBlockInStr: minutesToTime(estBlockInMins), latestAtoTimeDiffStr: formatTimeDiff(latestAtoTimeDiff) };
+    return { flightData: data, totalBurnDiff, lastValidWpIndex, estLandingTimeStr: minutesToTime(estLandingTimeMins), estBlockInStr: minutesToTime(estBlockInMins), estBlockInMins, latestAtoTimeDiffStr: formatTimeDiff(latestAtoTimeDiff) };
   }, [takeoffTime, actuals, flightPlan, parsedPzfw, parsedReg, is15gLimit, parsedTaxi]);
+
+  // LOCAL STA と LOCAL BLOCK IN の計算 (APIなし)
+  useEffect(() => {
+    let newLocalSta = "";
+    let newLocalBlockIn = "";
+
+    if (parsedDestIcao && parsedDate) {
+      try {
+        const hoursSta = parsedSta ? parseInt(parsedSta.substring(0, 2), 10) : 0;
+        const minsSta = parsedSta ? parseInt(parsedSta.substring(2, 4), 10) : 0;
+        const day = parseInt(parsedDate.substring(0, 2), 10);
+        const monthMap = {JAN:0, FEB:1, MAR:2, APR:3, MAY:4, JUN:5, JUL:6, AUG:7, SEP:8, OCT:9, NOV:10, DEC:11};
+        const monthStr = parsedDate.substring(2, 5).toUpperCase();
+        const mon = monthMap[monthStr] !== undefined ? monthMap[monthStr] : 0;
+        const yy = 2000 + parseInt(parsedDate.substring(5, 7), 10);
+
+        const tz = ICAO_TZ[parsedDestIcao] || "UTC";
+        const formatter = new Intl.DateTimeFormat('en-GB', {
+          timeZone: tz,
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false
+        });
+
+        // LOCAL STA
+        if (parsedSta && parsedSta.length === 4) {
+          const utcDateSta = new Date(Date.UTC(yy, mon, day, hoursSta, minsSta));
+          if (!isNaN(utcDateSta.getTime())) {
+            newLocalSta = formatter.format(utcDateSta).replace(':', '');
+          }
+        }
+
+        // LOCAL BLOCK IN
+        if (calculatedData.estBlockInMins !== null && calculatedData.estBlockInMins !== undefined) {
+          const h = Math.floor(calculatedData.estBlockInMins / 60);
+          const m = calculatedData.estBlockInMins % 60;
+          const utcDateBlk = new Date(Date.UTC(yy, mon, day, h, m));
+          if (!isNaN(utcDateBlk.getTime())) {
+            newLocalBlockIn = formatter.format(utcDateBlk).replace(':', '');
+          }
+        }
+      } catch(e) {
+        // Ignore
+      }
+    }
+    setLocalSta(newLocalSta);
+    setLocalBlockIn(newLocalBlockIn);
+  }, [parsedSta, parsedDate, parsedDestIcao, calculatedData.estBlockInMins]);
 
   const scrollToCurrentFix = () => {
     if (!takeoffTime || calculatedData.flightData.length === 0) return;
@@ -557,7 +623,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
           
           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
             
-            {/* 時間ブロック: TAKEOFF, EST LND, BLOCK IN, STA */}
+            {/* 時間情報ブロック */}
             <div className="flex items-center gap-2 bg-[#0f172a] px-2 py-0.5 rounded-lg border border-slate-700 shadow-inner">
               <div className="flex flex-col items-center">
                 <label className="text-[8px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-0.5">Takeoff(Z)</label>
@@ -573,17 +639,26 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
               
               <div className="w-px h-5 bg-slate-700"></div>
 
-              <div className="flex flex-col items-center justify-center pt-0.5 min-w-[45px]">
-                <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-0.5">BLOCK IN</span>
-                <span className="text-xs font-mono font-extrabold text-amber-400 leading-none h-4 flex items-center">{calculatedData.estBlockInStr || "----"}</span>
+              {/* ETA (Z) と (L) ブロック */}
+              <div className="flex flex-col items-center justify-center pt-0.5 min-w-[70px]">
+                <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-0.5">ETA (Z/L)</span>
+                <div className="flex items-center gap-1 h-4">
+                  <span className="text-xs font-mono font-extrabold text-amber-400 leading-none">{calculatedData.estBlockInStr || "----"}</span>
+                  <span className="text-[10px] font-mono font-extrabold text-amber-200/80 leading-none">({localBlockIn || "----"})</span>
+                </div>
               </div>
 
               <div className="w-px h-5 bg-slate-700"></div>
 
-              <div className="flex flex-col items-center justify-center pt-0.5 min-w-[36px]">
-                <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-0.5">STA(Z)</span>
-                <span className="text-xs font-mono font-extrabold text-slate-300 leading-none h-4 flex items-center">{parsedSta || "----"}</span>
+              {/* STA (Z) と (L) ブロック */}
+              <div className="flex flex-col items-center justify-center pt-0.5 min-w-[70px]">
+                <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-0.5">STA (Z/L)</span>
+                <div className="flex items-center gap-1 h-4">
+                  <span className="text-xs font-mono font-extrabold text-slate-300 leading-none">{parsedSta || "----"}</span>
+                  <span className="text-[10px] font-mono font-extrabold text-cyan-300/80 leading-none">({localSta || "----"})</span>
+                </div>
               </div>
+
             </div>
 
             {/* DIFF と MAX ALT ブロック */}
@@ -684,14 +759,16 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                       <input type="text" placeholder="RMG" value={row.afob} onChange={(e) => handleUpdateActual(row.wp, 'afob', e.target.value.replace(/[^0-9.]/g, ''))} className={`w-full bg-[#05070a] border rounded py-1 text-center font-mono text-sm sm:text-base font-bold focus:outline-none focus:ring-1 focus:ring-green-500 transition-colors ${row.afob ? 'border-green-500/50 text-white' : 'border-slate-700 text-slate-400'}`} />
                     </div>
 
-                    {/* ★ 上にISA DEV、下にTMP（PLN/ACT入力）、下にWIND（PLN/ACT入力） ★ */}
+                    {/* 上にISA DEV、下にTMP（PLN/ACT入力）、下にWIND（PLN/ACT入力） */}
                     <div className="grid grid-cols-3 gap-0.5 px-0.5">
                         <div className="flex flex-col items-center justify-center">
                             <input type="text" placeholder="ACT" value={row.actAlt} onChange={(e) => handleUpdateActual(row.wp, 'actAlt', e.target.value.toUpperCase())} className="w-full bg-[#05070a] border border-slate-700 rounded text-center text-xs font-mono font-bold py-1 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-inner" />
                             <span className="text-[8px] text-slate-500 font-mono mt-0.5 h-2.5">{row.plnAlt || "-"}</span>
                         </div>
                         <div className="flex flex-col items-center justify-center">
-                            <span className="text-[8px] text-purple-400 font-mono font-bold mb-0.5 h-2.5 leading-none">{row.isaDev !== undefined && !isNaN(row.isaDev) ? `ISA${row.isaDev >= 0 ? '+' : ''}${row.isaDev}` : "-"}</span>
+                            <span className="text-[8px] text-purple-400 font-mono font-bold mb-0.5 h-2.5 leading-none">
+                              {row.isaDev !== undefined && !isNaN(row.isaDev) ? `ISA${row.isaDev >= 0 ? '+' : ''}${row.isaDev}` : "-"}
+                            </span>
                             <input type="text" placeholder="ACT" value={row.actTmp} onChange={(e) => handleUpdateActual(row.wp, 'actTmp', e.target.value)} className="w-full bg-[#05070a] border border-slate-700 rounded text-center text-xs font-mono font-bold py-1 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-inner" />
                             <span className="text-[8px] text-slate-500 font-mono mt-0.5 h-2.5 leading-none">{row.plnTmp || "-"}</span>
                         </div>
