@@ -364,6 +364,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
         }
         hasAutoScrolled.current = false;
         
+        // 新規PDF解析の場合のみ実績値・メモ・TAKEOFFタイムをクリアする（再起動時の復元ではそのまま維持）
         if (navlogData.isNew) {
             setActuals({});
             setTakeoffTime('');
@@ -374,6 +375,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
     }
   }, [navlogData]);
 
+  // アプリ再起動時のローカルストレージからの復元
   useEffect(() => {
     const saved = localStorage.getItem('navlogFlightDataBackup');
     if (saved) {
@@ -396,12 +398,47 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
     }
   }, []);
 
+  // 状態の自動バックアップ
   useEffect(() => {
     try {
         const backup = { flightPlan, actuals, flightNo, routeInfo, parsedReg, parsedPzfw, parsedTaxi, parsedDate, parsedSta, parsedDestIcao, takeoffTime };
         localStorage.setItem('navlogFlightDataBackup', JSON.stringify(backup));
     } catch (e) {}
   }, [flightPlan, actuals, flightNo, routeInfo, parsedReg, parsedPzfw, parsedTaxi, parsedDate, parsedSta, parsedDestIcao, takeoffTime]);
+
+  // LOCAL STAの計算 (APIなし)
+  useEffect(() => {
+    if (parsedDestIcao && parsedSta && parsedSta.length === 4 && parsedDate) {
+      try {
+        const hours = parsedSta.substring(0, 2);
+        const mins = parsedSta.substring(2, 4);
+        const day = parsedDate.substring(0, 2);
+        const monthMap = {JAN:0, FEB:1, MAR:2, APR:3, MAY:4, JUN:5, JUL:6, AUG:7, SEP:8, OCT:9, NOV:10, DEC:11};
+        const monthStr = parsedDate.substring(2, 5).toUpperCase();
+        const mon = monthMap[monthStr] !== undefined ? monthMap[monthStr] : 0;
+        const yy = 2000 + parseInt(parsedDate.substring(5, 7), 10);
+
+        const utcDate = new Date(Date.UTC(yy, mon, day, parseInt(hours, 10), parseInt(mins, 10)));
+        
+        if (!isNaN(utcDate.getTime())) {
+          const tz = ICAO_TZ[parsedDestIcao] || "UTC";
+          const localTimeStr = new Intl.DateTimeFormat('en-GB', {
+            timeZone: tz,
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+          }).format(utcDate);
+          setLocalSta(localTimeStr.replace(':', ''));
+        } else {
+          setLocalSta("");
+        }
+      } catch(e) {
+        setLocalSta("");
+      }
+    } else {
+        setLocalSta("");
+    }
+  }, [parsedSta, parsedDate, parsedDestIcao]);
 
   const handleUpdateActual = (wp, field, value) => {
     setActuals(prev => ({ ...prev, [wp]: { ...prev[wp], [field]: value } }));
@@ -493,15 +530,12 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
     return { flightData: data, totalBurnDiff, lastValidWpIndex, estLandingTimeStr: minutesToTime(estLandingTimeMins), estBlockInStr: minutesToTime(estBlockInMins), estBlockInMins, latestAtoTimeDiffStr: formatTimeDiff(latestAtoTimeDiff) };
   }, [takeoffTime, actuals, flightPlan, parsedPzfw, parsedReg, is15gLimit, parsedTaxi]);
 
-  // LOCAL STA と LOCAL BLOCK IN の計算 (APIなし)
+  // LOCAL BLOCK IN の計算 (APIなし)
   useEffect(() => {
-    let newLocalSta = "";
     let newLocalBlockIn = "";
 
-    if (parsedDestIcao && parsedDate) {
+    if (parsedDestIcao && parsedDate && calculatedData.estBlockInMins !== null && calculatedData.estBlockInMins !== undefined) {
       try {
-        const hoursSta = parsedSta ? parseInt(parsedSta.substring(0, 2), 10) : 0;
-        const minsSta = parsedSta ? parseInt(parsedSta.substring(2, 4), 10) : 0;
         const day = parseInt(parsedDate.substring(0, 2), 10);
         const monthMap = {JAN:0, FEB:1, MAR:2, APR:3, MAY:4, JUN:5, JUL:6, AUG:7, SEP:8, OCT:9, NOV:10, DEC:11};
         const monthStr = parsedDate.substring(2, 5).toUpperCase();
@@ -516,28 +550,29 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
           hour12: false
         });
 
-        // LOCAL STA
-        if (parsedSta && parsedSta.length === 4) {
-          const utcDateSta = new Date(Date.UTC(yy, mon, day, hoursSta, minsSta));
-          if (!isNaN(utcDateSta.getTime())) {
-            newLocalSta = formatter.format(utcDateSta).replace(':', '');
-          }
+        const h = Math.floor(calculatedData.estBlockInMins / 60) % 24;
+        const m = calculatedData.estBlockInMins % 60;
+        
+        // 正確な日付またぎを計算するために、元々のSTAとETAの差分日数を考慮する
+        const hoursSta = parsedSta ? parseInt(parsedSta.substring(0, 2), 10) : 0;
+        const minsSta = parsedSta ? parseInt(parsedSta.substring(2, 4), 10) : 0;
+        const utcDateSta = new Date(Date.UTC(yy, mon, day, hoursSta, minsSta));
+        
+        // 簡易的にフライトプラン日を設定
+        const utcDateBlk = new Date(Date.UTC(yy, mon, day, h, m));
+        
+        // もし到着予定が前倒しになったり遅延したりして日付を跨ぐ場合の補正
+        if (calculatedData.estBlockInMins >= 24 * 60) {
+            utcDateBlk.setUTCDate(utcDateBlk.getUTCDate() + Math.floor(calculatedData.estBlockInMins / (24 * 60)));
         }
 
-        // LOCAL BLOCK IN
-        if (calculatedData.estBlockInMins !== null && calculatedData.estBlockInMins !== undefined) {
-          const h = Math.floor(calculatedData.estBlockInMins / 60);
-          const m = calculatedData.estBlockInMins % 60;
-          const utcDateBlk = new Date(Date.UTC(yy, mon, day, h, m));
-          if (!isNaN(utcDateBlk.getTime())) {
-            newLocalBlockIn = formatter.format(utcDateBlk).replace(':', '');
-          }
+        if (!isNaN(utcDateBlk.getTime())) {
+          newLocalBlockIn = formatter.format(utcDateBlk).replace(':', '');
         }
       } catch(e) {
         // Ignore
       }
     }
-    setLocalSta(newLocalSta);
     setLocalBlockIn(newLocalBlockIn);
   }, [parsedSta, parsedDate, parsedDestIcao, calculatedData.estBlockInMins]);
 
@@ -623,39 +658,33 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
           
           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
             
-            {/* 時間情報ブロック */}
+            {/* 時間情報ブロック (ETA / STA の Z と L を並べて表示) */}
             <div className="flex items-center gap-2 bg-[#0f172a] px-2 py-0.5 rounded-lg border border-slate-700 shadow-inner">
+              
               <div className="flex flex-col items-center">
                 <label className="text-[8px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-0.5">Takeoff(Z)</label>
                 <input type="text" placeholder="HHMM" maxLength={4} value={takeoffTime} onChange={(e) => setTakeoffTime(e.target.value.replace(/[^0-9]/g, ''))} className="bg-slate-800 border border-slate-600 rounded px-1 py-0.5 text-xs font-mono font-black text-white text-center w-12 focus:outline-none focus:border-blue-500 transition-colors" />
               </div>
-              
-              <div className="w-px h-5 bg-slate-700"></div>
-              
-              <div className="flex flex-col items-center justify-center pt-0.5 min-w-[45px]">
-                <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-0.5">EST LND</span>
-                <span className="text-xs font-mono font-extrabold text-white leading-none h-4 flex items-center">{calculatedData.estLandingTimeStr || "----"}</span>
-              </div>
-              
+
               <div className="w-px h-5 bg-slate-700"></div>
 
-              {/* ETA (Z) と (L) ブロック */}
+              {/* ETA (Z/L) ブロック - 元BLOCK IN */}
               <div className="flex flex-col items-center justify-center pt-0.5 min-w-[70px]">
-                <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-0.5">ETA (Z/L)</span>
-                <div className="flex items-center gap-1 h-4">
+                <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-0.5">ETA (Z / L)</span>
+                <div className="flex items-center gap-1.5 h-4">
                   <span className="text-xs font-mono font-extrabold text-amber-400 leading-none">{calculatedData.estBlockInStr || "----"}</span>
-                  <span className="text-[10px] font-mono font-extrabold text-amber-200/80 leading-none">({localBlockIn || "----"})</span>
+                  <span className="text-xs font-mono font-extrabold text-amber-200/80 leading-none">({localBlockIn || "----"})</span>
                 </div>
               </div>
 
               <div className="w-px h-5 bg-slate-700"></div>
 
-              {/* STA (Z) と (L) ブロック */}
+              {/* STA (Z/L) ブロック */}
               <div className="flex flex-col items-center justify-center pt-0.5 min-w-[70px]">
-                <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-0.5">STA (Z/L)</span>
-                <div className="flex items-center gap-1 h-4">
+                <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-0.5">STA (Z / L)</span>
+                <div className="flex items-center gap-1.5 h-4">
                   <span className="text-xs font-mono font-extrabold text-slate-300 leading-none">{parsedSta || "----"}</span>
-                  <span className="text-[10px] font-mono font-extrabold text-cyan-300/80 leading-none">({localSta || "----"})</span>
+                  <span className="text-xs font-mono font-extrabold text-cyan-300/80 leading-none">({localSta || "----"})</span>
                 </div>
               </div>
 

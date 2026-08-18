@@ -12,16 +12,17 @@ import { WxMnmReference } from './components/WxMnmReference';
 import { EtopsView } from './components/EtopsView';
 import { Docs2View } from './components/Docs2View';
 import { RestView } from './components/RestView';
-import { BuddyCommView } from './components/BuddyCommView';
 import { FltInfoView } from './components/FltInfoView';
 import { ApproachCalcView } from './components/ApproachCalcView';
 import { XwindView } from './components/XwindView';
 import { QuickGuideModal } from './components/QuickGuideModal';
 import { NavlogView } from './components/NavlogView';
+import { TarmacView } from './components/TarmacView'; // 新規追加したTARMAC用のタブビュー
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('DASHBOARD');
-  const tabs = ['DASHBOARD', 'TFC INFO', 'WX/MNM', 'ETOPS', 'NAVLOG', 'DOCS', 'スマカタ', 'REST CALC', 'APP CALC', 'BUDDY COMM', 'XWIND'];
+  // BUDDY COMMを削除し、TARMACを新たに追加
+  const tabs = ['DASHBOARD', 'TFC INFO', 'WX/MNM', 'ETOPS', 'NAVLOG', 'DOCS', 'スマカタ', 'REST CALC', 'APP CALC', 'TARMAC', 'XWIND'];
 
   const [isPasteModalOpen, setIsPasteModalOpen] = useState(false); 
   const [flightId, setFlightId] = useState(""); 
@@ -347,10 +348,8 @@ export default function App() {
             continue;
         }
 
-        let cleanToken = token.replace(/^-+/, '').replace(/-+$/, '');
-
-        // 括弧内のISA DEV直接抽出
-        let isaBrackMatch = cleanToken.match(/^\(\s*([PM+-]?\d{1,2})\s*\)$/i);
+        // 括弧内のISA DEV直接抽出 (例: (17), (-05), (M02), (P12))
+        let isaBrackMatch = token.match(/^\(\s*([PM+-]?\d{1,2})\s*\)$/i);
         if (isaBrackMatch) {
             let valStr = isaBrackMatch[1].toUpperCase();
             let num = parseInt(valStr.replace(/[PM+]/g, ''), 10);
@@ -361,6 +360,7 @@ export default function App() {
             continue;
         }
 
+        let cleanToken = token.replace(/^-+/, '').replace(/-+$/, '');
         const isCoord = /^[NS]\d{4,5}[EW]\d{4,6}$/.test(cleanToken);
         const isAlphaWp = /^[A-Z][A-Z0-9]{1,5}$/.test(cleanToken) && !ignoreList.has(cleanToken);
         const isArincWp = /^\d{2}[NSWE]\d{2}$/.test(cleanToken);
@@ -449,7 +449,7 @@ export default function App() {
     return { 
         newPlan, fNo, flightIdRaw, rInfo, destIcao, pReg, pPzfw, pTaxi, pDate, 
         ptow, pldw, alt, isa, toElev, ldElev, fltTimeH, fltTimeM, stdH, stdM, staH, staM,
-        fullRouteStr, loadId: Date.now()
+        fullRouteStr, loadId: Date.now() 
     };
   };
 
@@ -823,7 +823,7 @@ export default function App() {
               <span>7PT B777 PERFORMANCE TOOL</span>
             </div>
             <div className="flex items-center gap-1">
-              <span className="text-amber-400 font-mono text-[9px] border border-amber-500/30 px-1 rounded bg-amber-500/10 tracking-normal font-bold">ver 7.1</span>
+              <span className="text-amber-400 font-mono text-[9px] border border-amber-500/30 px-1 rounded bg-amber-500/10 tracking-normal font-bold">ver 7.2</span>
               {flightId && (<span className="text-slate-300 font-mono text-[9px] border border-slate-600 px-1 rounded bg-slate-800 tracking-normal font-bold">ANA{flightId}</span>)}
             </div>
           </div>
@@ -902,8 +902,8 @@ export default function App() {
           </div>
         )}
         {activeTab === 'DOCS' && (<div className="flex flex-col gap-1 w-full h-full"><Docs2View /></div>)}
+        {activeTab === 'TARMAC' && (<div className="flex flex-col gap-1 w-full h-full"><TarmacView /></div>)}
         {activeTab === 'REST CALC' && (<div className="flex flex-col gap-1 w-full h-full"><RestView flightHours={restCrewSize === 3 ? restFlightHours3 : restFlightHours4} setFlightHours={restCrewSize === 3 ? setRestFlightHours3 : setRestFlightHours4} flightMins={restCrewSize === 3 ? restFlightMins3 : restFlightMins4} setFlightMins={restCrewSize === 3 ? setRestFlightMins3 : setRestFlightMins4} stdHours={stdHours} setStdHours={setStdHours} stdMins={stdMins} setStdMins={setStdMins} isTakeoffAuto={isTakeoffAuto} setIsTakeoffAuto={setIsTakeoffAuto} takeoffHours={restTakeoffHours} setTakeoffHours={setRestTakeoffHours} takeoffMins={restTakeoffMins} setTakeoffMins={setRestTakeoffMins} offsetMins={restOffsetMins} setOffsetMins={setRestOffsetMins} landingOffsetMins={restLandingOffsetMins} setLandingOffsetMins={setRestLandingOffsetMins} crewSize={restCrewSize} setCrewSize={setRestCrewSize} firstRestMins={restFirstRestMins} setFirstRestMins={setRestFirstRestMins} lastRestMins={restLastRestMins} setLastRestMins={setRestLastRestMins} firstHalfMins={restFirstHalfMins} setFirstHalfMins={setRestFirstHalfMins} taxiOutMins={taxiOutMins} /></div>)}
-        {activeTab === 'BUDDY COMM' && (<div className="flex flex-col gap-1 w-full h-full"><BuddyCommView p={{ aircraftRegistrationList, selectedReg: state.selectedReg, handleRegChange }} /></div>)}
         {activeTab === 'APP CALC' && (<div className="flex flex-col gap-1 w-full h-full"><ApproachCalcView /></div>)}
         {activeTab === 'XWIND' && (<div className="flex flex-col gap-1 w-full h-full mt-0.5"><XwindView /></div>)}
       </div>
