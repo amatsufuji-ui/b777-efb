@@ -4,7 +4,6 @@ import { SafeIcon } from './SharedComponents';
 export const QuickGuideModal = ({ isOpen, onClose }) => {
   const [hideSetup, setHideSetup] = useState(false);
 
-  // モーダルが開かれた時にローカルストレージの設定を読み込む
   useEffect(() => {
     if (isOpen) {
       const stored = localStorage.getItem('hideSetupGuide');
@@ -12,7 +11,6 @@ export const QuickGuideModal = ({ isOpen, onClose }) => {
     }
   }, [isOpen]);
 
-  // チェックボックスの変更を処理し、ローカルストレージに保存
   const handleCheckboxChange = (e) => {
     const checked = e.target.checked;
     setHideSetup(checked);
@@ -34,10 +32,8 @@ export const QuickGuideModal = ({ isOpen, onClose }) => {
           <h2 className="text-lg font-black text-white">7PT クイックガイド</h2>
         </div>
 
-        {/* スクロール可能なコンテンツエリア */}
         <div className="overflow-y-auto custom-scrollbar pr-2 space-y-6 text-sm text-slate-300">
 
-          {/* ★ 初回セットアップガイド (チェックボックスがOFFの時のみ表示) */}
           {!hideSetup && (
             <div className="bg-[#0b2447] border border-blue-500/50 rounded-xl p-4 shadow-inner relative overflow-hidden">
               <div className="absolute top-[-20px] right-[-20px] opacity-10">
@@ -139,10 +135,15 @@ export const QuickGuideModal = ({ isOpen, onClose }) => {
                 <div className="text-amber-300 font-bold mb-1">ETOPS</div>
                 <p className="leading-relaxed">欧州線のみADDITIONAL FUEL要否の判断ツール、HF周波数の取得、ETOPS関連情報を確認できます。</p>
               </div>
+              
+              <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
+                <div className="text-amber-300 font-bold mb-1">NAVLOG</div>
+                <p className="leading-relaxed">DIST CK機能あり。SYNCで記録したものの引き継ぎ機能が使えます。</p>
+              </div>
 
               <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
                 <div className="text-amber-300 font-bold mb-1">DOCS</div>
-                <p className="leading-relaxed">危険品の混載確認や、配慮を要する旅客情報の確認、Tarmac Delay時の対応タイムラインおよびチェックリストの利用ができます。</p>
+                <p className="leading-relaxed">危険品の混載確認や、配慮を要する旅客情報の確認ができます。</p>
               </div>
 
               <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
@@ -159,10 +160,10 @@ export const QuickGuideModal = ({ isOpen, onClose }) => {
                 <div className="text-amber-300 font-bold mb-1">APP CALC</div>
                 <p className="leading-relaxed">温度変化によるLDA時のFAFからMXまでのFPA計算、ILSZ34Lでは高温時にFAF手前のどれくらいでGS CAPTUREするかを算出、TRAFFIC PATTERNとMIN CIRCでは降下開始点を算出します。</p>
               </div>
-
+              
               <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
-                <div className="text-amber-300 font-bold mb-1">BUDDY COMM</div>
-                <p className="leading-relaxed">選択した機番でBUDDYCOMMにLOGINします。</p>
+                <div className="text-amber-300 font-bold mb-1">TARMAC</div>
+                <p className="leading-relaxed">各国のルールを適用したフローチャートを表示します。</p>
               </div>
 
               <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
