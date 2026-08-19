@@ -2,6 +2,103 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { SafeIcon } from './SharedComponents';
 
+// 主要空港の緯度経度辞書（APIキー不要・直接座標指定で取得成功率を高める）
+// ANA就航地を中心に拡張
+const ICAO_COORDS = {
+    "RJTT": { lat: 35.5494, lon: 139.7798 },
+    "RJAA": { lat: 35.7647, lon: 140.3863 },
+    "RJCC": { lat: 42.7752, lon: 141.6925 },
+    "RJBB": { lat: 34.4347, lon: 135.2442 },
+    "RJOO": { lat: 34.7855, lon: 135.4382 },
+    "ROAH": { lat: 26.1958, lon: 127.6458 },
+    "RJFF": { lat: 33.5859, lon: 130.4506 },
+    "KJFK": { lat: 40.6413, lon: -73.7781 },
+    "KIAD": { lat: 38.9445, lon: -77.4558 },
+    "KORD": { lat: 41.9742, lon: -87.9073 },
+    "KIAH": { lat: 29.9805, lon: -95.3397 },
+    "KLAX": { lat: 33.9416, lon: -118.4085 },
+    "KSFO": { lat: 37.6213, lon: -122.3790 },
+    "KSEA": { lat: 47.4489, lon: -122.3090 },
+    "PHNL": { lat: 21.3187, lon: -157.9225 },
+    "CYVR": { lat: 49.1967, lon: -123.1815 },
+    "MMMX": { lat: 19.4361, lon: -99.0719 },
+    "LFPG": { lat: 49.0097, lon: 2.5479 },
+    "EGLL": { lat: 51.4700, lon: -0.4543 },
+    "EDDF": { lat: 50.0379, lon: 8.5622 },
+    "EDDM": { lat: 48.3538, lon: 11.7861 },
+    "LOWW": { lat: 48.1103, lon: 16.5697 },
+    "EBBR": { lat: 50.9014, lon: 4.4844 },
+    "ESSA": { lat: 59.6519, lon: 17.9186 },
+    "LIMC": { lat: 45.6301, lon: 8.7231 },
+    "LTFM": { lat: 41.2753, lon: 28.7520 },
+    "YSSY": { lat: -33.9461, lon: 151.1772 },
+    "YPPH": { lat: -31.9403, lon: 115.9668 },
+    "VHHH": { lat: 22.3080, lon: 113.9185 },
+    "WSSS": { lat: 1.3644, lon: 103.9915 },
+    "VTBS": { lat: 13.6900, lon: 100.7501 },
+    "RCTP": { lat: 25.0777, lon: 121.2328 },
+    "RCSS": { lat: 25.0697, lon: 121.5520 },
+    "RKSI": { lat: 37.4602, lon: 126.4407 },
+    "RKSS": { lat: 37.5583, lon: 126.7906 },
+    "ZBAA": { lat: 40.0799, lon: 116.6031 },
+    "ZSPD": { lat: 31.1443, lon: 121.8083 },
+    "ZSSS": { lat: 31.1979, lon: 121.3363 },
+    "ZGGG": { lat: 23.3924, lon: 113.2988 },
+    "ZSAM": { lat: 24.5440, lon: 118.1277 },
+    "ZSHC": { lat: 30.2295, lon: 120.4345 },
+    "ZGSZ": { lat: 22.6393, lon: 113.8107 },
+    "ZYTL": { lat: 38.9657, lon: 121.5386 },
+    "WMKK": { lat: 2.7456, lon: 101.7099 },
+    "WIII": { lat: -6.1256, lon: 106.6559 },
+    "VVTS": { lat: 10.8188, lon: 106.6520 },
+    "VVNB": { lat: 21.2212, lon: 105.8072 },
+    "RPLL": { lat: 14.5086, lon: 121.0194 },
+    "VYYY": { lat: 16.9022, lon: 96.1332 },
+    "VDPP": { lat: 11.5466, lon: 104.8441 },
+    "VABB": { lat: 19.0896, lon: 72.8656 },
+    "VIDP": { lat: 28.5562, lon: 77.1000 },
+    "VOMM": { lat: 12.9941, lon: 80.1709 }
+};
+
+// タイムゾーン判定ロジック
+// 日本、中国など規則性のあるものはプレフィックスで判定し、それ以外を辞書から引く
+const ICAO_TZ = {
+    "KJFK": "America/New_York", "KIAD": "America/New_York",
+    "KORD": "America/Chicago", "KIAH": "America/Chicago",
+    "KLAX": "America/Los_Angeles", "KSFO": "America/Los_Angeles", "KSEA": "America/Los_Angeles",
+    "PHNL": "Pacific/Honolulu", 
+    "CYVR": "America/Vancouver", 
+    "MMMX": "America/Mexico_City",
+    "YSSY": "Australia/Sydney", "YPPH": "Australia/Perth",
+    "VHHH": "Asia/Hong_Kong", "WSSS": "Asia/Singapore"
+};
+
+const getLocalTimeZone = (icao) => {
+    if (!icao) return "UTC";
+    if (icao.startsWith("RJ") || icao.startsWith("RO")) return "Asia/Tokyo";
+    if (icao.startsWith("Z")) return "Asia/Shanghai";
+    if (icao.startsWith("RC")) return "Asia/Taipei";
+    if (icao.startsWith("RK")) return "Asia/Seoul";
+    if (icao.startsWith("RP")) return "Asia/Manila";
+    if (icao.startsWith("VV")) return "Asia/Ho_Chi_Minh";
+    if (icao.startsWith("VT")) return "Asia/Bangkok";
+    if (icao.startsWith("WM")) return "Asia/Kuala_Lumpur";
+    if (icao.startsWith("WI")) return "Asia/Jakarta"; 
+    if (icao.startsWith("VI") || icao.startsWith("VA") || icao.startsWith("VO")) return "Asia/Kolkata";
+    if (icao.startsWith("VY")) return "Asia/Yangon";
+    if (icao.startsWith("VD")) return "Asia/Phnom_Penh";
+    if (icao.startsWith("EG")) return "Europe/London";
+    if (icao.startsWith("LF")) return "Europe/Paris";
+    if (icao.startsWith("ED")) return "Europe/Berlin";
+    if (icao.startsWith("LI")) return "Europe/Rome";
+    if (icao.startsWith("LO")) return "Europe/Vienna";
+    if (icao.startsWith("EB")) return "Europe/Brussels";
+    if (icao.startsWith("ES")) return "Europe/Stockholm";
+    if (icao.startsWith("LT")) return "Europe/Istanbul";
+    
+    return ICAO_TZ[icao] || "UTC";
+};
+
 const MAX_ALT_DATA = {
   "772": [ [320, 43100, 43100, 43100, 43100, 43100, 43100], [340, 43100, 43100, 43100, 43100, 43100, 43100], [360, 42100, 43100, 43100, 43100, 43000, 42300], [380, 41000, 43100, 43100, 42900, 42200, 41400], [400, 40000, 43100, 42300, 42100, 41300, 40500], [420, 39000, 43100, 41400, 41200, 40500, 39600], [440, 38000, 42900, 40500, 40400, 39600, 38700], [460, 37100, 42100, 39600, 39600, 38800, 37900], [480, 36300, 41300, 38800, 38700, 37900, 37100], [500, 35500, 40500, 37900, 37900, 37100, 36100], [520, 34800, 39600, 37000, 37100, 36200, 35200], [540, 34000, 38800, 36100, 36200, 35400, 34300], [560, 33600, 38000, 35200, 35400, 34500, 33500] ],
   "773": [ [340, 43100, 43100, 43100, 43100, 43100, 43100], [360, 42300, 43100, 43100, 43100, 43100, 43100], [380, 41200, 43100, 43100, 43100, 42900, 42200], [400, 40100, 43100, 42200, 42600, 42100, 41400], [420, 39000, 43100, 41400, 41800, 41300, 40600], [440, 38000, 43100, 40600, 41100, 40500, 39700], [460, 37200, 42500, 39800, 40300, 39700, 38900], [480, 36400, 41700, 39000, 39500, 39000, 38100], [500, 35700, 40900, 38200, 38800, 37400, 36400], [520, 35000, 40200, 37400, 38000, 37400, 36400], [540, 34200, 39400, 36600, 37200, 36600, 35600] ],
@@ -14,18 +111,6 @@ const REG_MAP = {
   "JA751A": "773", "JA752A": "773", "JA753A": "773", "JA754A": "773", "JA755A": "773",
   "JA784A": "77W", "JA785A": "77W", "JA787A": "77W", "JA788A": "77W", "JA790A": "77W", "JA791A": "77W", "JA792A": "77W", "JA793A": "77W", "JA794A": "77W", "JA795A": "77W", "JA796A": "77W", "JA797A": "77W", "JA798A": "77W", "JA799A": "77W",
   "JA771F": "77F", "JA772F": "77F"
-};
-
-const ICAO_TZ = {
-    "RJTT": "Asia/Tokyo", "RJAA": "Asia/Tokyo", "RJCC": "Asia/Tokyo", "RJBB": "Asia/Tokyo", "ROAH": "Asia/Tokyo", "RJFF": "Asia/Tokyo", "RJGG": "Asia/Tokyo",
-    "KJFK": "America/New_York", "KEWR": "America/New_York", "KORD": "America/Chicago", 
-    "KLAX": "America/Los_Angeles", "KSFO": "America/Los_Angeles", "PANC": "America/Anchorage",
-    "PHNL": "Pacific/Honolulu", "CYVR": "America/Vancouver", "LFPG": "Europe/Paris",
-    "EGLL": "Europe/London", "EDDF": "Europe/Berlin", "EDDM": "Europe/Berlin", "YSSY": "Australia/Sydney", "VHHH": "Asia/Hong_Kong",
-    "WSSS": "Asia/Singapore", "VTBS": "Asia/Bangkok", "RCTP": "Asia/Taipei",
-    "RKSI": "Asia/Seoul", "ZBAA": "Asia/Shanghai", "ZSPD": "Asia/Shanghai",
-    "WMKK": "Asia/Kuala_Lumpur", "WIDD": "Asia/Jakarta", "VABB": "Asia/Kolkata", "VIDP": "Asia/Kolkata",
-    "YMML": "Australia/Melbourne", "NZAA": "Pacific/Auckland", "OMDB": "Asia/Dubai", "OTHH": "Asia/Dubai"
 };
 
 const DEFAULT_FLIGHT_PLAN_DATA = [
@@ -228,25 +313,19 @@ const DistCheckModal = ({ isOpen, onClose, flightData }) => {
         for (let i = 0; i < flightData.length; i++) {
             const wp = flightData[i];
             
-            // i > 0 なのは、起点(0番目)にはその区間の距離情報がないため
             if (i > 0 && wp.dist !== undefined && !isNaN(wp.dist)) {
                 accumulatedDist += wp.dist;
             }
 
-            // 無視するWPの条件: マイナス始まり、または特定キーワード
             const isExclude = wp.isOffRoute || /^(TOC|TOD|CLM|DEC|WPT|EEP\d*|ETP\d*|EXP\d*)$/i.test(wp.wp);
             const isLatLon = /^\d{2}[A-Z]\d{2}$/.test(wp.wp);
 
             if (isExclude) {
-                // 区間の境界とは見なさないが、距離はすでに accumulatedDist に足されている
                 continue;
             }
 
             if (lastBoundaryWp) {
                 const wasLatLon = /^\d{2}[A-Z]\d{2}$/.test(lastBoundaryWp.wp);
-                
-                // 主要WPから主要WPへの区間は表示しない。
-                // つまり「前か今回が緯度経度WPの場合のみ」セグメントを登録する
                 if (wasLatLon || isLatLon) {
                     segs.push({
                         from: lastBoundaryWp.wp,
@@ -310,7 +389,6 @@ const DistCheckModal = ({ isOpen, onClose, flightData }) => {
 const GraphModal = ({ isOpen, onClose, flightData }) => {
     if (!isOpen) return null;
     
-    // データが入力されているポイントのみ抽出
     const validPoints = flightData.filter(d => 
         (d.ato && d.timeDiffStr !== '') || 
         (d.afob && d.fuelDiff !== null && d.fuelDiff !== undefined)
@@ -321,7 +399,6 @@ const GraphModal = ({ isOpen, onClose, flightData }) => {
     const paddingX = 60;
     const paddingY = 40;
 
-    // スケール計算
     const timeDiffs = validPoints.map(p => Math.abs(parseInt(p.timeDiffStr) || 0)).filter(v => v > 0);
     const fuelDiffs = validPoints.map(p => Math.abs(p.fuelDiff || 0)).filter(v => v > 0);
     
@@ -332,7 +409,6 @@ const GraphModal = ({ isOpen, onClose, flightData }) => {
     const getY_T = (val) => (height / 2) - (val / maxT) * ((height - paddingY * 2) / 2);
     const getY_F = (val) => (height / 2) - (val / maxF) * ((height - paddingY * 2) / 2);
 
-    // データが存在する箇所のみ結ぶPolylineを生成
     const pointsT = validPoints
         .map((pt, i) => (pt.ato && pt.timeDiffStr !== '') ? `${getX(i)},${getY_T(parseInt(pt.timeDiffStr)||0)}` : null)
         .filter(Boolean)
@@ -356,16 +432,11 @@ const GraphModal = ({ isOpen, onClose, flightData }) => {
                         <div className="text-slate-500 py-10">Data not available</div>
                     ) : (
                         <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="w-full h-auto min-w-[600px] select-none">
-                            {/* Center Zero Line */}
                             <line x1={paddingX} y1={height/2} x2={width - paddingX} y2={height/2} stroke="#475569" strokeWidth="2" strokeDasharray="5,5" />
                             
-                            {/* Time Polyline (Blue/Cyan) */}
                             {pointsT && <polyline fill="none" stroke="#38bdf8" strokeWidth="3" points={pointsT} />}
-                            
-                            {/* Fuel Polyline (Green/Emerald) */}
                             {pointsF && <polyline fill="none" stroke="#34d399" strokeWidth="3" points={pointsF} />}
 
-                            {/* Data Points & Labels */}
                             {validPoints.map((pt, i) => {
                                 const cx = getX(i);
                                 const hasTime = pt.ato && pt.timeDiffStr !== '';
@@ -422,7 +493,6 @@ const MemoModal = ({ isOpen, initialMemo, wpName, onClose, onSave }) => {
         <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
             <div className="bg-slate-800 border border-slate-600 rounded-xl p-4 max-w-sm w-full shadow-2xl flex flex-col">
                 <h3 className="text-white font-bold mb-2">Memo - {wpName}</h3>
-                {/* 英語キーボードを強制するためのプロパティ指定 */}
                 <textarea 
                     value={text} 
                     onChange={e => setText(e.target.value)} 
@@ -462,7 +532,8 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
   const [routeInfo, setRouteInfo] = useState("RJTT - KJFK");
   const [parsedReg, setParsedReg] = useState("JA796A");
   const [parsedPzfw, setParsedPzfw] = useState(475.6);
-  const [parsedTaxi, setParsedTaxi] = useState(13); 
+  const [parsedTaxiOut, setParsedTaxiOut] = useState(20); 
+  const [parsedTaxiIn, setParsedTaxiIn] = useState(5); 
   const [parsedDate, setParsedDate] = useState("16JUL26");
   const [parsedSta, setParsedSta] = useState("");
   const [parsedDestIcao, setParsedDestIcao] = useState("KJFK");
@@ -472,84 +543,8 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
   const [localBlockIn, setLocalBlockIn] = useState("");
   const [localLdg, setLocalLdg] = useState("");
 
-  useEffect(() => {
-    if (navlogData && navlogData.newPlan && navlogData.newPlan.length > 0) {
-        setFlightPlan(navlogData.newPlan);
-        setFlightNo(navlogData.fNo);
-        setRouteInfo(navlogData.rInfo);
-        setParsedReg(navlogData.pReg);
-        setParsedPzfw(navlogData.pPzfw);
-        setParsedTaxi(navlogData.pTaxi);
-        
-        if (navlogData.pDate) setParsedDate(navlogData.pDate);
-        if (navlogData.destIcao) setParsedDestIcao(navlogData.destIcao);
-
-        if (navlogData.staH !== undefined && navlogData.staM !== undefined) {
-            setParsedSta(`${String(navlogData.staH).padStart(2, '0')}${String(navlogData.staM).padStart(2, '0')}`);
-        }
-        hasAutoScrolled.current = false;
-        
-        // 新規PDF解析の場合のみ実績値・メモ・TAKEOFFタイムをクリアする（再起動時の復元ではそのまま維持）
-        if (navlogData.isNew) {
-            setActuals({});
-            setTakeoffTime('');
-            lastLoadId.current = Date.now();
-        } else {
-            setActuals(prev => ({ ...prev }));
-        }
-    }
-  }, [navlogData]);
-
-  // アプリ再起動時のローカルストレージからの復元
-  useEffect(() => {
-    const saved = localStorage.getItem('navlogFlightDataBackup');
-    if (saved) {
-        try {
-            const parsed = JSON.parse(saved);
-            if (parsed.actuals) setActuals(parsed.actuals);
-            if (parsed.takeoffTime) setTakeoffTime(parsed.takeoffTime);
-            if (!navlogData) {
-                if (parsed.flightPlan) setFlightPlan(parsed.flightPlan);
-                if (parsed.flightNo) setFlightNo(parsed.flightNo);
-                if (parsed.routeInfo) setRouteInfo(parsed.routeInfo);
-                if (parsed.parsedReg) setParsedReg(parsed.parsedReg);
-                if (parsed.parsedPzfw) setParsedPzfw(parsed.parsedPzfw);
-                if (parsed.parsedTaxi) setParsedTaxi(parsed.parsedTaxi);
-                if (parsed.parsedDate) setParsedDate(parsed.parsedDate);
-                if (parsed.parsedSta) setParsedSta(parsed.parsedSta);
-                if (parsed.parsedDestIcao) setParsedDestIcao(parsed.parsedDestIcao);
-            }
-        } catch(e) {}
-    }
-  }, []);
-
-  // 状態の自動バックアップ
-  useEffect(() => {
-    try {
-        const backup = { flightPlan, actuals, flightNo, routeInfo, parsedReg, parsedPzfw, parsedTaxi, parsedDate, parsedSta, parsedDestIcao, takeoffTime };
-        localStorage.setItem('navlogFlightDataBackup', JSON.stringify(backup));
-    } catch (e) {}
-  }, [flightPlan, actuals, flightNo, routeInfo, parsedReg, parsedPzfw, parsedTaxi, parsedDate, parsedSta, parsedDestIcao, takeoffTime]);
-
-  const handleUpdateActual = (wp, field, value) => {
-    setActuals(prev => ({ ...prev, [wp]: { ...prev[wp], [field]: value } }));
-  };
-
-  const handleSyncData = (importedData) => {
-    setActuals(prev => {
-        const merged = { ...prev };
-        for (const wp in importedData) {
-            if (!merged[wp]) merged[wp] = {};
-            if (importedData[wp].ato) merged[wp].ato = importedData[wp].ato;
-            if (importedData[wp].afob) merged[wp].afob = importedData[wp].afob;
-            if (importedData[wp].actAlt) merged[wp].actAlt = importedData[wp].actAlt;
-            if (importedData[wp].actTmp) merged[wp].actTmp = importedData[wp].actTmp;
-            if (importedData[wp].actWind) merged[wp].actWind = importedData[wp].actWind;
-            if (importedData[wp].memo) merged[wp].memo = importedData[wp].memo;
-        }
-        return merged;
-    });
-  };
+  const [destWeather, setDestWeather] = useState(null);
+  const [parsedEtopsData, setParsedEtopsData] = useState(null);
 
   const calculatedData = useMemo(() => {
     const data = [];
@@ -561,7 +556,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
     let totalBurnDiff = 0, lastValidWpIndex = -1;
     let latestAtoTimeDiff = 0;
 
-    // 先にETAやBLOCK INのために最新のDiffを検索しておく
     let activeDiffForETA = 0;
     let lastAtoIndexForETA = -1;
     for (let i = 0; i < flightPlan.length; i++) {
@@ -586,9 +580,8 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
             estLandingTimeMins = takeoffMinutes + flightPlan[flightPlan.length - 1].ctme;
         }
     }
-    const estBlockInMins = estLandingTimeMins !== null ? estLandingTimeMins + parsedTaxi : null;
+    const estBlockInMins = estLandingTimeMins !== null ? estLandingTimeMins + parsedTaxiIn : null;
 
-    // 順次計算ループ：ATO入力ポイント以後のみ再計算（通過したETOは変更しない）
     for (let i = 0; i < flightPlan.length; i++) {
       const wpPlan = flightPlan[i];
       const wpActual = actuals[wpPlan.wp] || {};
@@ -599,11 +592,9 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
       if (takeoffMinutes !== null) {
           const originalEtoMins = takeoffMinutes + wpPlan.ctme;
           
-          // その時点での最新のDiffを適用して計算
           const calculatedEtoMins = originalEtoMins + currentDiff;
           revisedEtoStr = minutesToTime(calculatedEtoMins);
 
-          // ATOが入力されていれば、以降のポイントのためのDiffを更新
           if (wpActual.ato) {
               const atoMins = timeToMinutes(wpActual.ato);
               if (atoMins !== null) {
@@ -636,11 +627,224 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
     }
 
     return { flightData: data, totalBurnDiff, lastValidWpIndex, estLandingTimeStr: minutesToTime(estLandingTimeMins), estBlockInStr: minutesToTime(estBlockInMins), estBlockInMins, estLandingTimeMins, latestAtoTimeDiffStr: formatTimeDiff(latestAtoTimeDiff) };
-  }, [takeoffTime, actuals, flightPlan, parsedPzfw, parsedReg, is15gLimit, parsedTaxi]);
+  }, [takeoffTime, actuals, flightPlan, parsedPzfw, parsedReg, is15gLimit, parsedTaxiIn]);
 
-  // LOCAL STA と LOCAL BLOCK IN、LOCAL LDG の計算 (APIなし)
   useEffect(() => {
-    let newLocalSta = "";
+    if (navlogData && navlogData.newPlan && navlogData.newPlan.length > 0) {
+        setFlightPlan(navlogData.newPlan);
+        setFlightNo(navlogData.fNo);
+        setRouteInfo(navlogData.rInfo);
+        setParsedReg(navlogData.pReg);
+        setParsedPzfw(navlogData.pPzfw);
+        
+        if (navlogData.pTaxiOut !== undefined) setParsedTaxiOut(navlogData.pTaxiOut);
+        if (navlogData.pTaxiIn !== undefined) setParsedTaxiIn(navlogData.pTaxiIn);
+        
+        if (navlogData.pDate) setParsedDate(navlogData.pDate);
+        if (navlogData.destIcao) setParsedDestIcao(navlogData.destIcao);
+
+        if (navlogData.staH !== undefined && navlogData.staM !== undefined) {
+            setParsedSta(`${String(navlogData.staH).padStart(2, '0')}${String(navlogData.staM).padStart(2, '0')}`);
+        }
+
+        if (navlogData.etopsData !== undefined) {
+            setParsedEtopsData(navlogData.etopsData);
+        } else {
+            setParsedEtopsData(null);
+        }
+
+        hasAutoScrolled.current = false;
+        
+        if (navlogData.isNew) {
+            setActuals({});
+            
+            if (navlogData.stdH !== undefined && navlogData.stdM !== undefined) {
+                const taxiOut = navlogData.pTaxiOut !== undefined ? navlogData.pTaxiOut : 20;
+                const defaultToMins = (navlogData.stdH * 60 + navlogData.stdM + taxiOut) % 1440;
+                setTakeoffTime(minutesToTime(defaultToMins));
+            } else {
+                setTakeoffTime('');
+            }
+            
+            lastLoadId.current = Date.now();
+        } else {
+            setActuals(prev => ({ ...prev }));
+        }
+    }
+  }, [navlogData]);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('navlogFlightDataBackup');
+    if (saved) {
+        try {
+            const parsed = JSON.parse(saved);
+            if (parsed.actuals) setActuals(parsed.actuals);
+            if (parsed.takeoffTime) setTakeoffTime(parsed.takeoffTime);
+            if (!navlogData) {
+                if (parsed.flightPlan) setFlightPlan(parsed.flightPlan);
+                if (parsed.flightNo) setFlightNo(parsed.flightNo);
+                if (parsed.routeInfo) setRouteInfo(parsed.routeInfo);
+                if (parsed.parsedReg) setParsedReg(parsed.parsedReg);
+                if (parsed.parsedPzfw) setParsedPzfw(parsed.parsedPzfw);
+                
+                if (parsed.parsedTaxiOut !== undefined) setParsedTaxiOut(parsed.parsedTaxiOut);
+                if (parsed.parsedTaxiIn !== undefined) setParsedTaxiIn(parsed.parsedTaxiIn);
+
+                if (parsed.parsedDate) setParsedDate(parsed.parsedDate);
+                if (parsed.parsedSta) setParsedSta(parsed.parsedSta);
+                if (parsed.parsedDestIcao) setParsedDestIcao(parsed.parsedDestIcao);
+                if (parsed.parsedEtopsData !== undefined) setParsedEtopsData(parsed.parsedEtopsData);
+            }
+        } catch(e) {}
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+        const backup = { flightPlan, actuals, flightNo, routeInfo, parsedReg, parsedPzfw, parsedTaxiOut, parsedTaxiIn, parsedDate, parsedSta, parsedDestIcao, takeoffTime, parsedEtopsData };
+        localStorage.setItem('navlogFlightDataBackup', JSON.stringify(backup));
+    } catch (e) {}
+  }, [flightPlan, actuals, flightNo, routeInfo, parsedReg, parsedPzfw, parsedTaxiOut, parsedTaxiIn, parsedDate, parsedSta, parsedDestIcao, takeoffTime, parsedEtopsData]);
+
+  const handleUpdateActual = (wp, field, value) => {
+    setActuals(prev => ({ ...prev, [wp]: { ...prev[wp], [field]: value } }));
+  };
+
+  const handleSyncData = (importedData) => {
+    setActuals(prev => {
+        const merged = { ...prev };
+        for (const wp in importedData) {
+            if (!merged[wp]) merged[wp] = {};
+            if (importedData[wp].ato) merged[wp].ato = importedData[wp].ato;
+            if (importedData[wp].afob) merged[wp].afob = importedData[wp].afob;
+            if (importedData[wp].actAlt) merged[wp].actAlt = importedData[wp].actAlt;
+            if (importedData[wp].actTmp) merged[wp].actTmp = importedData[wp].actTmp;
+            if (importedData[wp].actWind) merged[wp].actWind = importedData[wp].actWind;
+            if (importedData[wp].memo) merged[wp].memo = importedData[wp].memo;
+        }
+        return merged;
+    });
+  };
+
+  useEffect(() => {
+    if (parsedDestIcao && parsedSta && parsedSta.length === 4 && parsedDate) {
+      try {
+        const hours = parsedSta.substring(0, 2);
+        const mins = parsedSta.substring(2, 4);
+        const day = parsedDate.substring(0, 2);
+        const monthMap = {JAN:0, FEB:1, MAR:2, APR:3, MAY:4, JUN:5, JUL:6, AUG:7, SEP:8, OCT:9, NOV:10, DEC:11};
+        const monthStr = parsedDate.substring(2, 5).toUpperCase();
+        const mon = monthMap[monthStr] !== undefined ? monthMap[monthStr] : 0;
+        const yy = 2000 + parseInt(parsedDate.substring(5, 7), 10);
+
+        const utcDate = new Date(Date.UTC(yy, mon, day, parseInt(hours, 10), parseInt(mins, 10)));
+        
+        if (!isNaN(utcDate.getTime())) {
+          const tz = getLocalTimeZone(parsedDestIcao);
+          const localTimeStr = new Intl.DateTimeFormat('en-GB', {
+            timeZone: tz,
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+          }).format(utcDate);
+          setLocalSta(localTimeStr.replace(':', ''));
+        } else {
+          setLocalSta("");
+        }
+      } catch(e) {
+        setLocalSta("");
+      }
+    } else {
+        setLocalSta("");
+    }
+  }, [parsedSta, parsedDate, parsedDestIcao]);
+
+  // 高信頼性・APIキー不要のオープン気象データ取得処理（AviationWeather API + Open-Meteo API）
+  useEffect(() => {
+    let isMounted = true;
+    if (!parsedDestIcao || !parsedDate || calculatedData.estBlockInMins === null) {
+        setDestWeather(null);
+        return;
+    }
+
+    const fetchWeather = async () => {
+        try {
+            // 1. 緯度経度の取得 (ローカル辞書優先 → ない場合API検索)
+            let lat, lon;
+            if (ICAO_COORDS[parsedDestIcao]) {
+                lat = ICAO_COORDS[parsedDestIcao].lat;
+                lon = ICAO_COORDS[parsedDestIcao].lon;
+            } else {
+                const awRes = await fetch(`https://aviationweather.gov/api/data/airport?ids=${parsedDestIcao}&format=json`);
+                if (!awRes.ok) throw new Error("AviationWeather error");
+                const awData = await awRes.json();
+                if (!awData || awData.length === 0) throw new Error("Airport not found");
+                lat = awData[0].lat;
+                lon = awData[0].lon;
+            }
+
+            // 2. ETA (UTC) の日時を算出
+            const day = parseInt(parsedDate.substring(0, 2), 10);
+            const monthMap = {JAN:0, FEB:1, MAR:2, APR:3, MAY:4, JUN:5, JUL:6, AUG:7, SEP:8, OCT:9, NOV:10, DEC:11};
+            const mon = monthMap[parsedDate.substring(2, 5).toUpperCase()] || 0;
+            const yy = 2000 + parseInt(parsedDate.substring(5, 7), 10);
+            
+            const h = Math.floor(calculatedData.estBlockInMins / 60) % 24;
+            const m = calculatedData.estBlockInMins % 60;
+            const utcDateBlk = new Date(Date.UTC(yy, mon, day, h, m));
+            if (calculatedData.estBlockInMins >= 24 * 60) {
+                utcDateBlk.setUTCDate(utcDateBlk.getUTCDate() + Math.floor(calculatedData.estBlockInMins / (24 * 60)));
+            }
+
+            // 3. Open-Meteoから予報を取得（CORS制限フリー、UTCベース）
+            // 過去日や未来日を広くカバーするために past_days と forecast_days を追加
+            const omRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,weather_code&timezone=UTC&past_days=7&forecast_days=14`);
+            if (!omRes.ok) throw new Error("Open-Meteo error");
+            const omData = await omRes.json();
+
+            if (!isMounted) return;
+
+            // 4. 到着予定時刻のUTC時間に合致するデータを抽出
+            const targetY = utcDateBlk.getUTCFullYear();
+            const targetM = String(utcDateBlk.getUTCMonth() + 1).padStart(2, '0');
+            const targetD = String(utcDateBlk.getUTCDate()).padStart(2, '0');
+            const targetH = String(utcDateBlk.getUTCHours()).padStart(2, '0');
+            const searchStr = `${targetY}-${targetM}-${targetD}T${targetH}:00`;
+
+            const timeIndex = omData.hourly.time.indexOf(searchStr);
+            
+            if (timeIndex !== -1) {
+                const temp = Math.round(omData.hourly.temperature_2m[timeIndex]);
+                const wcode = omData.hourly.weather_code[timeIndex];
+                
+                let icon = "☁️";
+                let text = "Cloudy";
+                if (wcode === 0) { icon = "☀️"; text = "Clear"; }
+                else if ([1,2].includes(wcode)) { icon = "⛅"; text = "Partly Cloudy"; }
+                else if ([3].includes(wcode)) { icon = "☁️"; text = "Overcast"; }
+                else if ([45,48].includes(wcode)) { icon = "🌫️"; text = "Fog"; }
+                else if ([51,53,55,56,57,61,63,65,66,67,80,81,82].includes(wcode)) { icon = "🌧️"; text = "Rain"; }
+                else if ([71,73,75,77,85,86].includes(wcode)) { icon = "❄️"; text = "Snow"; }
+                else if ([95,96,99].includes(wcode)) { icon = "⛈️"; text = "Thunderstorm"; }
+
+                setDestWeather({
+                    temp: temp > 0 ? `+${temp}` : `${temp}`,
+                    icon: icon,
+                    text: text
+                });
+            } else {
+                setDestWeather(null);
+            }
+        } catch (err) {
+            if (isMounted) setDestWeather(null);
+        }
+    };
+
+    fetchWeather();
+    return () => { isMounted = false; };
+  }, [parsedDestIcao, parsedDate, calculatedData.estBlockInMins]);
+
+  useEffect(() => {
     let newLocalBlockIn = "";
     let newLocalLdg = "";
 
@@ -652,7 +856,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
         const mon = monthMap[monthStr] !== undefined ? monthMap[monthStr] : 0;
         const yy = 2000 + parseInt(parsedDate.substring(5, 7), 10);
 
-        const tz = ICAO_TZ[parsedDestIcao] || "UTC";
+        const tz = getLocalTimeZone(parsedDestIcao);
         const formatter = new Intl.DateTimeFormat('en-GB', {
           timeZone: tz,
           hour: '2-digit',
@@ -660,17 +864,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
           hour12: false
         });
 
-        // LOCAL STA
-        const hoursSta = parsedSta ? parseInt(parsedSta.substring(0, 2), 10) : 0;
-        const minsSta = parsedSta ? parseInt(parsedSta.substring(2, 4), 10) : 0;
-        if (parsedSta && parsedSta.length === 4) {
-          const utcDateSta = new Date(Date.UTC(yy, mon, day, hoursSta, minsSta));
-          if (!isNaN(utcDateSta.getTime())) {
-            newLocalSta = formatter.format(utcDateSta).replace(':', '');
-          }
-        }
-
-        // LOCAL BLOCK IN
         if (calculatedData.estBlockInMins !== null && calculatedData.estBlockInMins !== undefined) {
           const h = Math.floor(calculatedData.estBlockInMins / 60) % 24;
           const m = calculatedData.estBlockInMins % 60;
@@ -686,7 +879,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
           }
         }
 
-        // LOCAL LDG
         if (calculatedData.estLandingTimeMins !== null && calculatedData.estLandingTimeMins !== undefined) {
           const hLdg = Math.floor(calculatedData.estLandingTimeMins / 60) % 24;
           const mLdg = calculatedData.estLandingTimeMins % 60;
@@ -706,7 +898,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
         // Ignore
       }
     }
-    setLocalSta(newLocalSta);
     setLocalBlockIn(newLocalBlockIn);
     setLocalLdg(newLocalLdg);
   }, [parsedSta, parsedDate, parsedDestIcao, calculatedData.estBlockInMins, calculatedData.estLandingTimeMins]);
@@ -775,7 +966,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
         flightData={calculatedData.flightData}
       />
 
-      {/* 完全に固定される最上部情報バー */}
       <header className="shrink-0 bg-gradient-to-r from-slate-900 via-[#131c2f] to-slate-900 border-b border-slate-700/80 px-2 sm:px-3 py-1.5 shadow-lg z-20">
         <div className="max-w-[1400px] mx-auto flex flex-wrap justify-between items-center gap-2">
           
@@ -793,7 +983,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                 <span className="text-[9px] font-bold text-slate-300 bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5">{parsedReg}</span>
                 {parsedDate && <span className="text-[9px] font-bold text-blue-300 bg-blue-900/40 border border-blue-500/40 rounded px-1.5 py-0.5">{parsedDate}</span>}
                 <span className="text-[9px] font-bold text-slate-300 bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5">ZFW:{parsedPzfw}</span>
-                <span className="text-[9px] font-bold text-slate-300 bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5">TAXI:{parsedTaxi}M</span>
+                <span className="text-[9px] font-bold text-slate-300 bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5">TAXI OUT/IN: {parsedTaxiOut}/{parsedTaxiIn}M</span>
             </div>
           </div>
           
@@ -837,6 +1027,23 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                 <div className="flex items-center gap-1.5 h-4">
                   <span className="text-[11px] font-mono font-extrabold text-slate-300 leading-none">{parsedSta || "----"}</span>
                   <span className="text-[11px] font-mono font-bold text-cyan-300/80 leading-none">({localSta || "----"})</span>
+                </div>
+              </div>
+
+              <div className="w-px h-5 bg-slate-700"></div>
+
+              {/* DEST WX ブロック：STAとTIME DIFFの間に配置 */}
+              <div className="flex flex-col items-center justify-center pt-0.5 px-2 min-w-[70px]">
+                <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-0.5">{parsedDestIcao} WX</span>
+                <div className="flex items-center justify-center h-4">
+                  {destWeather ? (
+                    <div className="flex items-center gap-0.5 cursor-help" title={destWeather.text}>
+                      <span className="text-[13px] leading-none mb-0.5">{destWeather.icon}</span>
+                      <span className="text-[11px] font-mono font-bold text-amber-300">{destWeather.temp}℃</span>
+                    </div>
+                  ) : (
+                    <span className="text-[11px] font-mono font-bold text-slate-500">----</span>
+                  )}
                 </div>
               </div>
 
@@ -891,6 +1098,30 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
             </div>
 
           </div>
+        </div>
+
+        {/* ETOPS Info Row */}
+        <div className="max-w-[1400px] mx-auto mt-1.5 flex flex-wrap items-center gap-2 text-[10px] sm:text-xs font-mono font-bold bg-slate-800/50 px-2 py-0.5 rounded border border-slate-700/50">
+            <span className="text-slate-400">ETOPS:</span>
+            {parsedEtopsData ? (
+                <div className="flex flex-wrap gap-2">
+                    {parsedEtopsData.map((data, idx) => (
+                        <div key={idx} className="flex items-center gap-1.5 bg-slate-700/60 border border-slate-600/50 px-2 py-0.5 rounded text-slate-200">
+                            <span className="text-sky-200 font-black">{data.airport}</span>
+                            <div className="flex items-center gap-0.5">
+                                <span className="text-slate-400 text-[9px]">ET</span>
+                                <span>{data.et}</span>
+                            </div>
+                            <div className="flex items-center gap-0.5">
+                                <span className="text-slate-400 text-[9px]">LT</span>
+                                <span>{data.lt}</span>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            ) : (
+                <span className="text-slate-500">NON ETOPS</span>
+            )}
         </div>
       </header>
 

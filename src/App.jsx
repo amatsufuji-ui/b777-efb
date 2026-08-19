@@ -43,6 +43,7 @@ export default function App() {
   const [stdMins, setStdMins] = useState(0);
   const [isTakeoffAuto, setIsTakeoffAuto] = useState(true); 
   const [taxiOutMins, setTaxiOutMins] = useState(20); 
+  const [taxiInMins, setTaxiInMins] = useState(5); 
   const [restTakeoffHours, setRestTakeoffHours] = useState(10); 
   const [restTakeoffMins, setRestTakeoffMins] = useState(20);
   const [restOffsetMins, setRestOffsetMins] = useState(0); 
@@ -190,7 +191,8 @@ export default function App() {
     }
     
     if (data.stdH !== undefined) { setStdHours(data.stdH); setStdMins(data.stdM); setIsTakeoffAuto(true); }
-    if (data.avgTaxi !== undefined) setTaxiOutMins(data.avgTaxi); else setTaxiOutMins(20);
+    if (data.avgTaxiOut !== undefined) setTaxiOutMins(data.avgTaxiOut); else setTaxiOutMins(20);
+    if (data.avgTaxiIn !== undefined) setTaxiInMins(data.avgTaxiIn); else setTaxiInMins(5);
     
     if (data.route) setGlobalRoute(data.route);
     if (data.dest) setGlobalDest(data.dest); 
@@ -218,7 +220,8 @@ export default function App() {
     const regMatch = text.match(/(JA\d{3}[A-Z]?)/);
     const pReg = regMatch ? regMatch[1] : "JA796A";
 
-    let ptow, pldw, pPzfw = 400.0, alt, isa = 0, toElev, ldElev, fltTimeH, fltTimeM, stdH, stdM, staH, staM, pTaxi = 20;
+    let ptow, pldw, pPzfw = 400.0, alt, isa = 0, toElev, ldElev, fltTimeH, fltTimeM, stdH, stdM, staH, staM;
+    let pTaxiOut = 20, pTaxiIn = 5;
 
     const zfwMatch = text.match(/(?:ZFW|PZFW)\s+([0-9,.]+)/);
     if (zfwMatch) {
@@ -282,14 +285,32 @@ export default function App() {
       staM = parseInt(staMatch[2], 10);
     }
 
-    // AVG TAXI OUT TIMEの抽出（スラッシュの前を取得）
-    const taxiMatch = text.match(/(?:AVG|TAXI|OUT|AVG:\s*)\s*(\d+)\/\d+MIN/i);
+    const taxiMatch = text.match(/AVG:\s*(\d+)\/(\d+)MIN/i) || text.match(/(?:AVG|TAXI|OUT)[^\d]*(\d+)\/(\d+)MIN/i);
     if (taxiMatch) {
-        pTaxi = parseInt(taxiMatch[1], 10);
+        pTaxiOut = parseInt(taxiMatch[1], 10);
+        pTaxiIn = parseInt(taxiMatch[2], 10);
     }
 
     const dateMatch = text.match(/\b(\d{2}[A-Z]{3}\d{2})\b/);
     const pDate = dateMatch ? dateMatch[1] : "";
+
+    // ETOPS ET/LTの抽出
+    const etopsSectionMatch = text.match(/-ETP\/EEP\/EXP\/ET\.LT([\s\S]*?)(?=\n-[A-Z]|\n\n|$)/);
+    let etopsData = null;
+    if (etopsSectionMatch) {
+      const etopsText = etopsSectionMatch[1];
+      const regex = /([A-Z]{4})\/(\d{4})\/(\d{4})/g;
+      let match;
+      etopsData = [];
+      while ((match = regex.exec(etopsText)) !== null) {
+        etopsData.push({
+          airport: match[1],
+          et: match[2],
+          lt: match[3]
+        });
+      }
+      if (etopsData.length === 0) etopsData = null;
+    }
 
     const cleanText = text.replace(/\(\s+/g, '(');
     const tokens = cleanText.split(/\s+/);
@@ -361,7 +382,6 @@ export default function App() {
 
         let cleanToken = token.replace(/^-+/, '').replace(/-+$/, '');
         
-        // 距離の抽出：FLの直前にある数値を区間距離として直前のWPに登録する
         if (token === 'FL' && i > 0 && /^\d+$/.test(tokens[i-1])) {
             if (newPlan.length > 0) {
                 newPlan[newPlan.length - 1].dist = parseInt(tokens[i-1], 10);
@@ -462,9 +482,9 @@ export default function App() {
     const fullRouteStr = newPlan.map(p => p.wp).join(' ');
 
     return { 
-        newPlan, fNo, flightIdRaw, rInfo, destIcao, pReg, pPzfw, pTaxi, pDate, 
+        newPlan, fNo, flightIdRaw, rInfo, destIcao, pReg, pPzfw, pTaxiOut, pTaxiIn, pDate, 
         ptow, pldw, alt, isa, toElev, ldElev, fltTimeH, fltTimeM, stdH, stdM, staH, staM,
-        fullRouteStr, loadId: Date.now() 
+        fullRouteStr, loadId: Date.now(), etopsData 
     };
   };
 
@@ -515,7 +535,8 @@ export default function App() {
                 fltTimeM: parsedData.fltTimeM,
                 stdH: parsedData.stdH,
                 stdM: parsedData.stdM,
-                avgTaxi: parsedData.pTaxi
+                avgTaxiOut: parsedData.pTaxiOut,
+                avgTaxiIn: parsedData.pTaxiIn
             });
         } else { 
             window.dispatchEvent(new CustomEvent('show-toast', { detail: 'フライトプランの読み取りに失敗しました。PDFの形式を確認してください。' })); 
@@ -843,7 +864,7 @@ export default function App() {
               <span>7PT B777 PERFORMANCE TOOL</span>
             </div>
             <div className="flex items-center gap-1">
-              <span className="text-amber-400 font-mono text-[9px] border border-amber-500/30 px-1 rounded bg-amber-500/10 tracking-normal font-bold">ver 7.5</span>
+              <span className="text-amber-400 font-mono text-[9px] border border-amber-500/30 px-1 rounded bg-amber-500/10 tracking-normal font-bold">ver 7.6</span>
               {flightId && (<span className="text-slate-300 font-mono text-[9px] border border-slate-600 px-1 rounded bg-slate-800 tracking-normal font-bold">ANA{flightId}</span>)}
             </div>
           </div>
