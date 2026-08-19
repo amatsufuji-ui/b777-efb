@@ -29,10 +29,10 @@ const ICAO_TZ = {
 };
 
 const DEFAULT_FLIGHT_PLAN_DATA = [
-  { wp: "RJTT", ctme: 0, rtme: 741, fob: 242.2, plnAlt: "", plnTmp: "", plnWind: "", isaDev: 0 },
-  { wp: "TOC", ctme: 16, rtme: 725, fob: 237.2, plnAlt: "FL310", plnTmp: "-47", plnWind: "280/040", isaDev: 17 },
-  { wp: "POROT", ctme: 24, rtme: 717, fob: 224.9, plnAlt: "FL310", plnTmp: "-26", plnWind: "314/015", isaDev: 17 },
-  { wp: "KJFK", ctme: 741, rtme: 0, fob: 26.0, plnAlt: "FL041", plnTmp: "", plnWind: "", isaDev: 0 }
+  { wp: "RJTT", ctme: 0, rtme: 741, fob: 242.2, plnAlt: "", plnTmp: "", plnWind: "", isaDev: 0, dist: 0, isOffRoute: false },
+  { wp: "TOC", ctme: 16, rtme: 725, fob: 237.2, plnAlt: "FL310", plnTmp: "-47", plnWind: "280/040", isaDev: 17, dist: 80, isOffRoute: false },
+  { wp: "POROT", ctme: 24, rtme: 717, fob: 224.9, plnAlt: "FL310", plnTmp: "-26", plnWind: "314/015", isaDev: 17, dist: 65, isOffRoute: false },
+  { wp: "KJFK", ctme: 741, rtme: 0, fob: 26.0, plnAlt: "FL041", plnTmp: "", plnWind: "", isaDev: 0, dist: 120, isOffRoute: false }
 ];
 
 const timeToMinutes = (timeStr) => {
@@ -218,12 +218,103 @@ const SyncModal = ({ isOpen, onClose, actuals, onSync, showMessage }) => {
     );
 };
 
+// --- DIST CHECK Modal ---
+const DistCheckModal = ({ isOpen, onClose, flightData }) => {
+    const segments = useMemo(() => {
+        const segs = [];
+        let accumulatedDist = 0;
+        let lastBoundaryWp = null;
+
+        for (let i = 0; i < flightData.length; i++) {
+            const wp = flightData[i];
+            
+            // i > 0 なのは、起点(0番目)にはその区間の距離情報がないため
+            if (i > 0 && wp.dist !== undefined && !isNaN(wp.dist)) {
+                accumulatedDist += wp.dist;
+            }
+
+            // 無視するWPの条件: マイナス始まり、または特定キーワード
+            const isExclude = wp.isOffRoute || /^(TOC|TOD|CLM|DEC|WPT|EEP\d*|ETP\d*|EXP\d*)$/i.test(wp.wp);
+            const isLatLon = /^\d{2}[A-Z]\d{2}$/.test(wp.wp);
+
+            if (isExclude) {
+                // 区間の境界とは見なさないが、距離はすでに accumulatedDist に足されている
+                continue;
+            }
+
+            if (lastBoundaryWp) {
+                const wasLatLon = /^\d{2}[A-Z]\d{2}$/.test(lastBoundaryWp.wp);
+                
+                // 主要WPから主要WPへの区間は表示しない。
+                // つまり「前か今回が緯度経度WPの場合のみ」セグメントを登録する
+                if (wasLatLon || isLatLon) {
+                    segs.push({
+                        from: lastBoundaryWp.wp,
+                        to: wp.wp,
+                        dist: accumulatedDist
+                    });
+                }
+            }
+
+            lastBoundaryWp = wp;
+            accumulatedDist = 0;
+        }
+        return segs;
+    }, [flightData]);
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
+            <div className="bg-slate-800 border border-slate-600 rounded-xl p-4 max-w-md w-full shadow-2xl flex flex-col max-h-[80vh]">
+                <div className="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
+                    <h3 className="text-white font-bold flex items-center gap-2"><SafeIcon name="Ruler" className="w-5 h-5 text-sky-400" /> DIST CHECK</h3>
+                    <button onClick={onClose} className="text-slate-400 hover:text-white font-bold text-2xl leading-none">&times;</button>
+                </div>
+                
+                <div className="overflow-y-auto custom-scrollbar flex-1 pr-1 bg-slate-900/50 rounded-lg border border-slate-700">
+                    {segments.length === 0 ? (
+                        <div className="text-slate-500 py-10 text-center font-bold text-sm">緯度経度のWaypointが見つかりません</div>
+                    ) : (
+                        <table className="w-full text-left border-collapse">
+                            <thead className="sticky top-0 bg-slate-800 border-b border-slate-600 z-10 shadow-sm">
+                                <tr className="text-slate-400 text-xs tracking-wider">
+                                    <th className="py-2.5 px-3">FROM</th>
+                                    <th className="py-2.5 px-3 text-center"></th>
+                                    <th className="py-2.5 px-3">TO</th>
+                                    <th className="py-2.5 px-3 text-right">DISTANCE</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {segments.map((seg, idx) => (
+                                    <tr key={idx} className="border-b border-slate-700/50 hover:bg-slate-700/50 text-slate-200 font-mono text-sm transition-colors">
+                                        <td className="py-3 px-3 font-bold text-sky-200">{seg.from}</td>
+                                        <td className="py-3 px-3 text-center text-slate-500">→</td>
+                                        <td className="py-3 px-3 font-bold text-sky-200">{seg.to}</td>
+                                        <td className="py-3 px-3 text-right font-black text-sky-400 text-base">{seg.dist} <span className="text-[10px] text-slate-500 font-bold ml-0.5 tracking-tighter">NM</span></td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
+                <div className="mt-4 flex justify-end pt-2">
+                    <button onClick={onClose} className="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-bold transition-colors shadow-sm w-full">CLOSE</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // --- SVG 折れ線グラフ Modal ---
 const GraphModal = ({ isOpen, onClose, flightData }) => {
     if (!isOpen) return null;
     
     // データが入力されているポイントのみ抽出
-    const validPoints = flightData.filter(d => d.ato || (d.afob && d.fuelDiff !== null && d.fuelDiff !== undefined));
+    const validPoints = flightData.filter(d => 
+        (d.ato && d.timeDiffStr !== '') || 
+        (d.afob && d.fuelDiff !== null && d.fuelDiff !== undefined)
+    );
     
     const width = 800;
     const height = 300;
@@ -243,12 +334,12 @@ const GraphModal = ({ isOpen, onClose, flightData }) => {
 
     // データが存在する箇所のみ結ぶPolylineを生成
     const pointsT = validPoints
-        .map((pt, i) => (pt.timeDiffStr && pt.timeDiffStr !== '') ? `${getX(i)},${getY_T(parseInt(pt.timeDiffStr)||0)}` : null)
+        .map((pt, i) => (pt.ato && pt.timeDiffStr !== '') ? `${getX(i)},${getY_T(parseInt(pt.timeDiffStr)||0)}` : null)
         .filter(Boolean)
         .join(' ');
         
     const pointsF = validPoints
-        .map((pt, i) => (pt.fuelDiff !== null && pt.fuelDiff !== undefined) ? `${getX(i)},${getY_F(pt.fuelDiff||0)}` : null)
+        .map((pt, i) => (pt.afob && pt.fuelDiff !== null && pt.fuelDiff !== undefined) ? `${getX(i)},${getY_F(pt.fuelDiff||0)}` : null)
         .filter(Boolean)
         .join(' ');
 
@@ -277,8 +368,8 @@ const GraphModal = ({ isOpen, onClose, flightData }) => {
                             {/* Data Points & Labels */}
                             {validPoints.map((pt, i) => {
                                 const cx = getX(i);
-                                const hasTime = pt.timeDiffStr && pt.timeDiffStr !== '';
-                                const hasFuel = pt.fuelDiff !== null && pt.fuelDiff !== undefined;
+                                const hasTime = pt.ato && pt.timeDiffStr !== '';
+                                const hasFuel = pt.afob && pt.fuelDiff !== null && pt.fuelDiff !== undefined;
                                 
                                 const tVal = parseInt(pt.timeDiffStr)||0;
                                 const fVal = pt.fuelDiff||0;
@@ -340,7 +431,7 @@ const MemoModal = ({ isOpen, initialMemo, wpName, onClose, onSave }) => {
                     autoCorrect="off"
                     spellCheck="false"
                     lang="en"
-                    className="w-full h-32 bg-slate-900 border border-slate-600 rounded-lg p-2 text-white focus:outline-none focus:border-blue-500 mb-4 resize-none"
+                    className="w-full h-32 bg-slate-900 border border-slate-600 rounded-lg p-2 text-white focus:outline-none focus:border-blue-500 mb-4 resize-none font-mono"
                     placeholder="Enter notes here..."
                 ></textarea>
                 <div className="flex justify-end gap-2">
@@ -359,6 +450,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
   
   const [isGraphOpen, setIsGraphOpen] = useState(false);
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
+  const [isDistCheckOpen, setIsDistCheckOpen] = useState(false);
   const [memoModal, setMemoModal] = useState({ isOpen: false, wp: '', text: '' });
 
   const rowRefs = useRef([]);
@@ -378,6 +470,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
 
   const [localSta, setLocalSta] = useState("");
   const [localBlockIn, setLocalBlockIn] = useState("");
+  const [localLdg, setLocalLdg] = useState("");
 
   useEffect(() => {
     if (navlogData && navlogData.newPlan && navlogData.newPlan.length > 0) {
@@ -438,40 +531,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
     } catch (e) {}
   }, [flightPlan, actuals, flightNo, routeInfo, parsedReg, parsedPzfw, parsedTaxi, parsedDate, parsedSta, parsedDestIcao, takeoffTime]);
 
-  // LOCAL STAの計算 (APIなし)
-  useEffect(() => {
-    if (parsedDestIcao && parsedSta && parsedSta.length === 4 && parsedDate) {
-      try {
-        const hours = parsedSta.substring(0, 2);
-        const mins = parsedSta.substring(2, 4);
-        const day = parsedDate.substring(0, 2);
-        const monthMap = {JAN:0, FEB:1, MAR:2, APR:3, MAY:4, JUN:5, JUL:6, AUG:7, SEP:8, OCT:9, NOV:10, DEC:11};
-        const monthStr = parsedDate.substring(2, 5).toUpperCase();
-        const mon = monthMap[monthStr] !== undefined ? monthMap[monthStr] : 0;
-        const yy = 2000 + parseInt(parsedDate.substring(5, 7), 10);
-
-        const utcDate = new Date(Date.UTC(yy, mon, day, parseInt(hours, 10), parseInt(mins, 10)));
-        
-        if (!isNaN(utcDate.getTime())) {
-          const tz = ICAO_TZ[parsedDestIcao] || "UTC";
-          const localTimeStr = new Intl.DateTimeFormat('en-GB', {
-            timeZone: tz,
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: false
-          }).format(utcDate);
-          setLocalSta(localTimeStr.replace(':', ''));
-        } else {
-          setLocalSta("");
-        }
-      } catch(e) {
-        setLocalSta("");
-      }
-    } else {
-        setLocalSta("");
-    }
-  }, [parsedSta, parsedDate, parsedDestIcao]);
-
   const handleUpdateActual = (wp, field, value) => {
     setActuals(prev => ({ ...prev, [wp]: { ...prev[wp], [field]: value } }));
   };
@@ -502,7 +561,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
     let totalBurnDiff = 0, lastValidWpIndex = -1;
     let latestAtoTimeDiff = 0;
 
-    // ETA/BLOCK INのための最終通過ポイントのdiffを検索
+    // 先にETAやBLOCK INのために最新のDiffを検索しておく
     let activeDiffForETA = 0;
     let lastAtoIndexForETA = -1;
     for (let i = 0; i < flightPlan.length; i++) {
@@ -529,7 +588,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
     }
     const estBlockInMins = estLandingTimeMins !== null ? estLandingTimeMins + parsedTaxi : null;
 
-    // 行ごとの計算ループ（ATOを入力したPOINT以後にETOを再計算する）
+    // 順次計算ループ：ATO入力ポイント以後のみ再計算（通過したETOは変更しない）
     for (let i = 0; i < flightPlan.length; i++) {
       const wpPlan = flightPlan[i];
       const wpActual = actuals[wpPlan.wp] || {};
@@ -539,10 +598,12 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
 
       if (takeoffMinutes !== null) {
           const originalEtoMins = takeoffMinutes + wpPlan.ctme;
-          // 通過前のポイントから引き継いだcurrentDiffでETOを表示（通過したETOは事後変更しない）
+          
+          // その時点での最新のDiffを適用して計算
           const calculatedEtoMins = originalEtoMins + currentDiff;
           revisedEtoStr = minutesToTime(calculatedEtoMins);
 
+          // ATOが入力されていれば、以降のポイントのためのDiffを更新
           if (wpActual.ato) {
               const atoMins = timeToMinutes(wpActual.ato);
               if (atoMins !== null) {
@@ -550,9 +611,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                   if (diff < -720) diff += 1440; if (diff > 720) diff -= 1440;
                   
                   timeDiffStr = formatTimeDiff(diff);
-                  
-                  // 次のポイント以降のETO再計算のためにDiffを更新
-                  currentDiff = diff;
+                  currentDiff = diff; 
                   latestAtoTimeDiff = diff;
               }
           }
@@ -576,14 +635,16 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
       });
     }
 
-    return { flightData: data, totalBurnDiff, lastValidWpIndex, estLandingTimeStr: minutesToTime(estLandingTimeMins), estBlockInStr: minutesToTime(estBlockInMins), estBlockInMins, latestAtoTimeDiffStr: formatTimeDiff(latestAtoTimeDiff) };
+    return { flightData: data, totalBurnDiff, lastValidWpIndex, estLandingTimeStr: minutesToTime(estLandingTimeMins), estBlockInStr: minutesToTime(estBlockInMins), estBlockInMins, estLandingTimeMins, latestAtoTimeDiffStr: formatTimeDiff(latestAtoTimeDiff) };
   }, [takeoffTime, actuals, flightPlan, parsedPzfw, parsedReg, is15gLimit, parsedTaxi]);
 
-  // LOCAL BLOCK IN の計算 (APIなし)
+  // LOCAL STA と LOCAL BLOCK IN、LOCAL LDG の計算 (APIなし)
   useEffect(() => {
+    let newLocalSta = "";
     let newLocalBlockIn = "";
+    let newLocalLdg = "";
 
-    if (parsedDestIcao && parsedDate && calculatedData.estBlockInMins !== null && calculatedData.estBlockInMins !== undefined) {
+    if (parsedDestIcao && parsedDate && (calculatedData.estBlockInMins !== null || calculatedData.estLandingTimeMins !== null)) {
       try {
         const day = parseInt(parsedDate.substring(0, 2), 10);
         const monthMap = {JAN:0, FEB:1, MAR:2, APR:3, MAY:4, JUN:5, JUL:6, AUG:7, SEP:8, OCT:9, NOV:10, DEC:11};
@@ -599,31 +660,56 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
           hour12: false
         });
 
-        const h = Math.floor(calculatedData.estBlockInMins / 60) % 24;
-        const m = calculatedData.estBlockInMins % 60;
-        
-        // 正確な日付またぎを計算するために、元々のSTAとETAの差分日数を考慮する
+        // LOCAL STA
         const hoursSta = parsedSta ? parseInt(parsedSta.substring(0, 2), 10) : 0;
         const minsSta = parsedSta ? parseInt(parsedSta.substring(2, 4), 10) : 0;
-        const utcDateSta = new Date(Date.UTC(yy, mon, day, hoursSta, minsSta));
-        
-        // 簡易的にフライトプラン日を設定
-        const utcDateBlk = new Date(Date.UTC(yy, mon, day, h, m));
-        
-        // もし到着予定が前倒しになったり遅延したりして日付を跨ぐ場合の補正
-        if (calculatedData.estBlockInMins >= 24 * 60) {
-            utcDateBlk.setUTCDate(utcDateBlk.getUTCDate() + Math.floor(calculatedData.estBlockInMins / (24 * 60)));
+        if (parsedSta && parsedSta.length === 4) {
+          const utcDateSta = new Date(Date.UTC(yy, mon, day, hoursSta, minsSta));
+          if (!isNaN(utcDateSta.getTime())) {
+            newLocalSta = formatter.format(utcDateSta).replace(':', '');
+          }
         }
 
-        if (!isNaN(utcDateBlk.getTime())) {
-          newLocalBlockIn = formatter.format(utcDateBlk).replace(':', '');
+        // LOCAL BLOCK IN
+        if (calculatedData.estBlockInMins !== null && calculatedData.estBlockInMins !== undefined) {
+          const h = Math.floor(calculatedData.estBlockInMins / 60) % 24;
+          const m = calculatedData.estBlockInMins % 60;
+          
+          const utcDateBlk = new Date(Date.UTC(yy, mon, day, h, m));
+          
+          if (calculatedData.estBlockInMins >= 24 * 60) {
+              utcDateBlk.setUTCDate(utcDateBlk.getUTCDate() + Math.floor(calculatedData.estBlockInMins / (24 * 60)));
+          }
+
+          if (!isNaN(utcDateBlk.getTime())) {
+            newLocalBlockIn = formatter.format(utcDateBlk).replace(':', '');
+          }
         }
+
+        // LOCAL LDG
+        if (calculatedData.estLandingTimeMins !== null && calculatedData.estLandingTimeMins !== undefined) {
+          const hLdg = Math.floor(calculatedData.estLandingTimeMins / 60) % 24;
+          const mLdg = calculatedData.estLandingTimeMins % 60;
+          
+          const utcDateLdg = new Date(Date.UTC(yy, mon, day, hLdg, mLdg));
+          
+          if (calculatedData.estLandingTimeMins >= 24 * 60) {
+              utcDateLdg.setUTCDate(utcDateLdg.getUTCDate() + Math.floor(calculatedData.estLandingTimeMins / (24 * 60)));
+          }
+
+          if (!isNaN(utcDateLdg.getTime())) {
+            newLocalLdg = formatter.format(utcDateLdg).replace(':', '');
+          }
+        }
+
       } catch(e) {
         // Ignore
       }
     }
+    setLocalSta(newLocalSta);
     setLocalBlockIn(newLocalBlockIn);
-  }, [parsedSta, parsedDate, parsedDestIcao, calculatedData.estBlockInMins]);
+    setLocalLdg(newLocalLdg);
+  }, [parsedSta, parsedDate, parsedDestIcao, calculatedData.estBlockInMins, calculatedData.estLandingTimeMins]);
 
   const scrollToCurrentFix = () => {
     if (!takeoffTime || calculatedData.flightData.length === 0) return;
@@ -683,6 +769,12 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
         showMessage={(msg) => window.dispatchEvent(new CustomEvent('show-toast', { detail: msg }))}
       />
 
+      <DistCheckModal 
+        isOpen={isDistCheckOpen}
+        onClose={() => setIsDistCheckOpen(false)}
+        flightData={calculatedData.flightData}
+      />
+
       {/* 完全に固定される最上部情報バー */}
       <header className="shrink-0 bg-gradient-to-r from-slate-900 via-[#131c2f] to-slate-900 border-b border-slate-700/80 px-2 sm:px-3 py-1.5 shadow-lg z-20">
         <div className="max-w-[1400px] mx-auto flex flex-wrap justify-between items-center gap-2">
@@ -707,7 +799,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
           
           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
             
-            {/* 時間情報ブロック (ETA / STA の Z と L を並べて表示) */}
             <div className="flex items-center gap-2 bg-[#0f172a] px-2 py-0.5 rounded-lg border border-slate-700 shadow-inner">
               
               <div className="flex flex-col items-center px-1">
@@ -717,20 +808,32 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
 
               <div className="w-px h-5 bg-slate-700"></div>
 
-              {/* ETA (Z/L) ブロック - 元BLOCK IN */}
-              <div className="flex flex-col items-center justify-center pt-0.5 px-2 min-w-[70px]">
-                <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-0.5">ETA (Z / L)</span>
-                <div className="flex items-center gap-1.5 h-4">
-                  <span className="text-[11px] font-mono font-extrabold text-amber-400 leading-none">{calculatedData.estBlockInStr || "----"}</span>
-                  <span className="text-[11px] font-mono font-bold text-amber-200/80 leading-none">({localBlockIn || "----"})</span>
+              {/* ETA (Z/L) ブロック - LDG と BLK */}
+              <div className="flex flex-col items-center justify-center pt-0.5 px-2 min-w-[85px]">
+                <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-0.5">ETA (Z/L)</span>
+                <div className="flex flex-col w-full">
+                    <div className="flex items-center justify-between gap-1 w-full">
+                        <span className="text-[8px] text-slate-500 font-bold">LDG</span>
+                        <div className="flex items-center gap-1">
+                            <span className="text-[10px] font-mono font-extrabold text-white leading-none">{calculatedData.estLandingTimeStr || "----"}</span>
+                            <span className="text-[9px] font-mono font-bold text-slate-300/80 leading-none">({localLdg || "----"})</span>
+                        </div>
+                    </div>
+                    <div className="flex items-center justify-between gap-1 w-full">
+                        <span className="text-[8px] text-slate-500 font-bold">BLK</span>
+                        <div className="flex items-center gap-1">
+                            <span className="text-[10px] font-mono font-extrabold text-amber-400 leading-none">{calculatedData.estBlockInStr || "----"}</span>
+                            <span className="text-[9px] font-mono font-bold text-amber-200/80 leading-none">({localBlockIn || "----"})</span>
+                        </div>
+                    </div>
                 </div>
               </div>
 
               <div className="w-px h-5 bg-slate-700"></div>
 
               {/* STA (Z/L) ブロック */}
-              <div className="flex flex-col items-center justify-center pt-0.5 px-2 min-w-[70px]">
-                <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-0.5">STA (Z / L)</span>
+              <div className="flex flex-col items-center justify-center pt-0.5 px-2 min-w-[75px]">
+                <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-0.5">STA (Z/L)</span>
                 <div className="flex items-center gap-1.5 h-4">
                   <span className="text-[11px] font-mono font-extrabold text-slate-300 leading-none">{parsedSta || "----"}</span>
                   <span className="text-[11px] font-mono font-bold text-cyan-300/80 leading-none">({localSta || "----"})</span>
@@ -739,7 +842,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
 
             </div>
 
-            {/* DIFF と MAX ALT ブロック */}
             <div className="flex items-center gap-2 bg-[#0f172a] px-2 py-0.5 rounded-lg border border-slate-700 shadow-inner">
               <div className="flex flex-col items-center min-w-[45px] pt-0.5 px-1">
                 <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-0.5">Time Diff</span>
@@ -776,10 +878,12 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
               </div>
             </div>
 
-            {/* ボタン ブロック */}
             <div className="flex items-center gap-1 ml-auto sm:ml-0">
                 <button onClick={scrollToCurrentFix} className="bg-slate-700 hover:bg-indigo-600 border border-indigo-500/50 text-indigo-300 hover:text-white px-2 py-1.5 rounded text-[9px] font-black tracking-wider shadow-sm transition-colors flex items-center gap-0.5">
                     <SafeIcon name="MapPin" className="w-3 h-3" /> NOW
+                </button>
+                <button onClick={() => setIsDistCheckOpen(true)} className="bg-slate-700 hover:bg-sky-600 border border-sky-500/50 text-sky-300 hover:text-white px-2 py-1.5 rounded text-[9px] font-black tracking-wider shadow-sm transition-colors flex items-center gap-0.5">
+                    <SafeIcon name="Ruler" className="w-3 h-3" /> DIST CK
                 </button>
                 <button onClick={() => setIsSyncModalOpen(true)} className="bg-slate-700 hover:bg-emerald-600 border border-emerald-500/50 text-emerald-300 hover:text-white px-2 py-1.5 rounded text-[9px] font-black tracking-wider shadow-sm transition-colors flex items-center gap-0.5">
                     <SafeIcon name="RefreshCw" className="w-3 h-3" /> SYNC
@@ -795,7 +899,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
         <div className="absolute inset-0 overflow-auto custom-scrollbar p-1 sm:p-2">
             <div className="min-w-[700px] max-w-[1400px] mx-auto pb-16">
               
-              {/* テーブルヘッダー (sticky で追従) */}
               <div className="sticky top-0 z-30 bg-[#0f172a] border-b border-slate-700 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.3)] rounded-t-lg">
                 <div className="grid grid-cols-[85px_65px_1fr_50px_65px_1fr_1.8fr_85px_35px] p-1.5 font-black text-slate-400 text-[10px] sm:text-[11px] text-center items-end">
                   <div className="text-left pl-1">WAYPOINT</div>
@@ -810,7 +913,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                 </div>
               </div>
               
-              {/* スクロールするデータ行 */}
               <div className="divide-y divide-slate-800/80 bg-slate-900/60 rounded-b-lg border-x border-b border-slate-700/80">
                 {calculatedData.flightData.map((row, idx) => (
                   <div key={idx} ref={el => rowRefs.current[idx] = el} className="grid grid-cols-[85px_65px_1fr_50px_65px_1fr_1.8fr_85px_35px] py-1 px-1.5 items-center hover:bg-slate-800/60 transition-colors group text-center gap-x-1">
@@ -823,7 +925,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                     
                     <div className="flex flex-col px-0.5 gap-0.5 items-center">
                       <span className="text-blue-400 font-mono text-xs font-extrabold h-3.5 sm:h-4">{row.revisedEtoStr || "----"}</span>
-                      {/* ATO: モバイルのテンキー表示 */}
                       <input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="ATO" maxLength={4} value={row.ato} onChange={(e) => handleUpdateActual(row.wp, 'ato', e.target.value.replace(/[^0-9]/g, ''))} className={`w-full bg-[#05070a] border rounded py-1 text-center font-mono text-sm sm:text-base font-bold focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors ${row.ato ? 'border-blue-500/50 text-white' : 'border-slate-700 text-slate-400'}`} />
                     </div>
                     
@@ -835,11 +936,9 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                       <span className={`font-mono text-[9px] h-3 ${row.fuelDiff > 0 ? 'text-green-400 font-bold' : row.fuelDiff < 0 ? 'text-red-400 font-bold' : ''}`}>
                           {row.fuelDiff !== null ? (`${row.fuelDiff > 0 ? '+' : ''}${row.fuelDiff.toFixed(1)}`) : ''}
                       </span>
-                      {/* RMG FUEL: モバイルの小数点対応テンキー表示 */}
                       <input type="text" inputMode="decimal" placeholder="RMG" value={row.afob} onChange={(e) => handleUpdateActual(row.wp, 'afob', e.target.value.replace(/[^0-9.]/g, ''))} className={`w-full bg-[#05070a] border rounded py-1 text-center font-mono text-sm sm:text-base font-bold focus:outline-none focus:ring-1 focus:ring-green-500 transition-colors ${row.afob ? 'border-green-500/50 text-white' : 'border-slate-700 text-slate-400'}`} />
                     </div>
 
-                    {/* 上にISA DEV、下にTMP（PLN/ACT入力）、下にWIND（PLN/ACT入力） */}
                     <div className="grid grid-cols-3 gap-0.5 px-0.5">
                         <div className="flex flex-col items-center justify-center">
                             <input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="ACT" value={row.actAlt} onChange={(e) => handleUpdateActual(row.wp, 'actAlt', e.target.value.toUpperCase())} className="w-full bg-[#05070a] border border-slate-700 rounded text-center text-xs font-mono font-bold py-1 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-inner" />
@@ -864,7 +963,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                         <span className="text-[8px] text-slate-500 font-mono mt-0.5">W:{row.currentWeight}</span>
                     </div>
 
-                    {/* MEMO ボタン */}
                     <div className="flex justify-center items-center">
                         <button 
                             onClick={() => setMemoModal({ isOpen: true, wp: row.wp, text: row.memo })}

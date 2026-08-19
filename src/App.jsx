@@ -356,6 +356,20 @@ export default function App() {
             continue;
         }
 
+        // 距離の抽出：FLの直前にある数値を区間距離として直前のWPに登録する
+        if (token === 'FL' && i > 0 && /^\d+$/.test(tokens[i-1])) {
+            if (newPlan.length > 0) {
+                newPlan[newPlan.length - 1].dist = parseInt(tokens[i-1], 10);
+            }
+            continue;
+        }
+
+        // マイナス等によるOffRouteフラグ判定
+        let isOffRoute = token.startsWith('-');
+        if (i > 0 && tokens[i-1] === '-') {
+            isOffRoute = true;
+        }
+
         let cleanToken = token.replace(/^-+/, '').replace(/-+$/, '');
         const isCoord = /^[NS]\d{4,5}[EW]\d{4,6}$/.test(cleanToken);
         const isAlphaWp = /^[A-Z][A-Z0-9]{1,5}$/.test(cleanToken) && !ignoreList.has(cleanToken);
@@ -395,7 +409,9 @@ export default function App() {
               plnTmp: pendingTmp, 
               plnWind: pendingWind, 
               isaDev: currentWpIsa,
-              hasExplicitIsa: pendingIsa !== null
+              hasExplicitIsa: pendingIsa !== null,
+              dist: 0,
+              isOffRoute: isOffRoute
             });
             
             if (destIcao && cleanToken === destIcao) {
@@ -445,7 +461,7 @@ export default function App() {
     return { 
         newPlan, fNo, flightIdRaw, rInfo, destIcao, pReg, pPzfw, pTaxi, pDate, 
         ptow, pldw, alt, isa, toElev, ldElev, fltTimeH, fltTimeM, stdH, stdM, staH, staM,
-        fullRouteStr, loadId: Date.now()
+        fullRouteStr, loadId: Date.now() 
     };
   };
 
@@ -824,7 +840,7 @@ export default function App() {
               <span>7PT B777 PERFORMANCE TOOL</span>
             </div>
             <div className="flex items-center gap-1">
-              <span className="text-amber-400 font-mono text-[9px] border border-amber-500/30 px-1 rounded bg-amber-500/10 tracking-normal font-bold">ver 7.2</span>
+              <span className="text-amber-400 font-mono text-[9px] border border-amber-500/30 px-1 rounded bg-amber-500/10 tracking-normal font-bold">ver 7.3</span>
               {flightId && (<span className="text-slate-300 font-mono text-[9px] border border-slate-600 px-1 rounded bg-slate-800 tracking-normal font-bold">ANA{flightId}</span>)}
             </div>
           </div>
