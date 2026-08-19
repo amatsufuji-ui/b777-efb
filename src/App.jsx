@@ -297,6 +297,8 @@ export default function App() {
     // ETOPS ET/LTの抽出
     const etopsSectionMatch = text.match(/-ETP\/EEP\/EXP\/ET\.LT([\s\S]*?)(?=\n-[A-Z]|\n\n|$)/);
     let etopsData = null;
+    let etopsWps = { eep: null, exp: null, etps: [] };
+    
     if (etopsSectionMatch) {
       const etopsText = etopsSectionMatch[1];
       const regex = /([A-Z]{4})\/(\d{4})\/(\d{4})/g;
@@ -310,6 +312,14 @@ export default function App() {
         });
       }
       if (etopsData.length === 0) etopsData = null;
+
+      const eepMatch = etopsText.match(/EEP\/([A-Z0-9]+)/);
+      const expMatch = etopsText.match(/EXP\/[^\/]*\/([A-Z0-9]+)/) || etopsText.match(/EXP\/.*?\/([A-Z0-9]+)/);
+      const etpMatches = [...etopsText.matchAll(/ETP\d*/g)].map(m => m[0]);
+      
+      etopsWps.eep = eepMatch ? eepMatch[1].replace(/\+\d+$/, '') : null;
+      etopsWps.exp = expMatch ? expMatch[1].replace(/\+\d+$/, '') : null;
+      etopsWps.etps = etpMatches;
     }
 
     const cleanText = text.replace(/\(\s+/g, '(');
@@ -332,6 +342,13 @@ export default function App() {
     let pendingTmp = "";
     let pendingWind = "";
     let pendingIsa = null;
+
+    let isEtopsActive = false;
+    let currentEtpIndex = 0;
+    let activeEtopsAltn = null;
+    if (etopsData && etopsData.length > 0) {
+      activeEtopsAltn = etopsData[0].airport;
+    }
 
     for (let i = 0; i < tokens.length; i++) {
         let token = tokens[i];
@@ -397,7 +414,7 @@ export default function App() {
         const isCoord = /^[NS]\d{4,5}[EW]\d{4,6}$/.test(cleanToken);
         const isAlphaWp = /^[A-Z][A-Z0-9]{1,5}$/.test(cleanToken) && !ignoreList.has(cleanToken);
         const isArincWp = /^\d{2}[NSWE]\d{2}$/.test(cleanToken);
-        const isSpecialWp = ["TOC", "TOD"].includes(cleanToken);
+        const isSpecialWp = ["TOC", "TOD", "EEP", "EXP", "ETP", "ETP1", "ETP2", "ETP3", "ETP4", "ETP5"].includes(cleanToken) || cleanToken.startsWith('EEP') || cleanToken.startsWith('EXP');
 
         if (!isCoord && (isAlphaWp || isArincWp || isSpecialWp)) {
             if (recentTimes.length === 0 && !isSpecialWp) {
@@ -423,6 +440,20 @@ export default function App() {
               }
             }
 
+            if (cleanToken.startsWith('EEP') || cleanToken === etopsWps.eep) {
+                isEtopsActive = true;
+                if (etopsData && etopsData.length > 0) activeEtopsAltn = etopsData[0].airport;
+            }
+            if (cleanToken.startsWith('ETP')) {
+                currentEtpIndex++;
+                if (etopsData && etopsData.length > currentEtpIndex) {
+                    activeEtopsAltn = etopsData[currentEtpIndex].airport;
+                }
+            }
+            if (cleanToken.startsWith('EXP') || cleanToken === etopsWps.exp) {
+                isEtopsActive = false;
+            }
+
             newPlan.push({ 
               wp: cleanToken, 
               ctme: ctme, 
@@ -434,7 +465,9 @@ export default function App() {
               isaDev: currentWpIsa,
               hasExplicitIsa: pendingIsa !== null,
               dist: 0,
-              isOffRoute: isOffRoute
+              isOffRoute: isOffRoute,
+              etopsActive: isEtopsActive,
+              etopsAltn: isEtopsActive ? activeEtopsAltn : null
             });
             
             if (destIcao && cleanToken === destIcao) {
@@ -864,7 +897,8 @@ export default function App() {
               <span>7PT B777 PERFORMANCE TOOL</span>
             </div>
             <div className="flex items-center gap-1">
-              <span className="text-amber-400 font-mono text-[9px] border border-amber-500/30 px-1 rounded bg-amber-500/10 tracking-normal font-bold">ver 7.7</span>
+              <span className="text-amber-400 font-mono text-[9px] border border-amber-500/30 px-1 rounded bg-amber-500/10 tracking-normal font-bold">ver 7.8
+              </span>
               {flightId && (<span className="text-slate-300 font-mono text-[9px] border border-slate-600 px-1 rounded bg-slate-800 tracking-normal font-bold">ANA{flightId}</span>)}
             </div>
           </div>

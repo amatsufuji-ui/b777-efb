@@ -546,6 +546,19 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
   const [destWeather, setDestWeather] = useState(null);
   const [parsedEtopsData, setParsedEtopsData] = useState(null);
 
+  const [currentUtcMins, setCurrentUtcMins] = useState(() => {
+      const now = new Date();
+      return now.getUTCHours() * 60 + now.getUTCMinutes();
+  });
+
+  useEffect(() => {
+      const timer = setInterval(() => {
+          const now = new Date();
+          setCurrentUtcMins(now.getUTCHours() * 60 + now.getUTCMinutes());
+      }, 60000);
+      return () => clearInterval(timer);
+  }, []);
+
   const calculatedData = useMemo(() => {
     const data = [];
     const takeoffMinutes = timeToMinutes(takeoffTime);
@@ -626,8 +639,36 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
       });
     }
 
-    return { flightData: data, totalBurnDiff, lastValidWpIndex, estLandingTimeStr: minutesToTime(estLandingTimeMins), estBlockInStr: minutesToTime(estBlockInMins), estBlockInMins, estLandingTimeMins, latestAtoTimeDiffStr: formatTimeDiff(latestAtoTimeDiff) };
+    return { flightData: data, totalBurnDiff, lastValidWpIndex, estLandingTimeStr: minutesToTime(estLandingTimeMins), estBlockInStr: minutesToTime(estBlockInMins), estBlockInMins, estLandingTimeMins, latestAtoTimeDiffStr: formatTimeDiff(latestAtoTimeDiff), latestAtoTimeDiff };
   }, [takeoffTime, actuals, flightPlan, parsedPzfw, parsedReg, is15gLimit, parsedTaxiIn]);
+
+  const activeEtopsAirport = useMemo(() => {
+      if (!takeoffTime || calculatedData.flightData.length === 0) return null;
+      let targetIndex = -1;
+      let minPositiveDiff = Infinity;
+      calculatedData.flightData.forEach((row, idx) => {
+          if (row.ato) return;
+          const etoStr = row.revisedEtoStr;
+          if (!etoStr || etoStr === "----") return;
+          const etoMins = timeToMinutes(etoStr);
+          if (etoMins === null) return;
+          let diff = etoMins - currentUtcMins;
+          if (diff < -720) diff += 1440;
+          if (diff > 720) diff -= 1440;
+          if (diff >= -30 && diff < minPositiveDiff) {
+              minPositiveDiff = diff;
+              targetIndex = idx;
+          }
+      });
+      if (targetIndex === -1) {
+          targetIndex = calculatedData.flightData.findIndex(row => !row.ato);
+      }
+      if (targetIndex !== -1 && calculatedData.flightData[targetIndex]) {
+          return calculatedData.flightData[targetIndex].etopsAltn;
+      }
+      return null;
+  }, [calculatedData.flightData, currentUtcMins, takeoffTime]);
+
 
   useEffect(() => {
     if (navlogData && navlogData.newPlan && navlogData.newPlan.length > 0) {
@@ -820,8 +861,8 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                 });
             }
 
-            // データが存在すれば温度を表示
-            if (bestIdx !== -1) {
+            // 最大3時間以内のデータであれば採用
+            if (bestIdx !== -1 && minDiffMs <= 3 * 3600 * 1000) {
                 const rawTemp = omData.hourly.temperature_2m[bestIdx];
                 if (rawTemp !== undefined && rawTemp !== null) {
                     const tempC = Math.round(rawTemp);
@@ -1048,7 +1089,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
               <div className="w-px h-5 bg-slate-700"></div>
 
               {/* DEST WX ブロック：数字が隠れないよう表示枠を柔軟に拡張 */}
-              <div className="flex flex-col items-center justify-center pt-0.5 px-2 min-w-[110px] shrink-0">
+              <div className="flex flex-col items-center justify-center pt-0.5 px-2 min-w-[110px] max-w-[160px] shrink-0">
                 <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-0.5">{parsedDestIcao} WX</span>
                 <div className="flex items-center justify-center min-h-[16px] w-full">
                   {destWeather ? (
@@ -1117,24 +1158,33 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
           </div>
         </div>
 
-        {/* ETOPS Info Row */}
+        {/* ETOPS Info Row (仕切り付きの可読性が高いUI) */}
         <div className="max-w-[1400px] mx-auto mt-1.5 flex flex-wrap items-center gap-2 text-[10px] sm:text-xs font-mono font-bold bg-slate-800/50 px-2 py-0.5 rounded border border-slate-700/50">
             <span className="text-slate-400">ETOPS:</span>
             {parsedEtopsData ? (
                 <div className="flex flex-wrap gap-1.5 items-center">
-                    {parsedEtopsData.map((data, idx) => (
-                        <div key={idx} className="flex items-center gap-1.5 bg-slate-900/90 border border-slate-700 px-2 py-0.5 rounded text-slate-300 shadow-inner">
-                            <span className="text-sky-300 font-extrabold">{data.airport}</span>
-                            <div className="flex items-center gap-0.5">
-                                <span className="text-slate-500 text-[9px] font-semibold">ET</span>
-                                <span className="text-slate-200 font-bold">{data.et}</span>
+                    {parsedEtopsData.map((data, idx) => {
+                        const etMins = timeToMinutes(data.et);
+                        const revisedEt = etMins !== null ? minutesToTime((etMins + (calculatedData.latestAtoTimeDiff || 0) + 1440 * 10) % 1440) : data.et;
+                        const ltMins = timeToMinutes(data.lt);
+                        const revisedLt = ltMins !== null ? minutesToTime((ltMins + (calculatedData.latestAtoTimeDiff || 0) + 1440 * 10) % 1440) : data.lt;
+                        
+                        const isActive = activeEtopsAirport === data.airport;
+
+                        return (
+                            <div key={idx} className={`flex items-center gap-1.5 border px-2 py-0.5 rounded shadow-inner transition-colors duration-300 ${isActive ? 'bg-sky-800 border-sky-500 text-white' : 'bg-slate-900/90 border-slate-700 text-slate-300'}`}>
+                                <span className={`${isActive ? 'text-white' : 'text-sky-300'} font-extrabold`}>{data.airport}</span>
+                                <div className="flex items-center gap-0.5">
+                                    <span className={`${isActive ? 'text-sky-200' : 'text-slate-500'} text-[9px] font-semibold`}>ET</span>
+                                    <span className={`${isActive ? 'text-white' : 'text-slate-200'} font-bold`}>{revisedEt}</span>
+                                </div>
+                                <div className="flex items-center gap-0.5">
+                                    <span className={`${isActive ? 'text-sky-200' : 'text-slate-500'} text-[9px] font-semibold`}>LT</span>
+                                    <span className={`${isActive ? 'text-white' : 'text-slate-200'} font-bold`}>{revisedLt}</span>
+                                </div>
                             </div>
-                            <div className="flex items-center gap-0.5">
-                                <span className="text-slate-500 text-[9px] font-semibold">LT</span>
-                                <span className="text-slate-200 font-bold">{data.lt}</span>
-                            </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             ) : (
                 <span className="text-slate-500">NON ETOPS</span>
