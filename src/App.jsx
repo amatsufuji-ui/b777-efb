@@ -282,8 +282,11 @@ export default function App() {
       staM = parseInt(staMatch[2], 10);
     }
 
-    const taxiMatch = text.match(/(?:AVG|TAXI|OUT):\s*\d+\/(\d+)MIN/);
-    if (taxiMatch) pTaxi = parseInt(taxiMatch[1], 10);
+    // AVG TAXI OUT TIMEの抽出（スラッシュの前を取得）
+    const taxiMatch = text.match(/(?:AVG|TAXI|OUT|AVG:\s*)\s*(\d+)\/\d+MIN/i);
+    if (taxiMatch) {
+        pTaxi = parseInt(taxiMatch[1], 10);
+    }
 
     const dateMatch = text.match(/\b(\d{2}[A-Z]{3}\d{2})\b/);
     const pDate = dateMatch ? dateMatch[1] : "";
@@ -356,6 +359,8 @@ export default function App() {
             continue;
         }
 
+        let cleanToken = token.replace(/^-+/, '').replace(/-+$/, '');
+        
         // 距離の抽出：FLの直前にある数値を区間距離として直前のWPに登録する
         if (token === 'FL' && i > 0 && /^\d+$/.test(tokens[i-1])) {
             if (newPlan.length > 0) {
@@ -364,13 +369,11 @@ export default function App() {
             continue;
         }
 
-        // マイナス等によるOffRouteフラグ判定
         let isOffRoute = token.startsWith('-');
         if (i > 0 && tokens[i-1] === '-') {
             isOffRoute = true;
         }
 
-        let cleanToken = token.replace(/^-+/, '').replace(/-+$/, '');
         const isCoord = /^[NS]\d{4,5}[EW]\d{4,6}$/.test(cleanToken);
         const isAlphaWp = /^[A-Z][A-Z0-9]{1,5}$/.test(cleanToken) && !ignoreList.has(cleanToken);
         const isArincWp = /^\d{2}[NSWE]\d{2}$/.test(cleanToken);
@@ -840,7 +843,7 @@ export default function App() {
               <span>7PT B777 PERFORMANCE TOOL</span>
             </div>
             <div className="flex items-center gap-1">
-              <span className="text-amber-400 font-mono text-[9px] border border-amber-500/30 px-1 rounded bg-amber-500/10 tracking-normal font-bold">ver 7.4</span>
+              <span className="text-amber-400 font-mono text-[9px] border border-amber-500/30 px-1 rounded bg-amber-500/10 tracking-normal font-bold">ver 7.5</span>
               {flightId && (<span className="text-slate-300 font-mono text-[9px] border border-slate-600 px-1 rounded bg-slate-800 tracking-normal font-bold">ANA{flightId}</span>)}
             </div>
           </div>
