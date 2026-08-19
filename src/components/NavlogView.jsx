@@ -804,34 +804,49 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
 
             if (!isMounted) return;
 
-            // 4. 到着予定時刻のUTC時間に合致するデータを抽出
-            const targetY = utcDateBlk.getUTCFullYear();
-            const targetM = String(utcDateBlk.getUTCMonth() + 1).padStart(2, '0');
-            const targetD = String(utcDateBlk.getUTCDate()).padStart(2, '0');
-            const targetH = String(utcDateBlk.getUTCHours()).padStart(2, '0');
-            const searchStr = `${targetY}-${targetM}-${targetD}T${targetH}:00`;
+            // 4. 到着予定時刻のUTC時間に最も近い1時間枠のデータを抽出（安全なフォールバック付き）
+            const targetMs = utcDateBlk.getTime();
+            let bestIdx = -1;
+            let minDiffMs = Infinity;
 
-            const timeIndex = omData.hourly.time.indexOf(searchStr);
-            
-            if (timeIndex !== -1) {
-                const temp = Math.round(omData.hourly.temperature_2m[timeIndex]);
-                const wcode = omData.hourly.weather_code[timeIndex];
-                
-                let icon = "☁️";
-                let text = "Cloudy";
-                if (wcode === 0) { icon = "☀️"; text = "Clear"; }
-                else if ([1,2].includes(wcode)) { icon = "⛅"; text = "Partly Cloudy"; }
-                else if ([3].includes(wcode)) { icon = "☁️"; text = "Overcast"; }
-                else if ([45,48].includes(wcode)) { icon = "🌫️"; text = "Fog"; }
-                else if ([51,53,55,56,57,61,63,65,66,67,80,81,82].includes(wcode)) { icon = "🌧️"; text = "Rain"; }
-                else if ([71,73,75,77,85,86].includes(wcode)) { icon = "❄️"; text = "Snow"; }
-                else if ([95,96,99].includes(wcode)) { icon = "⛈️"; text = "Thunderstorm"; }
-
-                setDestWeather({
-                    temp: temp > 0 ? `+${temp}` : `${temp}`,
-                    icon: icon,
-                    text: text
+            if (omData.hourly && omData.hourly.time && omData.hourly.time.length > 0) {
+                omData.hourly.time.forEach((tStr, idx) => {
+                    const tMs = new Date(tStr + "Z").getTime();
+                    const diffMs = Math.abs(tMs - targetMs);
+                    if (diffMs < minDiffMs) {
+                        minDiffMs = diffMs;
+                        bestIdx = idx;
+                    }
                 });
+            }
+
+            // データが存在すれば温度を表示
+            if (bestIdx !== -1) {
+                const rawTemp = omData.hourly.temperature_2m[bestIdx];
+                if (rawTemp !== undefined && rawTemp !== null) {
+                    const tempC = Math.round(rawTemp);
+                    const tempF = Math.round((tempC * 9 / 5) + 32);
+                    const wcode = omData.hourly.weather_code[bestIdx];
+                    
+                    let icon = "☁️";
+                    let text = "Cloudy";
+                    if (wcode === 0) { icon = "☀️"; text = "Clear"; }
+                    else if ([1,2].includes(wcode)) { icon = "⛅"; text = "Partly Cloudy"; }
+                    else if ([3].includes(wcode)) { icon = "☁️"; text = "Overcast"; }
+                    else if ([45,48].includes(wcode)) { icon = "🌫️"; text = "Fog"; }
+                    else if ([51,53,55,56,57,61,63,65,66,67,80,81,82].includes(wcode)) { icon = "🌧️"; text = "Rain"; }
+                    else if ([71,73,75,77,85,86].includes(wcode)) { icon = "❄️"; text = "Snow"; }
+                    else if ([95,96,99].includes(wcode)) { icon = "⛈️"; text = "Thunderstorm"; }
+
+                    setDestWeather({
+                        tempC: tempC > 0 ? `+${tempC}` : `${tempC}`,
+                        tempF: tempF > 0 ? `+${tempF}` : `${tempF}`,
+                        icon: icon,
+                        text: text
+                    });
+                } else {
+                    setDestWeather(null);
+                }
             } else {
                 setDestWeather(null);
             }
@@ -1032,14 +1047,16 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
 
               <div className="w-px h-5 bg-slate-700"></div>
 
-              {/* DEST WX ブロック：STAとTIME DIFFの間に配置 */}
-              <div className="flex flex-col items-center justify-center pt-0.5 px-2 min-w-[70px]">
+              {/* DEST WX ブロック：数字が隠れないよう表示枠を柔軟に拡張 */}
+              <div className="flex flex-col items-center justify-center pt-0.5 px-2 min-w-[110px] shrink-0">
                 <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-0.5">{parsedDestIcao} WX</span>
-                <div className="flex items-center justify-center h-4">
+                <div className="flex items-center justify-center min-h-[16px] w-full">
                   {destWeather ? (
-                    <div className="flex items-center gap-0.5 cursor-help" title={destWeather.text}>
-                      <span className="text-[13px] leading-none mb-0.5">{destWeather.icon}</span>
-                      <span className="text-[11px] font-mono font-bold text-amber-300">{destWeather.temp}℃</span>
+                    <div className="flex items-center gap-1 cursor-help whitespace-nowrap" title={destWeather.text}>
+                      <span className="text-[13px] leading-none">{destWeather.icon}</span>
+                      <span className="text-[11px] font-mono font-bold text-amber-300">
+                        {destWeather.tempC}℃ <span className="text-amber-300/80 text-[10px] ml-0.5">({destWeather.tempF}℉)</span>
+                      </span>
                     </div>
                   ) : (
                     <span className="text-[11px] font-mono font-bold text-slate-500">----</span>
@@ -1104,17 +1121,17 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
         <div className="max-w-[1400px] mx-auto mt-1.5 flex flex-wrap items-center gap-2 text-[10px] sm:text-xs font-mono font-bold bg-slate-800/50 px-2 py-0.5 rounded border border-slate-700/50">
             <span className="text-slate-400">ETOPS:</span>
             {parsedEtopsData ? (
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-1.5 items-center">
                     {parsedEtopsData.map((data, idx) => (
-                        <div key={idx} className="flex items-center gap-1.5 bg-slate-700/60 border border-slate-600/50 px-2 py-0.5 rounded text-slate-200">
-                            <span className="text-sky-200 font-black">{data.airport}</span>
+                        <div key={idx} className="flex items-center gap-1.5 bg-slate-900/90 border border-slate-700 px-2 py-0.5 rounded text-slate-300 shadow-inner">
+                            <span className="text-sky-300 font-extrabold">{data.airport}</span>
                             <div className="flex items-center gap-0.5">
-                                <span className="text-slate-400 text-[9px]">ET</span>
-                                <span>{data.et}</span>
+                                <span className="text-slate-500 text-[9px] font-semibold">ET</span>
+                                <span className="text-slate-200 font-bold">{data.et}</span>
                             </div>
                             <div className="flex items-center gap-0.5">
-                                <span className="text-slate-400 text-[9px]">LT</span>
-                                <span>{data.lt}</span>
+                                <span className="text-slate-500 text-[9px] font-semibold">LT</span>
+                                <span className="text-slate-200 font-bold">{data.lt}</span>
                             </div>
                         </div>
                     ))}
