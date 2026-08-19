@@ -17,11 +17,10 @@ import { ApproachCalcView } from './components/ApproachCalcView';
 import { XwindView } from './components/XwindView';
 import { QuickGuideModal } from './components/QuickGuideModal';
 import { NavlogView } from './components/NavlogView';
-import { TarmacView } from './components/TarmacView'; // 新規追加したTARMAC用のタブビュー
+import { TarmacView } from './components/TarmacView'; 
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('DASHBOARD');
-  // BUDDY COMMを削除し、TARMACを新たに追加
   const tabs = ['DASHBOARD', 'TFC INFO', 'WX/MNM', 'ETOPS', 'NAVLOG', 'DOCS', 'スマカタ', 'REST CALC', 'APP CALC', 'TARMAC', 'XWIND'];
 
   const [isPasteModalOpen, setIsPasteModalOpen] = useState(false); 
@@ -72,7 +71,6 @@ export default function App() {
   const [globalEtopsAltns, setGlobalEtopsAltns] = useState([]);
   const [globalEtopsTime, setGlobalEtopsTime] = useState("");
 
-  // アプリ再起動時の状態復元（クラッシュ・リロード保護）
   useEffect(() => {
     const isHidden = localStorage.getItem('hideSetupGuide');
     if (isHidden !== 'true') setShowSetupBanner(true);
@@ -174,7 +172,6 @@ export default function App() {
     });
     if (data.flightId) { setFlightId(data.flightId); setSelectedFlightId(data.flightId); setSelectedAirlineCode("NH"); setSelectedAirline("ANA"); setSelectedCallsign("ALL NIPPON"); }
     
-    // REST CALC への連携
     if (data.fltTimeH !== undefined && data.fltTimeH !== null && !isNaN(data.fltTimeH)) { 
         setRestFlightHours3(data.fltTimeH); 
         setRestFlightHours4(data.fltTimeH);
@@ -348,7 +345,6 @@ export default function App() {
             continue;
         }
 
-        // 括弧内のISA DEV直接抽出 (例: (17), (-05), (M02), (P12))
         let isaBrackMatch = token.match(/^\(\s*([PM+-]?\d{1,2})\s*\)$/i);
         if (isaBrackMatch) {
             let valStr = isaBrackMatch[1].toUpperCase();
@@ -449,7 +445,7 @@ export default function App() {
     return { 
         newPlan, fNo, flightIdRaw, rInfo, destIcao, pReg, pPzfw, pTaxi, pDate, 
         ptow, pldw, alt, isa, toElev, ldElev, fltTimeH, fltTimeM, stdH, stdM, staH, staM,
-        fullRouteStr, loadId: Date.now() 
+        fullRouteStr, loadId: Date.now()
     };
   };
 
@@ -482,7 +478,7 @@ export default function App() {
         const parsedData = parseNavlogPDFText(fullText);
         
         if (parsedData.newPlan.length > 0) {
-            parsedData.isNew = true; // 新規ロードフラグを付与
+            parsedData.isNew = true; 
             setNavlogData(parsedData); 
             
             handleApplyFlightPlan({ 
@@ -552,6 +548,11 @@ export default function App() {
   const handleAirlineSelect = (type, val) => { if (type === 'code') { setSelectedAirlineCode(val); const match = parsedFlightData.find(f => f.airlineCode === val); if (match) { setSelectedAirline(match.airline); setSelectedCallsign(match.callsign); } } else if (type === 'name') { setSelectedAirline(val); const match = parsedFlightData.find(f => f.airline === val); if (match) { setSelectedAirlineCode(match.airlineCode); setSelectedCallsign(match.callsign); } } else if (type === 'callsign') { setSelectedCallsign(val); const match = parsedFlightData.find(f => f.callsign === val); if (match) { setSelectedAirlineCode(match.airlineCode); setSelectedAirline(match.airline); } } };
   const forceANASelection = () => { handleAirlineSelect('code', 'NH'); }; const handleTrafficSelect = (t) => { setSelectedAirlineCode(t.airlineCode); setSelectedAirline(t.airline); setSelectedCallsign(t.callsign); setSelectedFlightId(t.flightNo); }; const formatTime = (mins) => { if (mins == null) return "--:--"; const h = Math.floor(mins / 60) % 24, m = mins % 60; return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`; };
   const fltInfoProps = { currentFlightInfo: displayFlightInfo, selectedDep, selectedArr, formatTime, trafficTimeRange, setTrafficTimeRange, depTrafficMode, setDepTrafficMode, arrTrafficMode, setArrTrafficMode, relatedTraffic, handleAirlineSelect, setSelectedDep, setSelectedArr, setSelectedFlightId, selectedFlightId, selectedAirlineCode, selectedAirline, selectedCallsign, availableFlights, airlineCodes, airlines, callsigns, availableDeps, availableArrs, forceANASelection, handleTrafficSelect, onApplyFlightPlan: handleApplyFlightPlan };
+
+  const handleCloseBanner_safe = () => {
+    localStorage.setItem('hideSetupGuide', 'true');
+    setShowSetupBanner(false);
+  };
 
   const computed = useMemo(() => {
     let engineStr = "GE"; if (state.selectedType === "777-200" || state.selectedType === "777-300") { engineStr = "PW"; } const isPW = engineStr === "PW";
@@ -809,7 +810,7 @@ export default function App() {
                全画面表示のため、ブラウザの共有メニューから<span className="text-amber-400 font-bold mx-0.5">「ホーム画面に追加」</span>をお願いします。
              </p>
           </div>
-          <button onClick={handleCloseBanner} className="shrink-0 bg-blue-600 hover:bg-blue-500 text-white font-bold py-1.5 px-3 rounded-lg text-xs transition-colors shadow-sm whitespace-nowrap border border-blue-400/30">
+          <button onClick={handleCloseBanner_safe} className="shrink-0 bg-blue-600 hover:bg-blue-500 text-white font-bold py-1.5 px-3 rounded-lg text-xs transition-colors shadow-sm whitespace-nowrap border border-blue-400/30">
             閉じる
           </button>
         </div>

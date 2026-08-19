@@ -221,22 +221,36 @@ const SyncModal = ({ isOpen, onClose, actuals, onSync, showMessage }) => {
 // --- SVG 折れ線グラフ Modal ---
 const GraphModal = ({ isOpen, onClose, flightData }) => {
     if (!isOpen) return null;
-    const validPoints = flightData.filter(d => d.ato && (d.timeDiffStr !== '' || d.fuelDiff !== null));
+    
+    // データが入力されているポイントのみ抽出
+    const validPoints = flightData.filter(d => d.ato || (d.afob && d.fuelDiff !== null && d.fuelDiff !== undefined));
     
     const width = 800;
     const height = 300;
     const paddingX = 60;
     const paddingY = 40;
 
-    const maxT = Math.max(...validPoints.map(p => Math.abs(parseInt(p.timeDiffStr)||0)), 5);
-    const maxF = Math.max(...validPoints.map(p => Math.abs(p.fuelDiff||0)), 2);
+    // スケール計算
+    const timeDiffs = validPoints.map(p => Math.abs(parseInt(p.timeDiffStr) || 0)).filter(v => v > 0);
+    const fuelDiffs = validPoints.map(p => Math.abs(p.fuelDiff || 0)).filter(v => v > 0);
+    
+    const maxT = Math.max(...timeDiffs, 5);
+    const maxF = Math.max(...fuelDiffs, 2);
 
     const getX = (index) => paddingX + (index * ((width - paddingX * 2) / Math.max(validPoints.length - 1, 1)));
     const getY_T = (val) => (height / 2) - (val / maxT) * ((height - paddingY * 2) / 2);
     const getY_F = (val) => (height / 2) - (val / maxF) * ((height - paddingY * 2) / 2);
 
-    const pointsT = validPoints.map((pt, i) => `${getX(i)},${getY_T(parseInt(pt.timeDiffStr)||0)}`).join(' ');
-    const pointsF = validPoints.map((pt, i) => `${getX(i)},${getY_F(pt.fuelDiff||0)}`).join(' ');
+    // データが存在する箇所のみ結ぶPolylineを生成
+    const pointsT = validPoints
+        .map((pt, i) => (pt.timeDiffStr && pt.timeDiffStr !== '') ? `${getX(i)},${getY_T(parseInt(pt.timeDiffStr)||0)}` : null)
+        .filter(Boolean)
+        .join(' ');
+        
+    const pointsF = validPoints
+        .map((pt, i) => (pt.fuelDiff !== null && pt.fuelDiff !== undefined) ? `${getX(i)},${getY_F(pt.fuelDiff||0)}` : null)
+        .filter(Boolean)
+        .join(' ');
 
     return (
         <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
@@ -255,27 +269,39 @@ const GraphModal = ({ isOpen, onClose, flightData }) => {
                             <line x1={paddingX} y1={height/2} x2={width - paddingX} y2={height/2} stroke="#475569" strokeWidth="2" strokeDasharray="5,5" />
                             
                             {/* Time Polyline (Blue/Cyan) */}
-                            {validPoints.length > 1 && <polyline fill="none" stroke="#38bdf8" strokeWidth="3" points={pointsT} />}
+                            {pointsT && <polyline fill="none" stroke="#38bdf8" strokeWidth="3" points={pointsT} />}
                             
                             {/* Fuel Polyline (Green/Emerald) */}
-                            {validPoints.length > 1 && <polyline fill="none" stroke="#34d399" strokeWidth="3" points={pointsF} />}
+                            {pointsF && <polyline fill="none" stroke="#34d399" strokeWidth="3" points={pointsF} />}
 
                             {/* Data Points & Labels */}
                             {validPoints.map((pt, i) => {
                                 const cx = getX(i);
+                                const hasTime = pt.timeDiffStr && pt.timeDiffStr !== '';
+                                const hasFuel = pt.fuelDiff !== null && pt.fuelDiff !== undefined;
+                                
                                 const tVal = parseInt(pt.timeDiffStr)||0;
                                 const fVal = pt.fuelDiff||0;
                                 const cyT = getY_T(tVal);
                                 const cyF = getY_F(fVal);
+                                
                                 return (
                                     <g key={i}>
                                         <line x1={cx} y1={paddingY} x2={cx} y2={height - paddingY} stroke="#334155" strokeWidth="1" strokeDasharray="3,3" />
                                         
-                                        <circle cx={cx} cy={cyT} r="5" fill="#38bdf8" />
-                                        <text x={cx} y={cyT - 10} fill="#38bdf8" fontSize="12" textAnchor="middle" fontWeight="bold">{tVal > 0 ? '+'+tVal : tVal}</text>
+                                        {hasTime && (
+                                            <>
+                                                <circle cx={cx} cy={cyT} r="5" fill="#38bdf8" />
+                                                <text x={cx} y={cyT - 10} fill="#38bdf8" fontSize="12" textAnchor="middle" fontWeight="bold">{tVal > 0 ? '+'+tVal : tVal}</text>
+                                            </>
+                                        )}
 
-                                        <circle cx={cx} cy={cyF} r="5" fill="#34d399" />
-                                        <text x={cx} y={cyF + 20} fill="#34d399" fontSize="12" textAnchor="middle" fontWeight="bold">{fVal > 0 ? '+'+fVal.toFixed(1) : fVal.toFixed(1)}</text>
+                                        {hasFuel && (
+                                            <>
+                                                <circle cx={cx} cy={cyF} r="5" fill="#34d399" />
+                                                <text x={cx} y={cyF + 20} fill="#34d399" fontSize="12" textAnchor="middle" fontWeight="bold">{fVal > 0 ? '+'+fVal.toFixed(1) : fVal.toFixed(1)}</text>
+                                            </>
+                                        )}
                                         
                                         <text x={cx} y={height - 10} fill="#94a3b8" fontSize="11" textAnchor="middle" transform={`rotate(-30 ${cx},${height - 10})`} fontWeight="bold">{pt.wp}</text>
                                     </g>
@@ -305,9 +331,15 @@ const MemoModal = ({ isOpen, initialMemo, wpName, onClose, onSave }) => {
         <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
             <div className="bg-slate-800 border border-slate-600 rounded-xl p-4 max-w-sm w-full shadow-2xl flex flex-col">
                 <h3 className="text-white font-bold mb-2">Memo - {wpName}</h3>
+                {/* 英語キーボードを強制するためのプロパティ指定 */}
                 <textarea 
                     value={text} 
                     onChange={e => setText(e.target.value)} 
+                    inputMode="email"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck="false"
+                    lang="en"
                     className="w-full h-32 bg-slate-900 border border-slate-600 rounded-lg p-2 text-white focus:outline-none focus:border-blue-500 mb-4 resize-none"
                     placeholder="Enter notes here..."
                 ></textarea>
@@ -466,47 +498,64 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
     const acType = REG_MAP[parsedReg] || "77W";
     const perfTable = MAX_ALT_DATA[acType];
 
+    let currentDiff = 0;
     let totalBurnDiff = 0, lastValidWpIndex = -1;
-    let lastAtoIndex = -1, latestAtoMins = null, latestAtoTimeDiff = 0;
+    let latestAtoTimeDiff = 0;
 
+    // ETA/BLOCK INのための最終通過ポイントのdiffを検索
+    let activeDiffForETA = 0;
+    let lastAtoIndexForETA = -1;
     for (let i = 0; i < flightPlan.length; i++) {
         const wpActual = actuals[flightPlan[i].wp] || {};
         if (wpActual.ato && takeoffMinutes !== null) {
             const atoMins = timeToMinutes(wpActual.ato);
             if (atoMins !== null) {
-                lastAtoIndex = i; latestAtoMins = atoMins;
+                lastAtoIndexForETA = i;
                 const originalEtoMins = takeoffMinutes + flightPlan[i].ctme;
                 let diff = atoMins - originalEtoMins;
                 if (diff < -720) diff += 1440; if (diff > 720) diff -= 1440;
-                latestAtoTimeDiff = diff;
+                activeDiffForETA = diff;
             }
         }
     }
 
     let estLandingTimeMins = null;
-    if (latestAtoMins !== null && lastAtoIndex !== -1) { estLandingTimeMins = latestAtoMins + flightPlan[lastAtoIndex].rtme; } 
-    else if (takeoffMinutes !== null && flightPlan.length > 0) { estLandingTimeMins = takeoffMinutes + flightPlan[flightPlan.length - 1].ctme; }
+    if (takeoffMinutes !== null && flightPlan.length > 0) {
+        if (lastAtoIndexForETA !== -1) {
+            estLandingTimeMins = takeoffMinutes + flightPlan[flightPlan.length - 1].ctme + activeDiffForETA;
+        } else {
+            estLandingTimeMins = takeoffMinutes + flightPlan[flightPlan.length - 1].ctme;
+        }
+    }
     const estBlockInMins = estLandingTimeMins !== null ? estLandingTimeMins + parsedTaxi : null;
 
+    // 行ごとの計算ループ（ATOを入力したPOINT以後にETOを再計算する）
     for (let i = 0; i < flightPlan.length; i++) {
       const wpPlan = flightPlan[i];
       const wpActual = actuals[wpPlan.wp] || {};
       
       let revisedEtoStr = "";
-      if (takeoffMinutes !== null) {
-          if (i <= lastAtoIndex) { revisedEtoStr = minutesToTime(takeoffMinutes + wpPlan.ctme); } 
-          else { revisedEtoStr = minutesToTime(takeoffMinutes + wpPlan.ctme + latestAtoTimeDiff); }
-      }
-
       let timeDiffStr = "";
-      if (wpActual.ato && takeoffMinutes !== null) {
-        const atoMins = timeToMinutes(wpActual.ato);
-        const originalEtoMins = takeoffMinutes + wpPlan.ctme; 
-        if (atoMins !== null) {
-          let diff = atoMins - originalEtoMins; 
-          if (diff < -720) diff += 1440; if (diff > 720) diff -= 1440;
-          timeDiffStr = formatTimeDiff(diff);
-        }
+
+      if (takeoffMinutes !== null) {
+          const originalEtoMins = takeoffMinutes + wpPlan.ctme;
+          // 通過前のポイントから引き継いだcurrentDiffでETOを表示（通過したETOは事後変更しない）
+          const calculatedEtoMins = originalEtoMins + currentDiff;
+          revisedEtoStr = minutesToTime(calculatedEtoMins);
+
+          if (wpActual.ato) {
+              const atoMins = timeToMinutes(wpActual.ato);
+              if (atoMins !== null) {
+                  let diff = atoMins - originalEtoMins; 
+                  if (diff < -720) diff += 1440; if (diff > 720) diff -= 1440;
+                  
+                  timeDiffStr = formatTimeDiff(diff);
+                  
+                  // 次のポイント以降のETO再計算のためにDiffを更新
+                  currentDiff = diff;
+                  latestAtoTimeDiff = diff;
+              }
+          }
       }
 
       let fuelDiff = null, currentWeight = parsedPzfw + (wpPlan.fob || 0);
@@ -634,7 +683,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
         showMessage={(msg) => window.dispatchEvent(new CustomEvent('show-toast', { detail: msg }))}
       />
 
-      {/* 絶対にスクロールしない固定ヘッダー部分 */}
+      {/* 完全に固定される最上部情報バー */}
       <header className="shrink-0 bg-gradient-to-r from-slate-900 via-[#131c2f] to-slate-900 border-b border-slate-700/80 px-2 sm:px-3 py-1.5 shadow-lg z-20">
         <div className="max-w-[1400px] mx-auto flex flex-wrap justify-between items-center gap-2">
           
@@ -661,30 +710,30 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
             {/* 時間情報ブロック (ETA / STA の Z と L を並べて表示) */}
             <div className="flex items-center gap-2 bg-[#0f172a] px-2 py-0.5 rounded-lg border border-slate-700 shadow-inner">
               
-              <div className="flex flex-col items-center">
+              <div className="flex flex-col items-center px-1">
                 <label className="text-[8px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-0.5">Takeoff(Z)</label>
-                <input type="text" placeholder="HHMM" maxLength={4} value={takeoffTime} onChange={(e) => setTakeoffTime(e.target.value.replace(/[^0-9]/g, ''))} className="bg-slate-800 border border-slate-600 rounded px-1 py-0.5 text-xs font-mono font-black text-white text-center w-12 focus:outline-none focus:border-blue-500 transition-colors" />
+                <input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="HHMM" maxLength={4} value={takeoffTime} onChange={(e) => setTakeoffTime(e.target.value.replace(/[^0-9]/g, ''))} className="bg-slate-800 border border-slate-600 rounded px-1 py-0.5 text-xs font-mono font-black text-white text-center w-12 focus:outline-none focus:border-blue-500 transition-colors" />
               </div>
 
               <div className="w-px h-5 bg-slate-700"></div>
 
               {/* ETA (Z/L) ブロック - 元BLOCK IN */}
-              <div className="flex flex-col items-center justify-center pt-0.5 min-w-[70px]">
+              <div className="flex flex-col items-center justify-center pt-0.5 px-2 min-w-[70px]">
                 <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-0.5">ETA (Z / L)</span>
                 <div className="flex items-center gap-1.5 h-4">
-                  <span className="text-xs font-mono font-extrabold text-amber-400 leading-none">{calculatedData.estBlockInStr || "----"}</span>
-                  <span className="text-xs font-mono font-extrabold text-amber-200/80 leading-none">({localBlockIn || "----"})</span>
+                  <span className="text-[11px] font-mono font-extrabold text-amber-400 leading-none">{calculatedData.estBlockInStr || "----"}</span>
+                  <span className="text-[11px] font-mono font-bold text-amber-200/80 leading-none">({localBlockIn || "----"})</span>
                 </div>
               </div>
 
               <div className="w-px h-5 bg-slate-700"></div>
 
               {/* STA (Z/L) ブロック */}
-              <div className="flex flex-col items-center justify-center pt-0.5 min-w-[70px]">
+              <div className="flex flex-col items-center justify-center pt-0.5 px-2 min-w-[70px]">
                 <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-0.5">STA (Z / L)</span>
                 <div className="flex items-center gap-1.5 h-4">
-                  <span className="text-xs font-mono font-extrabold text-slate-300 leading-none">{parsedSta || "----"}</span>
-                  <span className="text-xs font-mono font-extrabold text-cyan-300/80 leading-none">({localSta || "----"})</span>
+                  <span className="text-[11px] font-mono font-extrabold text-slate-300 leading-none">{parsedSta || "----"}</span>
+                  <span className="text-[11px] font-mono font-bold text-cyan-300/80 leading-none">({localSta || "----"})</span>
                 </div>
               </div>
 
@@ -692,23 +741,23 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
 
             {/* DIFF と MAX ALT ブロック */}
             <div className="flex items-center gap-2 bg-[#0f172a] px-2 py-0.5 rounded-lg border border-slate-700 shadow-inner">
-              <div className="flex flex-col items-center min-w-[45px] pt-0.5">
+              <div className="flex flex-col items-center min-w-[45px] pt-0.5 px-1">
                 <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-0.5">Time Diff</span>
-                <span className={`text-xs font-mono font-extrabold leading-none h-4 flex items-center ${parseInt(calculatedData.latestAtoTimeDiffStr) > 0 ? 'text-red-400' : parseInt(calculatedData.latestAtoTimeDiffStr) < 0 ? 'text-green-400' : 'text-slate-200'}`}>
+                <span className={`text-[11px] font-mono font-extrabold leading-none h-4 flex items-center ${parseInt(calculatedData.latestAtoTimeDiffStr) > 0 ? 'text-red-400' : parseInt(calculatedData.latestAtoTimeDiffStr) < 0 ? 'text-green-400' : 'text-slate-200'}`}>
                     {calculatedData.latestAtoTimeDiffStr || "±0"}
                 </span>
               </div>
 
               <div className="w-px h-5 bg-slate-700"></div>
 
-              <div className="flex flex-col items-center min-w-[60px] pt-0.5">
+              <div className="flex flex-col items-center min-w-[60px] pt-0.5 px-1">
                 <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-0.5">Fuel Diff</span>
                 <div className="flex items-center gap-1 h-4">
                   {calculatedData.lastValidWpIndex !== -1 ? (
-                    <span className={`text-xs font-mono font-extrabold leading-none ${calculatedData.totalBurnDiff >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    <span className={`text-[11px] font-mono font-extrabold leading-none ${calculatedData.totalBurnDiff >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                       {calculatedData.totalBurnDiff > 0 ? '+' : ''}{calculatedData.totalBurnDiff.toFixed(1)}
                     </span>
-                  ) : (<span className="text-slate-500 font-mono text-xs font-bold leading-none">--.-</span>)}
+                  ) : (<span className="text-slate-500 font-mono text-[11px] font-bold leading-none">--.-</span>)}
                   
                   <button onClick={() => setIsGraphOpen(true)} className="bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded px-1 flex items-center justify-center transition-colors h-[18px]" title="Trend Graph">
                     <span className="text-[10px] leading-none mb-[2px]">📊</span>
@@ -718,11 +767,11 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
 
               <div className="w-px h-5 bg-slate-700"></div>
               
-              <div className="flex flex-col items-center pt-0.5">
+              <div className="flex flex-col items-center pt-0.5 px-1">
                  <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-0.5">MAX ALT</span>
                  <div className="flex items-center bg-slate-900 rounded border border-slate-700 cursor-pointer overflow-hidden shadow-inner h-4" onClick={() => setIs15gLimit(!is15gLimit)}>
-                    <div className={`px-1 h-full flex items-center text-[8px] font-black ${!is15gLimit ? 'bg-blue-600 text-white' : 'text-slate-500'}`}>1.3G</div>
-                    <div className={`px-1 h-full flex items-center text-[8px] font-black ${is15gLimit ? 'bg-red-600 text-white' : 'text-slate-500'}`}>1.5G</div>
+                    <div className={`px-1.5 h-full flex items-center text-[8px] font-black ${!is15gLimit ? 'bg-blue-600 text-white' : 'text-slate-500'}`}>1.3G</div>
+                    <div className={`px-1.5 h-full flex items-center text-[8px] font-black ${is15gLimit ? 'bg-red-600 text-white' : 'text-slate-500'}`}>1.5G</div>
                  </div>
               </div>
             </div>
@@ -774,7 +823,8 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                     
                     <div className="flex flex-col px-0.5 gap-0.5 items-center">
                       <span className="text-blue-400 font-mono text-xs font-extrabold h-3.5 sm:h-4">{row.revisedEtoStr || "----"}</span>
-                      <input type="text" placeholder="ATO" maxLength={4} value={row.ato} onChange={(e) => handleUpdateActual(row.wp, 'ato', e.target.value.replace(/[^0-9]/g, ''))} className={`w-full bg-[#05070a] border rounded py-1 text-center font-mono text-sm sm:text-base font-bold focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors ${row.ato ? 'border-blue-500/50 text-white' : 'border-slate-700 text-slate-400'}`} />
+                      {/* ATO: モバイルのテンキー表示 */}
+                      <input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="ATO" maxLength={4} value={row.ato} onChange={(e) => handleUpdateActual(row.wp, 'ato', e.target.value.replace(/[^0-9]/g, ''))} className={`w-full bg-[#05070a] border rounded py-1 text-center font-mono text-sm sm:text-base font-bold focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors ${row.ato ? 'border-blue-500/50 text-white' : 'border-slate-700 text-slate-400'}`} />
                     </div>
                     
                     <div className={`font-mono text-xs font-bold ${parseInt(row.timeDiffStr) > 0 ? 'text-red-400' : parseInt(row.timeDiffStr) < 0 ? 'text-green-400' : 'text-slate-400'}`}>{row.timeDiffStr}</div>
@@ -785,25 +835,26 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                       <span className={`font-mono text-[9px] h-3 ${row.fuelDiff > 0 ? 'text-green-400 font-bold' : row.fuelDiff < 0 ? 'text-red-400 font-bold' : ''}`}>
                           {row.fuelDiff !== null ? (`${row.fuelDiff > 0 ? '+' : ''}${row.fuelDiff.toFixed(1)}`) : ''}
                       </span>
-                      <input type="text" placeholder="RMG" value={row.afob} onChange={(e) => handleUpdateActual(row.wp, 'afob', e.target.value.replace(/[^0-9.]/g, ''))} className={`w-full bg-[#05070a] border rounded py-1 text-center font-mono text-sm sm:text-base font-bold focus:outline-none focus:ring-1 focus:ring-green-500 transition-colors ${row.afob ? 'border-green-500/50 text-white' : 'border-slate-700 text-slate-400'}`} />
+                      {/* RMG FUEL: モバイルの小数点対応テンキー表示 */}
+                      <input type="text" inputMode="decimal" placeholder="RMG" value={row.afob} onChange={(e) => handleUpdateActual(row.wp, 'afob', e.target.value.replace(/[^0-9.]/g, ''))} className={`w-full bg-[#05070a] border rounded py-1 text-center font-mono text-sm sm:text-base font-bold focus:outline-none focus:ring-1 focus:ring-green-500 transition-colors ${row.afob ? 'border-green-500/50 text-white' : 'border-slate-700 text-slate-400'}`} />
                     </div>
 
                     {/* 上にISA DEV、下にTMP（PLN/ACT入力）、下にWIND（PLN/ACT入力） */}
                     <div className="grid grid-cols-3 gap-0.5 px-0.5">
                         <div className="flex flex-col items-center justify-center">
-                            <input type="text" placeholder="ACT" value={row.actAlt} onChange={(e) => handleUpdateActual(row.wp, 'actAlt', e.target.value.toUpperCase())} className="w-full bg-[#05070a] border border-slate-700 rounded text-center text-xs font-mono font-bold py-1 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-inner" />
+                            <input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="ACT" value={row.actAlt} onChange={(e) => handleUpdateActual(row.wp, 'actAlt', e.target.value.toUpperCase())} className="w-full bg-[#05070a] border border-slate-700 rounded text-center text-xs font-mono font-bold py-1 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-inner" />
                             <span className="text-[8px] text-slate-500 font-mono mt-0.5 h-2.5">{row.plnAlt || "-"}</span>
                         </div>
                         <div className="flex flex-col items-center justify-center">
                             <span className="text-[8px] text-purple-400 font-mono font-bold mb-0.5 h-2.5 leading-none">
                               {row.isaDev !== undefined && !isNaN(row.isaDev) ? `ISA${row.isaDev >= 0 ? '+' : ''}${row.isaDev}` : "-"}
                             </span>
-                            <input type="text" placeholder="ACT" value={row.actTmp} onChange={(e) => handleUpdateActual(row.wp, 'actTmp', e.target.value)} className="w-full bg-[#05070a] border border-slate-700 rounded text-center text-xs font-mono font-bold py-1 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-inner" />
+                            <input type="text" inputMode="text" placeholder="ACT" value={row.actTmp} onChange={(e) => handleUpdateActual(row.wp, 'actTmp', e.target.value)} className="w-full bg-[#05070a] border border-slate-700 rounded text-center text-xs font-mono font-bold py-1 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-inner" />
                             <span className="text-[8px] text-slate-500 font-mono mt-0.5 h-2.5 leading-none">{row.plnTmp || "-"}</span>
                         </div>
                         <div className="flex flex-col items-center justify-center">
                             <span className="text-[8px] text-slate-500 font-mono mb-0.5 h-2.5 leading-none"></span>
-                            <input type="text" placeholder="ACT" value={row.actWind} onChange={(e) => handleUpdateActual(row.wp, 'actWind', e.target.value)} className="w-full bg-[#05070a] border border-slate-700 rounded text-center text-xs font-mono font-bold py-1 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-inner" />
+                            <input type="text" inputMode="text" placeholder="ACT" value={row.actWind} onChange={(e) => handleUpdateActual(row.wp, 'actWind', e.target.value)} className="w-full bg-[#05070a] border border-slate-700 rounded text-center text-xs font-mono font-bold py-1 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-inner" />
                             <span className="text-[8px] text-slate-500 font-mono mt-0.5 h-2.5 leading-none">{row.plnWind || "-"}</span>
                         </div>
                     </div>
