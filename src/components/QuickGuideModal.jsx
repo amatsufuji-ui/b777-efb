@@ -136,9 +136,18 @@ export const QuickGuideModal = ({ isOpen, onClose }) => {
                 <p className="leading-relaxed">欧州線のみADDITIONAL FUEL要否の判断ツール、HF周波数の取得、ETOPS関連情報を確認できます。</p>
               </div>
               
-              <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
-                <div className="text-amber-300 font-bold mb-1">NAVLOG</div>
-                <p className="leading-relaxed">DIST CK機能あり。SYNCで記録したものの引き継ぎ機能が使えます。</p>
+              <div className="bg-slate-900/50 p-3 rounded border border-slate-700 md:col-span-2">
+                <div className="text-amber-300 font-bold mb-2">NAVLOG</div>
+                <ul className="leading-relaxed list-disc pl-4 space-y-1">
+                  <li>DIST CK機能あり。</li>
+                  <li>同じLOGをLOADしている状況で、SYNCボタンで記録したものの引き継ぎ機能が使えます。</li>
+                  <li>STDからAVG TAXI OUT/ INでETAを表示し、そのETAに基づき目的地の天気と予想気温を表示します。</li>
+                  <li>NOWボタンを押すと次のWPTに移動します。</li>
+                  <li>ET/LTは実飛行時間に合わせて変化します。</li>
+                  <li>ETOはATOを入力することで変化しますが、TIME DIFFはTAKEOFF TIMEからの誤差を表示します。</li>
+                  <li>TIME DIFFとFUEL DIFFを上部ヘッダーに固定してグラフ表示できます。</li>
+                  <li>最寄りのETOPS ALTNをハイライト表示します。</li>
+                </ul>
               </div>
 
               <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
@@ -176,7 +185,7 @@ export const QuickGuideModal = ({ isOpen, onClose }) => {
 
         </div>
 
-        <button onClick={onClose} className="shrink-0 w-full mt-2 bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 rounded-xl transition-colors">
+        <button onClick={onClose} className="shrink-0 w-full mt-2 bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 rounded-xl transition-colors shadow-lg">
           閉じる
         </button>
       </div>
