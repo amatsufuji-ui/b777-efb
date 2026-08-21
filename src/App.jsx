@@ -2,6 +2,12 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import * as LucideIcons from 'lucide-react';
 
+// =========================================================================
+// ★ アプリバージョン設定 (アップデート時はここの数字を変更してください)
+// =========================================================================
+const APP_VERSION = "7.9";
+// =========================================================================
+
 import { RAW_CSV_DATA, aircraftRegistrationList, BUDDYCOM_LINKS } from './data/flightData';
 import { aircraftPerformanceData, defaultCruiseWeights, defaultLandingWeights, modelKeyMap, AIRCRAFT_DIMENSIONS, SEAT_DATA, CRUISE_PERF_DATA, VREF_DATA, HOLD_SPD_DATA_RAW, MANEUVER_1_3G_MACH_DATA, TARGET_PITCH_N1_DATA_RAW, LANDING_DIST_DATA_RAW, B777_WIND_LIMITS, MAX_MAN_DATA } from './data/perfData';
 import { DG_DATA, ISOLATION_COLS_FINAL, ISOLATION_MATRIX_FINAL, ERG_DRILLS_FINAL, ERG_LETTERS_LEFT_FINAL, ERG_LETTERS_RIGHT_FINAL, SPECIAL_PAX_DATA } from './data/docsData';
@@ -19,68 +25,126 @@ import { QuickGuideModal } from './components/QuickGuideModal';
 import { NavlogView } from './components/NavlogView';
 import { TarmacView } from './components/TarmacView'; 
 
+// テキストペースト＆PDF読み込み統合モーダル
+const LoadDataModal = ({ isOpen, onClose, onFileClick, onPaste, isParsing }) => {
+    const [text, setText] = useState("");
+    if (!isOpen) return null;
+    return (
+        <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
+            <div className="bg-slate-800 border border-slate-600 rounded-xl p-4 max-w-lg w-full shadow-2xl flex flex-col">
+                <div className="flex justify-between items-center border-b border-slate-700 pb-2 mb-4">
+                    <h3 className="text-white font-bold flex items-center gap-2">
+                        <SafeIcon name="DownloadCloud" className="w-5 h-5 text-sky-400" />
+                        Load Flight Plan
+                    </h3>
+                    <button onClick={onClose} className="text-slate-400 hover:text-white font-bold text-xl leading-none">&times;</button>
+                </div>
+                
+                <div className="flex flex-col gap-2">
+                    <button onClick={() => { onFileClick(); onClose(); }} disabled={isParsing} className="w-full bg-emerald-700 hover:bg-emerald-600 disabled:bg-emerald-900 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2 transition-colors shadow-lg">
+                        <SafeIcon name={isParsing ? "Loader2" : "FileText"} className={`w-5 h-5 ${isParsing ? "animate-spin" : ""}`} />
+                        {isParsing ? 'Reading PDF...' : 'Upload PDF File'}
+                    </button>
+                </div>
+
+                <div className="flex items-center gap-2 py-4">
+                    <div className="h-px bg-slate-700 flex-1"></div>
+                    <span className="text-xs text-slate-500 font-bold uppercase">OR</span>
+                    <div className="h-px bg-slate-700 flex-1"></div>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                    <textarea 
+                        value={text} 
+                        onChange={e => setText(e.target.value)} 
+                        className="w-full h-32 bg-slate-900 border border-slate-600 rounded-lg p-2 text-white focus:outline-none focus:border-blue-500 resize-none font-mono text-[10px] custom-scrollbar"
+                        placeholder="Paste NAVLOG text here..."
+                    ></textarea>
+                    <button onClick={() => { onPaste(text); onClose(); setText(""); }} disabled={!text.trim()} className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2 transition-colors shadow-lg">
+                        <SafeIcon name="Clipboard" className="w-5 h-5" />
+                        Load from Text
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 export default function App() {
   const [activeTab, setActiveTab] = useState('DASHBOARD');
   const tabs = ['DASHBOARD', 'TFC INFO', 'WX/MNM', 'ETOPS', 'NAVLOG', 'DOCS', 'スマカタ', 'REST CALC', 'APP CALC', 'TARMAC', 'XWIND'];
 
-  const [isPasteModalOpen, setIsPasteModalOpen] = useState(false); 
   const [flightId, setFlightId] = useState(""); 
   const [isWifiModalOpen, setIsWifiModalOpen] = useState(false); 
   const [isDrmModalOpen, setIsDrmModalOpen] = useState(false); 
   const [isSmartCatModalOpen, setIsSmartCatModalOpen] = useState(false);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
+  const [isLoadModalOpen, setIsLoadModalOpen] = useState(false); 
   const [showSetupBanner, setShowSetupBanner] = useState(false);
 
+  // PDF入力用の参照
   const pdfInputRef = useRef(null);
   const [isParsingPdf, setIsParsingPdf] = useState(false);
   const [navlogData, setNavlogData] = useState(null);
 
-  const [restFlightHours3, setRestFlightHours3] = useState(8); 
-  const [restFlightMins3, setRestFlightMins3] = useState(0); 
-  const [restFlightHours4, setRestFlightHours4] = useState(12); 
-  const [restFlightMins4, setRestFlightMins4] = useState(0);
-  const [stdHours, setStdHours] = useState(10); 
-  const [stdMins, setStdMins] = useState(0);
-  const [isTakeoffAuto, setIsTakeoffAuto] = useState(true); 
-  const [taxiOutMins, setTaxiOutMins] = useState(20); 
-  const [taxiInMins, setTaxiInMins] = useState(5); 
-  const [restTakeoffHours, setRestTakeoffHours] = useState(10); 
-  const [restTakeoffMins, setRestTakeoffMins] = useState(20);
-  const [restOffsetMins, setRestOffsetMins] = useState(0); 
-  const [restLandingOffsetMins, setRestLandingOffsetMins] = useState(0); 
-  const [restCrewSize, setRestCrewSize] = useState(3); 
-  const [restFirstRestMins, setRestFirstRestMins] = useState(60); 
-  const [restLastRestMins, setRestLastRestMins] = useState(60); 
-  const [restFirstHalfMins, setRestFirstHalfMins] = useState(0);
+  // --- Initializing State with LocalStorage (Crash Recovery for all) ---
+  const getSavedState = (key, defaultValue) => {
+    try {
+      const saved = localStorage.getItem('appStateBackup_v4');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed[key] !== undefined) return parsed[key];
+      }
+    } catch(e) {}
+    return defaultValue;
+  };
+
+  const [restFlightHours3, setRestFlightHours3] = useState(() => getSavedState('restFlightHours3', 8)); 
+  const [restFlightMins3, setRestFlightMins3] = useState(() => getSavedState('restFlightMins3', 0)); 
+  const [restFlightHours4, setRestFlightHours4] = useState(() => getSavedState('restFlightHours4', 12)); 
+  const [restFlightMins4, setRestFlightMins4] = useState(() => getSavedState('restFlightMins4', 0));
+  const [stdHours, setStdHours] = useState(() => getSavedState('stdHours', 10)); 
+  const [stdMins, setStdMins] = useState(() => getSavedState('stdMins', 0));
+  const [isTakeoffAuto, setIsTakeoffAuto] = useState(() => getSavedState('isTakeoffAuto', true)); 
+  const [taxiOutMins, setTaxiOutMins] = useState(() => getSavedState('taxiOutMins', 20)); 
+  const [taxiInMins, setTaxiInMins] = useState(() => getSavedState('taxiInMins', 5)); 
+  const [restTakeoffHours, setRestTakeoffHours] = useState(() => getSavedState('restTakeoffHours', 10)); 
+  const [restTakeoffMins, setRestTakeoffMins] = useState(() => getSavedState('restTakeoffMins', 20));
+  const [restOffsetMins, setRestOffsetMins] = useState(() => getSavedState('restOffsetMins', 0)); 
+  const [restLandingOffsetMins, setRestLandingOffsetMins] = useState(() => getSavedState('restLandingOffsetMins', 0)); 
+  const [restCrewSize, setRestCrewSize] = useState(() => getSavedState('restCrewSize', 3)); 
+  const [restFirstRestMins, setRestFirstRestMins] = useState(() => getSavedState('restFirstRestMins', 60)); 
+  const [restLastRestMins, setLastRestMins] = useState(() => getSavedState('restLastRestMins', 60)); 
+  const [restFirstHalfMins, setFirstHalfMins] = useState(() => getSavedState('restFirstHalfMins', 0));
 
   const [selectedDep, setSelectedDep] = useState(""); const [selectedArr, setSelectedArr] = useState(""); const [selectedFlightId, setSelectedFlightId] = useState(""); const [selectedAirlineCode, setSelectedAirlineCode] = useState(""); const [selectedAirline, setSelectedAirline] = useState(""); const [selectedCallsign, setSelectedCallsign] = useState(""); const [trafficTimeRange, setTrafficTimeRange] = useState(30); const [depTrafficMode, setDepTrafficMode] = useState("DEP"); const [arrTrafficMode, setArrTrafficMode] = useState("OFF");
   
-  const [state, setState] = useState({ 
+  const [state, setState] = useState(() => getSavedState('state', { 
     selectedReg: "", selectedType: "777-200", isaDev: 0, cruiseAltitude: 30000, 
     landingCondition: "Normal", selectedRwyCond: "6-DRY", windComponent: 0, 
     appSpeedAdditive: 5, pressureAlt: 0, rwSlope: 0, reverserConfig: "Both", 
     factConfig: "1.00", aiConfig: "OFF", cruiseWeight: 400000, landingWeight: 400000, 
     ptowOrig: null, pldwOrig: null, toElevOrig: null, ldElevOrig: null,
     buffetMargin: "1.3G"
-  });
+  }));
   
   const [cruiseWtInputText, setCruiseWtInputText] = useState(formatWeightDisplay(state.cruiseWeight)); 
   const [ldgWtInputText, setLdgWtInputText] = useState(formatWeightDisplay(state.landingWeight));
 
-  const [globalRoute, setGlobalRoute] = useState("");
-  const [globalDest, setGlobalDest] = useState("");
-  const [globalEtopsAltns, setGlobalEtopsAltns] = useState([]);
-  const [globalEtopsTime, setGlobalEtopsTime] = useState("");
+  const [globalRoute, setGlobalRoute] = useState(() => getSavedState('globalRoute', ""));
+  const [globalDest, setGlobalDest] = useState(() => getSavedState('globalDest', ""));
+  const [globalEtopsAltns, setGlobalEtopsAltns] = useState(() => getSavedState('globalEtopsAltns', []));
+  const [globalEtopsTime, setGlobalEtopsTime] = useState(() => getSavedState('globalEtopsTime', ""));
 
   useEffect(() => {
     const isHidden = localStorage.getItem('hideSetupGuide');
     if (isHidden !== 'true') setShowSetupBanner(true);
-
-    const savedApp = localStorage.getItem('appStateBackup_v3');
+    
+    // Load remaining non-hook initial states
+    const savedApp = localStorage.getItem('appStateBackup_v4');
     if (savedApp) {
       try {
         const parsed = JSON.parse(savedApp);
-        if (parsed.state) setState(parsed.state);
         if (parsed.flightId) {
           setFlightId(parsed.flightId);
           setSelectedFlightId(parsed.flightId);
@@ -92,11 +156,20 @@ export default function App() {
     }
   }, []);
 
+  // Save all states
   useEffect(() => {
     try {
-      localStorage.setItem('appStateBackup_v3', JSON.stringify({ state, flightId, navlogData }));
+      const backup = { 
+        state, flightId, navlogData,
+        restFlightHours3, restFlightMins3, restFlightHours4, restFlightMins4,
+        stdHours, stdMins, isTakeoffAuto, taxiOutMins, taxiInMins,
+        restTakeoffHours, restTakeoffMins, restOffsetMins, restLandingOffsetMins,
+        restCrewSize, restFirstRestMins, restLastRestMins, restFirstHalfMins,
+        globalRoute, globalDest, globalEtopsAltns, globalEtopsTime
+      };
+      localStorage.setItem('appStateBackup_v4', JSON.stringify(backup));
     } catch(e) {}
-  }, [state, flightId, navlogData]);
+  });
 
   useEffect(() => {
     if (isTakeoffAuto) { 
@@ -136,10 +209,30 @@ export default function App() {
     setState(prev => ({ ...prev, selectedReg: "", selectedType: type, cruiseWeight: defaultCruiseWeights[type] || 400000, landingWeight: defaultLandingWeights[type] || 400000, landingCondition: "Normal" })); 
   };
 
+  const handleResetAll = () => {
+    if (window.confirm("全ての入力データや状態をリセットし、初期状態に戻しますか？")) {
+        localStorage.removeItem('appStateBackup_v4');
+        localStorage.removeItem('navlogFlightDataBackup');
+        window.location.reload(true);
+    }
+  };
+
   const handleApplyFlightPlan = (data) => {
     setState(prev => {
       const next = { ...prev };
-      if (data.reg) { const ac = typeof aircraftRegistrationList !== 'undefined' ? aircraftRegistrationList.find(a => a.reg === data.reg) : null; if (ac) { next.selectedReg = data.reg; next.selectedType = ac.type; } else { next.selectedReg = data.reg; } }
+      
+      const regToApply = data.reg || data.pReg;
+      
+      if (regToApply) { 
+          const ac = typeof aircraftRegistrationList !== 'undefined' ? aircraftRegistrationList.find(a => a.reg === regToApply) : null; 
+          if (ac) { 
+              next.selectedReg = regToApply; 
+              next.selectedType = ac.type; 
+          } else { 
+              next.selectedReg = regToApply; 
+          } 
+      }
+      
       if (data.isa !== undefined && !isNaN(data.isa)) next.isaDev = data.isa;
       if (data.alt !== undefined) next.cruiseAltitude = data.alt;
       
@@ -171,23 +264,26 @@ export default function App() {
       }
       return next;
     });
-    if (data.flightId) { setFlightId(data.flightId); setSelectedFlightId(data.flightId); setSelectedAirlineCode("NH"); setSelectedAirline("ANA"); setSelectedCallsign("ALL NIPPON"); }
+    
+    // ★ 各種コンポーネント（TFC INFO, ETOPS等）へデータを渡すための更新
+    if (data.flightId) { 
+        setFlightId(data.flightId); 
+        setSelectedFlightId(data.flightId); 
+        setSelectedAirlineCode("NH"); 
+        setSelectedAirline("ANA"); 
+        setSelectedCallsign("ALL NIPPON"); 
+    }
+    
+    if (data.depIcao) setSelectedDep(data.depIcao);
+    if (data.destIcao) setSelectedArr(data.destIcao);
     
     if (data.fltTimeH !== undefined && data.fltTimeH !== null && !isNaN(data.fltTimeH)) { 
         setRestFlightHours3(data.fltTimeH); 
         setRestFlightHours4(data.fltTimeH);
-        try {
-            localStorage.setItem('restFlightHours3', data.fltTimeH);
-            localStorage.setItem('restFlightHours4', data.fltTimeH);
-        } catch(e) {}
     }
     if (data.fltTimeM !== undefined && data.fltTimeM !== null && !isNaN(data.fltTimeM)) { 
         setRestFlightMins3(data.fltTimeM); 
         setRestFlightMins4(data.fltTimeM); 
-        try {
-            localStorage.setItem('restFlightMins3', data.fltTimeM);
-            localStorage.setItem('restFlightMins4', data.fltTimeM);
-        } catch(e) {}
     }
     
     if (data.stdH !== undefined) { setStdHours(data.stdH); setStdMins(data.stdM); setIsTakeoffAuto(true); }
@@ -216,6 +312,7 @@ export default function App() {
     
     const routeMatch = text.match(/([A-Z]{4})\s*-\s*([A-Z]{4})/);
     const rInfo = routeMatch ? `${routeMatch[1]} - ${routeMatch[2]}` : "UNKNOWN";
+    const depIcao = routeMatch ? routeMatch[1] : null;
     const destIcao = routeMatch ? routeMatch[2] : null;
     const regMatch = text.match(/(JA\d{3}[A-Z]?)/);
     const pReg = regMatch ? regMatch[1] : "JA796A";
@@ -294,37 +391,70 @@ export default function App() {
     const dateMatch = text.match(/\b(\d{2}[A-Z]{3}\d{2})\b/);
     const pDate = dateMatch ? dateMatch[1] : "";
 
-    // ETOPS ET/LTの抽出
-    const etopsSectionMatch = text.match(/-ETP\/EEP\/EXP\/ET\.LT([\s\S]*?)(?=\n-[A-Z]|\n\n|$)/);
+    const etopsSectionIndex = text.indexOf('-ETP/EEP/EXP/ET.LT');
     let etopsData = null;
-    let etopsWps = { eep: null, exp: null, etps: [] };
+    let eepWpName = null;
+    let expWpName = null;
     
-    if (etopsSectionMatch) {
-      const etopsText = etopsSectionMatch[1];
-      const regex = /([A-Z]{4})\/(\d{4})\/(\d{4})/g;
-      let match;
-      etopsData = [];
-      while ((match = regex.exec(etopsText)) !== null) {
-        etopsData.push({
-          airport: match[1],
-          et: match[2],
-          lt: match[3]
-        });
-      }
-      if (etopsData.length === 0) etopsData = null;
+    if (etopsSectionIndex !== -1) {
+      const nextSectionMatch = text.substring(etopsSectionIndex + 1).match(/(?:\s|\n)-[A-Z]/);
+      const nextSectionIndex = nextSectionMatch ? nextSectionMatch.index : -1;
+      const etopsText = nextSectionIndex !== -1 
+          ? text.substring(etopsSectionIndex, etopsSectionIndex + 1 + nextSectionIndex)
+          : text.substring(etopsSectionIndex);
 
-      const eepMatch = etopsText.match(/EEP\/([A-Z0-9]+)/);
-      const expMatch = etopsText.match(/EXP\/[^\/]*\/([A-Z0-9]+)/) || etopsText.match(/EXP\/.*?\/([A-Z0-9]+)/);
-      const etpMatches = [...etopsText.matchAll(/ETP\d*/g)].map(m => m[0]);
-      
-      etopsWps.eep = eepMatch ? eepMatch[1].replace(/\+\d+$/, '') : null;
-      etopsWps.exp = expMatch ? expMatch[1].replace(/\+\d+$/, '') : null;
-      etopsWps.etps = etpMatches;
+      const eepMatch1 = etopsText.match(/EEP\/([A-Z0-9]+)/);
+      const eepMatch2 = etopsText.match(/([A-Z0-9]+)\s+EEP\//);
+      eepWpName = eepMatch1 ? eepMatch1[1].replace(/\+\d+$/, '') : (eepMatch2 ? eepMatch2[1] : null);
+
+      const expMatch1 = etopsText.match(/EXP\/[\s\/]*([A-Z0-9]+)/i);
+      const expMatch2 = etopsText.match(/([A-Z0-9]+)\s+EXP\//i);
+      expWpName = expMatch1 ? expMatch1[1].replace(/\+\d+$/, '') : (expMatch2 ? expMatch2[1] : null);
+
+      etopsData = [];
+      const etpMatches = [...etopsText.matchAll(/([A-Z]{4})\/([A-Z]{4})\s+(\d{2})\/(\d{2})/g)];
+      const timeMatches = [...etopsText.matchAll(/([A-Z]{4})\/(\d{4})\/(\d{4})/g)];
+
+      timeMatches.forEach((match, idx) => {
+          let endCtme = Infinity;
+          if (idx < etpMatches.length) {
+              endCtme = parseInt(etpMatches[idx][3], 10) * 60 + parseInt(etpMatches[idx][4], 10);
+          }
+          etopsData.push({
+              airport: match[1],
+              et: match[2],
+              lt: match[3],
+              endCtme: endCtme
+          });
+      });
+      if (etopsData.length === 0) etopsData = null;
     }
 
-    const cleanText = text.replace(/\(\s+/g, '(');
-    const tokens = cleanText.split(/\s+/);
-    let ignoreList = new Set(["ELEV", "RDIS", "TMP", "ZWIND", "SAT", "SPOT", "ETO", "ZTME", "ALT", "FUEL", "POS", "ATO", "DIST", "FL", "RMG", "RJTT", "KJFK", "KEWR", "PANC", "CYVR", "RJCC", "DEC", "CLM", "LRC", "PROG", "STEP", "CLIMB", "MINTMP", "COMPUTED", "COMPANY", "CLEARANCE", "MW/TP", "WSCP", "NONE", "OAT", "INTENTION", "SPEED", "ROUTE", "DATA", "AWY", "OFP", "LOG", "RMK", "NAV", "FOB", "PLN", "ACT", "DIFF", "MEMO", "TIME", "MAX", "WT", "PAGE", "DIS", "WND", "SHR", "TRK", "INFO", "IFR", "VFR"]);
+    let cleanTextForWp = text;
+    const logStartIndex = cleanTextForWp.indexOf('WSCP');
+    if (logStartIndex !== -1) {
+        cleanTextForWp = cleanTextForWp.substring(logStartIndex);
+    } else {
+        if (etopsSectionIndex !== -1) {
+            const nextSectionMatch = text.substring(etopsSectionIndex + 1).match(/(?:\s|\n)-[A-Z]/);
+            const nextSectionIndex = nextSectionMatch ? nextSectionMatch.index : -1;
+            cleanTextForWp = nextSectionIndex !== -1 
+                ? text.substring(0, etopsSectionIndex) + text.substring(etopsSectionIndex + 1 + nextSectionIndex)
+                : text.substring(0, etopsSectionIndex);
+        }
+    }
+
+    cleanTextForWp = cleanTextForWp.replace(/\(\s+/g, '(');
+    const tokens = cleanTextForWp.split(/\s+/);
+    
+    let ignoreList = new Set([
+        "ELEV", "RDIS", "TMP", "ZWIND", "SAT", "SPOT", "ETO", "ZTME", "ALT", "FUEL", "POS", "ATO", "DIST", "FL", "RMG", 
+        "RJTT", "KJFK", "KEWR", "PANC", "CYVR", "RJCC", "DEC", "CLM", "LRC", "PROG", "STEP", "CLIMB", "MINTMP", 
+        "COMPUTED", "COMPANY", "CLEARANCE", "MW/TP", "WSCP", "NONE", "OAT", "INTENTION", "SPEED", "ROUTE", "DATA", 
+        "AWY", "OFP", "LOG", "RMK", "NAV", "FOB", "PLN", "ACT", "DIFF", "MEMO", "TIME", "MAX", "WT", "PAGE", "DIS", 
+        "WND", "SHR", "TRK", "INFO", "IFR", "VFR", 
+        "TC", "GS", "CTME", "MC", "TAS", "RTME", "WP", "LAT", "LONG", "LAT/LONG"
+    ]);
     
     if (fNoMatch) {
         ignoreList.add(fNoMatch[0]);
@@ -343,12 +473,8 @@ export default function App() {
     let pendingWind = "";
     let pendingIsa = null;
 
-    let isEtopsActive = false;
-    let currentEtpIndex = 0;
-    let activeEtopsAltn = null;
-    if (etopsData && etopsData.length > 0) {
-      activeEtopsAltn = etopsData[0].airport;
-    }
+    let eepCtme = null;
+    let expCtme = null;
 
     for (let i = 0; i < tokens.length; i++) {
         let token = tokens[i];
@@ -414,7 +540,7 @@ export default function App() {
         const isCoord = /^[NS]\d{4,5}[EW]\d{4,6}$/.test(cleanToken);
         const isAlphaWp = /^[A-Z][A-Z0-9]{1,5}$/.test(cleanToken) && !ignoreList.has(cleanToken);
         const isArincWp = /^\d{2}[NSWE]\d{2}$/.test(cleanToken);
-        const isSpecialWp = ["TOC", "TOD", "EEP", "EXP", "ETP", "ETP1", "ETP2", "ETP3", "ETP4", "ETP5"].includes(cleanToken) || cleanToken.startsWith('EEP') || cleanToken.startsWith('EXP');
+        const isSpecialWp = ["TOC", "TOD"].includes(cleanToken);
 
         if (!isCoord && (isAlphaWp || isArincWp || isSpecialWp)) {
             if (recentTimes.length === 0 && !isSpecialWp) {
@@ -425,6 +551,10 @@ export default function App() {
             let rtme = recentTimes.length > 1 ? recentTimes[1] : 0;
             if (recentTimes.length === 1) rtme = 0; 
             
+            // Record EEP/EXP times if they match known waypoints
+            if (cleanToken === eepWpName) eepCtme = ctme;
+            if (cleanToken === expWpName) expCtme = ctme;
+
             if (newPlan.length > 0 && newPlan[newPlan.length - 1].wp === cleanToken) {
                 continue;
             }
@@ -440,20 +570,6 @@ export default function App() {
               }
             }
 
-            if (cleanToken.startsWith('EEP') || cleanToken === etopsWps.eep) {
-                isEtopsActive = true;
-                if (etopsData && etopsData.length > 0) activeEtopsAltn = etopsData[0].airport;
-            }
-            if (cleanToken.startsWith('ETP')) {
-                currentEtpIndex++;
-                if (etopsData && etopsData.length > currentEtpIndex) {
-                    activeEtopsAltn = etopsData[currentEtpIndex].airport;
-                }
-            }
-            if (cleanToken.startsWith('EXP') || cleanToken === etopsWps.exp) {
-                isEtopsActive = false;
-            }
-
             newPlan.push({ 
               wp: cleanToken, 
               ctme: ctme, 
@@ -465,9 +581,7 @@ export default function App() {
               isaDev: currentWpIsa,
               hasExplicitIsa: pendingIsa !== null,
               dist: 0,
-              isOffRoute: isOffRoute,
-              etopsActive: isEtopsActive,
-              etopsAltn: isEtopsActive ? activeEtopsAltn : null
+              isOffRoute: isOffRoute
             });
             
             if (destIcao && cleanToken === destIcao) {
@@ -512,12 +626,22 @@ export default function App() {
         }
     }
 
+    let parsedEtopsInfo = null;
+    if (etopsData) {
+        parsedEtopsInfo = {
+            data: etopsData,
+            eepCtme: eepCtme !== null ? eepCtme : 0,
+            expCtme: expCtme !== null ? expCtme : 9999
+        };
+    }
+
     const fullRouteStr = newPlan.map(p => p.wp).join(' ');
 
+    // ★ 修正箇所: TFC INFO, ETOPS などに渡る名前（キー）を揃える
     return { 
-        newPlan, fNo, flightIdRaw, rInfo, destIcao, pReg, pPzfw, pTaxiOut, pTaxiIn, pDate, 
+        newPlan, fNo, flightIdRaw, flightId: flightIdRaw, rInfo, depIcao, destIcao, dest: destIcao, pReg, pPzfw, pTaxiOut, pTaxiIn, pDate, 
         ptow, pldw, alt, isa, toElev, ldElev, fltTimeH, fltTimeM, stdH, stdM, staH, staM,
-        fullRouteStr, loadId: Date.now(), etopsData 
+        fullRouteStr, route: fullRouteStr, loadId: Date.now(), parsedEtopsInfo 
     };
   };
 
@@ -552,25 +676,8 @@ export default function App() {
         if (parsedData.newPlan.length > 0) {
             parsedData.isNew = true; 
             setNavlogData(parsedData); 
-            
-            handleApplyFlightPlan({ 
-                flightId: parsedData.flightIdRaw, 
-                reg: parsedData.pReg,
-                route: parsedData.fullRouteStr, 
-                dest: parsedData.destIcao,
-                ptow: parsedData.ptow,
-                pldw: parsedData.pldw,
-                alt: parsedData.alt,
-                isa: parsedData.isa,
-                toElev: parsedData.toElev,
-                ldElev: parsedData.ldElev,
-                fltTimeH: parsedData.fltTimeH,
-                fltTimeM: parsedData.fltTimeM,
-                stdH: parsedData.stdH,
-                stdM: parsedData.stdM,
-                avgTaxiOut: parsedData.pTaxiOut,
-                avgTaxiIn: parsedData.pTaxiIn
-            });
+            handleApplyFlightPlan(parsedData);
+            setIsLoadModalOpen(false);
         } else { 
             window.dispatchEvent(new CustomEvent('show-toast', { detail: 'フライトプランの読み取りに失敗しました。PDFの形式を確認してください。' })); 
         }
@@ -580,7 +687,7 @@ export default function App() {
       } 
       finally { 
         setIsParsingPdf(false); 
-        e.target.value = ''; 
+        if (pdfInputRef.current) pdfInputRef.current.value = ''; 
       }
     };
     reader.readAsArrayBuffer(file);
@@ -682,12 +789,16 @@ export default function App() {
       const f25Data = TARGET_PITCH_N1_DATA_RAW[mKey]?.f25; const f30Data = TARGET_PITCH_N1_DATA_RAW[mKey]?.f30; const wt1000Ldg = clampedLandingWeight / 1000;
       
       const getInterpolatedTarget = (wt, dataArray, addSpd) => {
-        if (!dataArray || dataArray.length === 0 || wt > dataArray[dataArray.length - 1][0]) return { pch: null, n1: null };
+        if (!dataArray || dataArray.length === 0) return { pch: null, n1: null };
+        let effWt = wt;
+        const maxWt = dataArray[dataArray.length - 1][0];
+        if (effWt > maxWt) effWt = maxWt;
+
         const isDataExtended = dataArray[0].length > 3;
         
         if (!isDataExtended) {
-          const basePch = interpolateObjArray(wt, dataArray, 1);
-          const baseN1 = interpolateObjArray(wt, dataArray, 2);
+          const basePch = interpolateObjArray(effWt, dataArray, 1);
+          const baseN1 = interpolateObjArray(effWt, dataArray, 2);
           if (basePch === null || baseN1 === null) return { pch: null, n1: null };
           return { pch: basePch - (addSpd * 0.12), n1: baseN1 + (addSpd * 0.15) };
         }
@@ -711,10 +822,10 @@ export default function App() {
           }
         }
         
-        const p_lower = interpolateObjArray(wt, dataArray, lower.pIdx);
-        const n_lower = interpolateObjArray(wt, dataArray, lower.nIdx);
-        const p_upper = interpolateObjArray(wt, dataArray, upper.pIdx);
-        const n_upper = interpolateObjArray(wt, dataArray, upper.nIdx);
+        const p_lower = interpolateObjArray(effWt, dataArray, lower.pIdx);
+        const n_lower = interpolateObjArray(effWt, dataArray, lower.nIdx);
+        const p_upper = interpolateObjArray(effWt, dataArray, upper.pIdx);
+        const n_upper = interpolateObjArray(effWt, dataArray, upper.nIdx);
         
         if (p_lower === null || n_lower === null || p_upper === null || n_upper === null) return { pch: null, n1: null };
         if (lower.add === upper.add) return { pch: p_lower, n1: n_lower };
@@ -869,6 +980,25 @@ export default function App() {
       <DrmModal isOpen={isDrmModalOpen} onClose={() => setIsDrmModalOpen(false)} initialFlightNo={flightId} />
       <SmartCatModal isOpen={isSmartCatModalOpen} onClose={() => setIsSmartCatModalOpen(false)} />
       <QuickGuideModal isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} />
+      
+      <LoadDataModal 
+        isOpen={isLoadModalOpen} 
+        onClose={() => setIsLoadModalOpen(false)} 
+        isParsing={isParsingPdf}
+        pdfRef={pdfInputRef}
+        onFileClick={() => pdfInputRef.current?.click()}
+        onPaste={(text) => {
+            const parsed = parseNavlogPDFText(text);
+            if (parsed && parsed.newPlan.length > 0) {
+                parsed.isNew = true;
+                setNavlogData(parsed);
+                handleApplyFlightPlan(parsed);
+                setIsLoadModalOpen(false);
+            } else {
+                window.dispatchEvent(new CustomEvent('show-toast', { detail: 'テキストの解析に失敗しました。' }));
+            }
+        }} 
+      />
 
       <input type="file" accept="application/pdf" className="hidden" ref={pdfInputRef} onChange={handleAppPdfUpload} />
 
@@ -891,19 +1021,21 @@ export default function App() {
 
       <div className="flex flex-col gap-1.5 w-full flex-none mb-1 px-1 mt-1 shrink-0">
         <div className="flex flex-col pt-1 pb-1 border-b-2 border-slate-700/80 gap-1.5">
-          <div className="flex items-center flex-wrap gap-1 text-blue-400 font-black tracking-tighter text-[11px] sm:text-sm">
+          <div className="flex items-center justify-between flex-wrap gap-1 text-blue-400 font-black tracking-tighter text-[11px] sm:text-sm">
             <div className="flex items-center gap-1">
               <SafeIcon name="Plane" className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> 
               <span>7PT B777 PERFORMANCE TOOL</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="text-amber-400 font-mono text-[9px] border border-amber-500/30 px-1 rounded bg-amber-500/10 tracking-normal font-bold">ver 7.8
-              </span>
+              <span className="text-amber-400 font-mono text-[9px] border border-amber-500/30 px-1 rounded bg-amber-500/10 tracking-normal font-bold ml-1">ver {APP_VERSION}</span>
               {flightId && (<span className="text-slate-300 font-mono text-[9px] border border-slate-600 px-1 rounded bg-slate-800 tracking-normal font-bold">ANA{flightId}</span>)}
             </div>
+            
+            <button onClick={handleResetAll} className="bg-rose-900/60 hover:bg-rose-600 text-rose-200 hover:text-white px-2 py-0.5 rounded flex items-center justify-center gap-0.5 transition-colors border border-rose-500/50 hover:border-rose-400 shadow-sm shrink-0 ml-auto" title="すべての入力データをリセット">
+                <SafeIcon name="Trash2" className="w-2.5 h-2.5 pointer-events-none" />
+                <span className="text-[8px] sm:text-[9px] font-black tracking-widest leading-none mt-[1px] pointer-events-none">RESET</span>
+            </button>
           </div>
 
-          <div className="flex items-center gap-1 w-full overflow-x-auto hide-scrollbar pb-0.5">
+          <div className="flex items-center gap-1 w-full overflow-x-auto hide-scrollbar pb-0.5 mt-0.5">
               <WifiButton type="PANA" url="http://portal.inflight.ana-panasonic.aero/" label="PANA" hoverClass="hover:bg-sky-600" colorClass="text-sky-400 border-sky-500/50 text-[9px] sm:text-[10px] shrink-0" onLongPress={() => setIsWifiModalOpen(true)} />
               
               <button onClick={() => window.open('https://wifi.inflight.viasat.com/', '_blank')} className="bg-slate-700 hover:bg-indigo-600 text-indigo-400 border border-indigo-500/50 hover:text-white px-1 py-0.5 md:px-1.5 md:py-0.5 rounded flex items-center justify-center gap-0.5 transition-colors shadow-sm select-none shrink-0" title="Inmarsat Wi-Fi">
@@ -913,9 +1045,9 @@ export default function App() {
 
               <WifiButton type="DOM" url="https://www.ana-inflight-wifi.com/" label="DOM" hoverClass="hover:bg-emerald-600" colorClass="text-emerald-400 border-emerald-500/50 text-[9px] sm:text-[10px] shrink-0" onLongPress={() => { }} />
 
-              <button onClick={() => pdfInputRef.current.click()} disabled={isParsingPdf} className="animate-glow-pulse bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border border-emerald-400 shadow-sm shrink-0" title="PDFを読み込んで全画面に一発反映">
-                <SafeIcon name="FileText" className="w-3 h-3 pointer-events-none" />
-                <span className="text-[9px] sm:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">{isParsingPdf ? 'READING' : 'LOAD PDF'}</span>
+              <button onClick={() => setIsLoadModalOpen(true)} className="animate-glow-pulse bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-emerald-100 px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border border-emerald-500 shadow-sm shrink-0" title="PDFまたはテキストから読み込む">
+                <SafeIcon name="Download" className="w-3 h-3 pointer-events-none" />
+                <span className="text-[9px] sm:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">LOAD</span>
               </button>
 
               <button onClick={() => { if (!state.selectedReg || state.selectedReg === "N/A" || state.selectedReg === "") { window.dispatchEvent(new CustomEvent('show-toast', { detail: '機番を選択してください' })); return; } const buddycomUrl = typeof BUDDYCOM_LINKS !== 'undefined' ? BUDDYCOM_LINKS[state.selectedReg] : null; if (buddycomUrl) { const pastedFlightName = flightId ? `ANA${flightId}` : ""; if (pastedFlightName) { copyToClipboard(pastedFlightName); window.dispatchEvent(new CustomEvent('show-toast', { detail: `便名(${pastedFlightName})をコピーして起動しました` })); } else { window.dispatchEvent(new CustomEvent('show-toast', { detail: 'Buddycomを起動しました' })); } setTimeout(() => { window.open(buddycomUrl, '_blank'); }, 1000); } else { window.dispatchEvent(new CustomEvent('show-toast', { detail: 'この機番のBuddycomリンクは未登録です' })); } }} className={`px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border shadow-sm shrink-0 ${state.selectedReg && state.selectedReg !== "N/A" && state.selectedReg !== "" ? 'bg-slate-700 hover:bg-orange-600 text-orange-400 hover:text-white border-slate-500 hover:border-orange-400' : 'bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed'}`} title="Buddycomを開く"><SafeIcon name="Radio" className="w-3 h-3 pointer-events-none" /><span className="text-[9px] sm:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">BDYC</span></button>
@@ -978,7 +1110,7 @@ export default function App() {
         )}
         {activeTab === 'DOCS' && (<div className="flex flex-col gap-1 w-full h-full"><Docs2View /></div>)}
         {activeTab === 'TARMAC' && (<div className="flex flex-col gap-1 w-full h-full"><TarmacView /></div>)}
-        {activeTab === 'REST CALC' && (<div className="flex flex-col gap-1 w-full h-full"><RestView flightHours={restCrewSize === 3 ? restFlightHours3 : restFlightHours4} setFlightHours={restCrewSize === 3 ? setRestFlightHours3 : setRestFlightHours4} flightMins={restCrewSize === 3 ? restFlightMins3 : restFlightMins4} setFlightMins={restCrewSize === 3 ? setRestFlightMins3 : setRestFlightMins4} stdHours={stdHours} setStdHours={setStdHours} stdMins={stdMins} setStdMins={setStdMins} isTakeoffAuto={isTakeoffAuto} setIsTakeoffAuto={setIsTakeoffAuto} takeoffHours={restTakeoffHours} setTakeoffHours={setRestTakeoffHours} takeoffMins={restTakeoffMins} setTakeoffMins={setRestTakeoffMins} offsetMins={restOffsetMins} setOffsetMins={setRestOffsetMins} landingOffsetMins={restLandingOffsetMins} setLandingOffsetMins={setRestLandingOffsetMins} crewSize={restCrewSize} setCrewSize={setRestCrewSize} firstRestMins={restFirstRestMins} setFirstRestMins={setRestFirstRestMins} lastRestMins={restLastRestMins} setLastRestMins={setRestLastRestMins} firstHalfMins={restFirstHalfMins} setFirstHalfMins={setRestFirstHalfMins} taxiOutMins={taxiOutMins} /></div>)}
+        {activeTab === 'REST CALC' && (<div className="flex flex-col gap-1 w-full h-full"><RestView flightHours={restCrewSize === 3 ? restFlightHours3 : restFlightHours4} setFlightHours={restCrewSize === 3 ? setRestFlightHours3 : setRestFlightHours4} flightMins={restCrewSize === 3 ? restFlightMins3 : restFlightMins4} setFlightMins={restCrewSize === 3 ? setRestFlightMins3 : setRestFlightMins4} stdHours={stdHours} setStdHours={setStdHours} stdMins={stdMins} setStdMins={setStdMins} isTakeoffAuto={isTakeoffAuto} setIsTakeoffAuto={setIsTakeoffAuto} takeoffHours={restTakeoffHours} setTakeoffHours={setRestTakeoffHours} takeoffMins={restTakeoffMins} setTakeoffMins={setRestTakeoffMins} offsetMins={restOffsetMins} setOffsetMins={setRestOffsetMins} landingOffsetMins={restLandingOffsetMins} setLandingOffsetMins={setRestLandingOffsetMins} crewSize={restCrewSize} setCrewSize={setRestCrewSize} firstRestMins={restFirstRestMins} setFirstRestMins={setRestFirstRestMins} lastRestMins={restLastRestMins} setLastRestMins={setLastRestMins} firstHalfMins={restFirstHalfMins} setFirstHalfMins={setFirstHalfMins} taxiOutMins={taxiOutMins} /></div>)}
         {activeTab === 'APP CALC' && (<div className="flex flex-col gap-1 w-full h-full"><ApproachCalcView /></div>)}
         {activeTab === 'XWIND' && (<div className="flex flex-col gap-1 w-full h-full mt-0.5"><XwindView /></div>)}
       </div>
