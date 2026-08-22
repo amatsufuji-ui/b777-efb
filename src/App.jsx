@@ -1,11 +1,10 @@
-// App.jsx
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import * as LucideIcons from 'lucide-react';
 
 // =========================================================================
-// ★ アプリバージョン設定 (アップデート時はここの数字を変更してください)
+// ★ アプリバージョン設定
 // =========================================================================
-const APP_VERSION = "7.9";
+const APP_VERSION = "7.9.2";
 // =========================================================================
 
 import { RAW_CSV_DATA, aircraftRegistrationList, BUDDYCOM_LINKS } from './data/flightData';
@@ -25,7 +24,6 @@ import { QuickGuideModal } from './components/QuickGuideModal';
 import { NavlogView } from './components/NavlogView';
 import { TarmacView } from './components/TarmacView'; 
 
-// テキストペースト＆PDF読み込み統合モーダル
 const LoadDataModal = ({ isOpen, onClose, onFileClick, onPaste, isParsing }) => {
     const [text, setText] = useState("");
     if (!isOpen) return null;
@@ -82,12 +80,10 @@ export default function App() {
   const [isLoadModalOpen, setIsLoadModalOpen] = useState(false); 
   const [showSetupBanner, setShowSetupBanner] = useState(false);
 
-  // PDF入力用の参照
   const pdfInputRef = useRef(null);
   const [isParsingPdf, setIsParsingPdf] = useState(false);
   const [navlogData, setNavlogData] = useState(null);
 
-  // --- Initializing State with LocalStorage (Crash Recovery for all) ---
   const getSavedState = (key, defaultValue) => {
     try {
       const saved = localStorage.getItem('appStateBackup_v4');
@@ -135,12 +131,12 @@ export default function App() {
   const [globalDest, setGlobalDest] = useState(() => getSavedState('globalDest', ""));
   const [globalEtopsAltns, setGlobalEtopsAltns] = useState(() => getSavedState('globalEtopsAltns', []));
   const [globalEtopsTime, setGlobalEtopsTime] = useState(() => getSavedState('globalEtopsTime', ""));
+  const [globalEtops207, setGlobalEtops207] = useState(() => getSavedState('globalEtops207', false));
 
   useEffect(() => {
     const isHidden = localStorage.getItem('hideSetupGuide');
     if (isHidden !== 'true') setShowSetupBanner(true);
     
-    // Load remaining non-hook initial states
     const savedApp = localStorage.getItem('appStateBackup_v4');
     if (savedApp) {
       try {
@@ -156,7 +152,6 @@ export default function App() {
     }
   }, []);
 
-  // Save all states
   useEffect(() => {
     try {
       const backup = { 
@@ -165,7 +160,7 @@ export default function App() {
         stdHours, stdMins, isTakeoffAuto, taxiOutMins, taxiInMins,
         restTakeoffHours, restTakeoffMins, restOffsetMins, restLandingOffsetMins,
         restCrewSize, restFirstRestMins, restLastRestMins, restFirstHalfMins,
-        globalRoute, globalDest, globalEtopsAltns, globalEtopsTime
+        globalRoute, globalDest, globalEtopsAltns, globalEtopsTime, globalEtops207
       };
       localStorage.setItem('appStateBackup_v4', JSON.stringify(backup));
     } catch(e) {}
@@ -220,7 +215,6 @@ export default function App() {
   const handleApplyFlightPlan = (data) => {
     setState(prev => {
       const next = { ...prev };
-      
       const regToApply = data.reg || data.pReg;
       
       if (regToApply) { 
@@ -265,7 +259,6 @@ export default function App() {
       return next;
     });
     
-    // ★ 各種コンポーネント（TFC INFO, ETOPS等）へデータを渡すための更新
     if (data.flightId) { 
         setFlightId(data.flightId); 
         setSelectedFlightId(data.flightId); 
@@ -294,6 +287,7 @@ export default function App() {
     if (data.dest) setGlobalDest(data.dest); 
     if (data.etopsAltns) setGlobalEtopsAltns(data.etopsAltns); else setGlobalEtopsAltns([]);
     if (data.etopsTime) setGlobalEtopsTime(data.etopsTime); else setGlobalEtopsTime("");
+    setGlobalEtops207(!!data.isEtops207);
     
     window.dispatchEvent(new CustomEvent('show-toast', { detail: 'フライトデータを全画面に反映しました！' }));
   };
@@ -316,6 +310,8 @@ export default function App() {
     const destIcao = routeMatch ? routeMatch[2] : null;
     const regMatch = text.match(/(JA\d{3}[A-Z]?)/);
     const pReg = regMatch ? regMatch[1] : "JA796A";
+
+    const isEtops207 = /ETOPS\s*\/\s*207|207MIN\s+ETOPS/i.test(text);
 
     let ptow, pldw, pPzfw = 400.0, alt, isa = 0, toElev, ldElev, fltTimeH, fltTimeM, stdH, stdM, staH, staM;
     let pTaxiOut = 20, pTaxiIn = 5;
@@ -395,6 +391,7 @@ export default function App() {
     let etopsData = null;
     let eepWpName = null;
     let expWpName = null;
+    let extractedEtopsAltns = [];
     
     if (etopsSectionIndex !== -1) {
       const nextSectionMatch = text.substring(etopsSectionIndex + 1).match(/(?:\s|\n)-[A-Z]/);
@@ -428,6 +425,17 @@ export default function App() {
           });
       });
       if (etopsData.length === 0) etopsData = null;
+
+      const altnMatches = [...etopsText.matchAll(/\b([A-Z]{4})\b/g)];
+      const ignoreAirports = new Set([depIcao, destIcao, "NONE", "AUTO", "DISP", "WSCP", "ETP1", "ETP2", "ETP3"]);
+      extractedEtopsAltns = [...new Set(
+        altnMatches.map(m => m[1]).filter(code => !ignoreAirports.has(code))
+      )];
+    }
+
+    const commentEtopsMatch = text.match(/SELECT\s+([A-Z]{4})\/([A-Z]{4})\s+AS\s+ETOPS\s+ALTN/i);
+    if (commentEtopsMatch) {
+      extractedEtopsAltns = [commentEtopsMatch[1], commentEtopsMatch[2]];
     }
 
     let cleanTextForWp = text;
@@ -551,7 +559,6 @@ export default function App() {
             let rtme = recentTimes.length > 1 ? recentTimes[1] : 0;
             if (recentTimes.length === 1) rtme = 0; 
             
-            // Record EEP/EXP times if they match known waypoints
             if (cleanToken === eepWpName) eepCtme = ctme;
             if (cleanToken === expWpName) expCtme = ctme;
 
@@ -637,11 +644,10 @@ export default function App() {
 
     const fullRouteStr = newPlan.map(p => p.wp).join(' ');
 
-    // ★ 修正箇所: TFC INFO, ETOPS などに渡る名前（キー）を揃える
     return { 
         newPlan, fNo, flightIdRaw, flightId: flightIdRaw, rInfo, depIcao, destIcao, dest: destIcao, pReg, pPzfw, pTaxiOut, pTaxiIn, pDate, 
         ptow, pldw, alt, isa, toElev, ldElev, fltTimeH, fltTimeM, stdH, stdM, staH, staM,
-        fullRouteStr, route: fullRouteStr, loadId: Date.now(), parsedEtopsInfo 
+        fullRouteStr, route: fullRouteStr, etopsAltns: extractedEtopsAltns, isEtops207, loadId: Date.now(), parsedEtopsInfo 
     };
   };
 
@@ -1096,7 +1102,7 @@ export default function App() {
         {activeTab === 'DASHBOARD' && (<div className="flex flex-col gap-1 w-full h-full"><DashboardView state={state} updateState={updateState} computed={computed} aircraftRegistrationList={typeof aircraftRegistrationList !== 'undefined' ? aircraftRegistrationList : []} handleRegChange={handleRegChange} setAircraftType={setAircraftType} cruiseWtInputText={cruiseWtInputText} setCruiseWtInputText={setCruiseWtInputText} ldgWtInputText={ldgWtInputText} setLdgWtInputText={setLdgWtInputText} /></div>)}
         {activeTab === 'TFC INFO' && (<div className="flex flex-col gap-1 w-full h-full"><FltInfoView p={fltInfoProps} /></div>)}
         {activeTab === 'WX/MNM' && (<div className="flex flex-col gap-1 w-full h-full"><WxMnmReference /></div>)}
-        {activeTab === 'ETOPS' && (<div className="flex flex-col gap-1 w-full h-full"><EtopsView globalRoute={globalRoute} globalDest={globalDest} globalEtopsAltns={globalEtopsAltns} globalEtopsTime={globalEtopsTime} /></div>)} 
+        {activeTab === 'ETOPS' && (<div className="flex flex-col gap-1 w-full h-full"><EtopsView globalRoute={globalRoute} globalDest={globalDest} globalEtopsAltns={globalEtopsAltns} globalEtopsTime={globalEtopsTime} globalEtops207={globalEtops207} /></div>)} 
         {activeTab === 'NAVLOG' && (
           <div className="flex flex-col w-full h-full">
             <NavlogView 

@@ -4,7 +4,7 @@ import { etopsData } from '../data/flightData';
 
 const HF_CACHE_KEY = 'efb_arinc_hf_data';
 
-export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
+export const EtopsView = ({ globalRoute = "", globalDest = "", globalEtopsAltns = [], globalEtopsTime = "", globalEtops207 = false }) => {
   const [routeInput, setRouteInput] = useState(globalRoute);
   const [aircraft, setAircraft] = useState("B777-300ER/B777F");
   const [destination, setDestination] = useState("EDDF");
@@ -13,7 +13,6 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
   
   const [todayInfo, setTodayInfo] = useState({ dateStr: "", isOdd: true });
 
-  // 初期値を localStorage から読み込む
   const [hfData, setHfData] = useState(() => {
     try {
       const cached = localStorage.getItem(HF_CACHE_KEY);
@@ -37,7 +36,7 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
   const [isFetchingHF, setIsFetchingHF] = useState(false);
 
   useEffect(() => {
-    if (globalRoute) setRouteInput(globalRoute);
+    setRouteInput(globalRoute);
   }, [globalRoute]);
 
   useEffect(() => {
@@ -70,19 +69,15 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
     setIsFetchingHF(true);
     setHfData(prev => ({ ...prev, status: "Fetching..." }));
 
-    // ============================================================
-    // ★ Cloudflare Worker の専用プロキシURL ★
-    // ============================================================
     const PROXY_URL = "https://arinc-proxy.a-matsufuji.workers.dev/"; 
     
     const targetUrl = 'https://radio.arinc.net/pacific/';
-    const timeKey = Math.floor(Date.now() / 600000); // 10分キャッシュキー
+    const timeKey = Math.floor(Date.now() / 600000);
     let html = null;
     let success = false;
     
     const fetchMethods = [];
 
-    // 1. Cloudflare Worker 経由 (高速かつ安定して取得可能)
     if (PROXY_URL) {
       fetchMethods.push(async () => {
         const controller = new AbortController();
@@ -97,7 +92,6 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
       });
     }
 
-    // 2. 予備：パブリックプロキシ
     fetchMethods.push(
       async () => {
         const controller = new AbortController();
@@ -120,7 +114,6 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
       }
     );
 
-    // ループで順番にトライ
     for (let i = 0; i < fetchMethods.length; i++) {
       try {
         const text = await fetchMethods[i]();
@@ -222,6 +215,24 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
     return data.filter(item => isDestinationMatch(item.dest, destination));
   }, [aircraft, destination, activeRouteType]);
 
+  // ETOPS ALTN 組み合わせ判定 (ハイフン/スラッシュ区切り両対応)
+  const isNoAddFuelOk = useMemo(() => {
+    if (!globalEtopsAltns || globalEtopsAltns.length === 0 || noAdditionalFuelAltns.length === 0) return false;
+    
+    const navlogAltns = globalEtopsAltns.map(a => a.toUpperCase()).sort();
+    
+    return noAdditionalFuelAltns.some(item => {
+      const validCombo = item.altn.split(/[\/\-]/).map(a => a.trim().toUpperCase()).sort();
+      if (validCombo.length !== navlogAltns.length) return false;
+      const isAltMatched = validCombo.every((val, idx) => val === navlogAltns[idx]);
+      if (!isAltMatched) return false;
+
+      if (item.etops === '207' && !globalEtops207) return false;
+
+      return true;
+    });
+  }, [globalEtopsAltns, noAdditionalFuelAltns, globalEtops207]);
+
   const routeLabels = {
     a: "a) ADREW ... SINVU/75N130W ...", b: "b) ADREW ... NADMA/IKNOG ...", c: "c) AGMIF ...", d: "d) OMEKA ...",
     e: "e) 80N060W ... 69N000E ...", f: "f) SINVU 77N060W ...", g: "g) アイスランド東迂回", h: "h) アイスランド西迂回", i: "i) BUDUM ... ABGUN"
@@ -256,11 +267,20 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
         </div>
 
         {/* ETOPS ALTN 計算セクション */}
-        <div className="bg-slate-800 rounded-xl shadow-sm border border-slate-700 p-4">
-          <h2 className="text-sm font-bold text-slate-200 mb-3 flex items-center">
-            <SafeIcon name="Fuel" className="w-4 h-4 mr-1.5 text-blue-400" />
-            Additional Fuel 不要 ALTN (北太平洋航路)
-          </h2>
+        <div className={`rounded-xl shadow-sm border p-4 transition-colors duration-300 ${isNoAddFuelOk ? 'bg-emerald-950/40 border-emerald-500' : 'bg-slate-800 border-slate-700'}`}>
+          <div className="flex justify-between items-center mb-3">
+            <h2 className="text-sm font-bold text-slate-200 flex items-center">
+              <SafeIcon name="Fuel" className={`w-4 h-4 mr-1.5 ${isNoAddFuelOk ? 'text-emerald-400' : 'text-blue-400'}`} />
+              Additional Fuel 不要 ALTN (北太平洋航路)
+            </h2>
+            {isNoAddFuelOk && (
+              <span className="bg-emerald-500 text-slate-950 font-black text-xs px-2.5 py-0.5 rounded-full shadow-md flex items-center gap-1 animate-pulse">
+                <SafeIcon name="CheckCircle" className="w-3.5 h-3.5" />
+                ADDITIONAL FUEL 不要 (OK)
+              </span>
+            )}
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
             <div>
               <label className="block text-xs font-medium text-slate-400 mb-1">機種・エンジン</label>
@@ -286,9 +306,32 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
               </select>
             </div>
           </div>
-          <div className="bg-slate-900 p-3 rounded border border-slate-700">
-            <h3 className="font-semibold text-slate-300 text-xs mb-2 flex items-center"><SafeIcon name="CheckCircle" className="w-3.5 h-3.5 mr-1.5 text-emerald-500" />Additional Fuel 不要の ETOPS ALTN 組み合わせ</h3>
-            {activeRouteType ? (noAdditionalFuelAltns.length > 0 ? (<div className="flex flex-wrap gap-2">{noAdditionalFuelAltns.map((item, idx) => (<span key={idx} className="px-2 py-1 bg-emerald-900/30 text-emerald-400 rounded font-mono text-[11px] border border-emerald-700/50 flex items-center gap-1">{item.altn}{item.etops === '207' && <span className="text-[9px] bg-emerald-800/60 text-emerald-200 px-1 py-0.5 rounded leading-none">207</span>}</span>))}</div>) : (<p className="text-xs text-red-400">条件に合致する「追加燃料不要」のALTNはありません。</p>)) : (<p className="text-xs text-slate-500">ルートを入力するか、手動で選択してください。</p>)}
+          <div className={`p-3 rounded border transition-colors ${isNoAddFuelOk ? 'bg-emerald-900/40 border-emerald-600' : 'bg-slate-900 border-slate-700'}`}>
+            <h3 className="font-semibold text-slate-300 text-xs mb-2 flex items-center">
+              <SafeIcon name="CheckCircle" className={`w-3.5 h-3.5 mr-1.5 ${isNoAddFuelOk ? 'text-emerald-400' : 'text-emerald-500'}`} />
+              Additional Fuel 不要の ETOPS ALTN 組み合わせ
+            </h3>
+            {activeRouteType ? (noAdditionalFuelAltns.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {noAdditionalFuelAltns.map((item, idx) => {
+                  const comboList = item.altn.split(/[\/\-]/).map(a => a.trim().toUpperCase()).sort();
+                  const globalList = (globalEtopsAltns || []).map(a => a.toUpperCase()).sort();
+                  const isMatchedCombo = comboList.length === globalList.length && comboList.every((val, i) => val === globalList[i]);
+
+                  return (
+                    <span key={idx} className={`px-2 py-1 rounded font-mono text-[11px] border flex items-center gap-1 transition-all ${
+                      isMatchedCombo 
+                        ? 'bg-emerald-500 text-slate-950 font-black border-emerald-300 shadow-md ring-2 ring-emerald-400/50' 
+                        : 'bg-emerald-900/30 text-emerald-400 border-emerald-700/50'
+                    }`}>
+                      {item.altn}
+                      {item.etops === '207' && <span className={`text-[9px] px-1 py-0.5 rounded leading-none ${isMatchedCombo ? 'bg-slate-900 text-emerald-300' : 'bg-emerald-800/60 text-emerald-200'}`}>207</span>}
+                      {isMatchedCombo && <span className="text-[10px] font-bold ml-1">MATCH!</span>}
+                    </span>
+                  );
+                })}
+              </div>
+            ) : (<p className="text-xs text-red-400">条件に合致する「追加燃料不要」のALTNはありません。</p>)) : (<p className="text-xs text-slate-500">ルートを入力するか、手動で選択してください。</p>)}
           </div>
         </div>
 
@@ -387,7 +430,7 @@ export const EtopsView = ({ globalRoute = "", globalDest = "" }) => {
           
         </div>
 
-        {/* 🚚 ここから引っ越してきたETOPSルール 🚚 */}
+        {/* 参考 ETOPS ルール */}
         <div className="bg-slate-800 rounded-xl shadow-sm border border-slate-700 p-4 mb-4">
           <div className="mb-3 shrink-0">
             <div className="table-container w-full">
