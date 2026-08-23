@@ -4,7 +4,7 @@ import * as LucideIcons from 'lucide-react';
 // =========================================================================
 // ★ アプリバージョン設定
 // =========================================================================
-const APP_VERSION = "8.0";
+const APP_VERSION = "8.1";
 // =========================================================================
 
 import { RAW_CSV_DATA, aircraftRegistrationList, BUDDYCOM_LINKS } from './data/flightData';
