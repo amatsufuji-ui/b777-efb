@@ -547,6 +547,8 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
   const [localLdg, setLocalLdg] = useState("");
 
   const [destWeather, setDestWeather] = useState(null);
+  const [lastFetchedBlockInMins, setLastFetchedBlockInMins] = useState(null);
+  const [lastFetchedDestIcao, setLastFetchedDestIcao] = useState(null);
   const [parsedEtopsInfo, setParsedEtopsInfo] = useState(null);
 
   const [currentUtcMins, setCurrentUtcMins] = useState(() => {
@@ -558,7 +560,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
       const timer = setInterval(() => {
           const now = new Date();
           setCurrentUtcMins(now.getUTCHours() * 60 + now.getUTCMinutes());
-      }, 60000); // 1分ごとに更新
+      }, 60000);
       return () => clearInterval(timer);
   }, []);
 
@@ -585,7 +587,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                 if (diff < -720) diff += 1440; if (diff > 720) diff -= 1440;
                 activeDiffForETA = diff;
                 
-                // ATOが入力された地点での差分を保持
                 currentDiff = diff;
                 latestAtoTimeDiff = diff;
             }
@@ -602,8 +603,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
     }
     const estBlockInMins = estLandingTimeMins !== null ? estLandingTimeMins + parsedTaxiIn : null;
 
-    // もう一度最初から各行のデータを構築
-    currentDiff = 0; // ループ用にリセット
+    currentDiff = 0;
     for (let i = 0; i < flightPlan.length; i++) {
       const wpPlan = flightPlan[i];
       const wpActual = actuals[wpPlan.wp] || {};
@@ -650,8 +650,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
     return { flightData: data, totalBurnDiff, lastValidWpIndex, estLandingTimeStr: minutesToTime(estLandingTimeMins), estBlockInStr: minutesToTime(estBlockInMins), estBlockInMins, estLandingTimeMins, latestAtoTimeDiffStr: formatTimeDiff(latestAtoTimeDiff), latestAtoTimeDiff };
   }, [takeoffTime, actuals, flightPlan, parsedPzfw, parsedReg, is15gLimit, parsedTaxiIn]);
 
-  // ETOPS用の時間差分を計算（STD - T/O の差 ＋ 上空でのTIME DIFF）
-  // ATOが一つも入力されていない場合はオリジナル(差分0)として扱う
   const etopsTimeDiff = useMemo(() => {
     const hasAto = Object.values(actuals).some(v => v && v.ato);
     if (!hasAto) return 0;
@@ -662,7 +660,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
 
     const stdMins = navlogData.stdH * 60 + navlogData.stdM;
     
-    // TAKEOFFとSTDの差分
     let depDiff = toMins - stdMins;
     if (depDiff < -720) depDiff += 1440;
     if (depDiff > 720) depDiff -= 1440;
@@ -670,7 +667,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
     return depDiff + (calculatedData.latestAtoTimeDiff || 0);
   }, [takeoffTime, navlogData, calculatedData.latestAtoTimeDiff, actuals]);
 
-  // ETOPS 現在担当空港の判定
   const activeEtopsAirport = useMemo(() => {
       if (!takeoffTime || !parsedEtopsInfo || !parsedEtopsInfo.data) return null;
       
@@ -681,15 +677,12 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
       if (elapsedMins < -720) elapsedMins += 1440;
       if (elapsedMins > 720) elapsedMins -= 1440;
 
-      // 実際の遅延分を引いて、CTME（飛行計画上の経過時間）と比較可能にする
       elapsedMins -= (calculatedData.latestAtoTimeDiff || 0);
 
-      // EEPより前、または EXPより後なら ETOPS 区間外
       if (elapsedMins < parsedEtopsInfo.eepCtme || elapsedMins > parsedEtopsInfo.expCtme) {
           return null;
       }
 
-      // どの空港の担当か？ ETPのCTMEで区切る
       for (let i = 0; i < parsedEtopsInfo.data.length; i++) {
           const item = parsedEtopsInfo.data[i];
           if (elapsedMins <= item.endCtme) {
@@ -697,7 +690,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
           }
       }
       
-      // 念のため最後の空港を返す
       return parsedEtopsInfo.data[parsedEtopsInfo.data.length - 1].airport;
   }, [takeoffTime, currentUtcMins, parsedEtopsInfo, calculatedData.latestAtoTimeDiff]);
 
@@ -862,29 +854,41 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
     }
   }, [parsedSta, parsedDate, parsedDestIcao]);
 
-  // 高信頼性・APIキー不要のオープン気象データ取得処理（AviationWeather API + Open-Meteo API）+ 3時間キャッシュ
+  // 天気予報の更新
   useEffect(() => {
     let isMounted = true;
     if (!parsedDestIcao || !parsedDate || calculatedData.estBlockInMins === null) {
         setDestWeather(null);
+        setLastFetchedBlockInMins(null);
+        setLastFetchedDestIcao(null);
         return;
+    }
+
+    const currentBlockInMins = calculatedData.estBlockInMins;
+
+    if (lastFetchedDestIcao === parsedDestIcao && lastFetchedBlockInMins !== null && destWeather !== null) {
+        let diff = Math.abs(currentBlockInMins - lastFetchedBlockInMins);
+        if (diff > 720) diff = 1440 - diff;
+        
+        if (diff < 60) {
+            return;
+        }
     }
 
     const WX_CACHE_KEY = 'efb_wx_cache_v2';
 
     const fetchWeather = async () => {
         try {
-            // ETA (UTC) の日時を算出
             const day = parseInt(parsedDate.substring(0, 2), 10);
             const monthMap = {JAN:0, FEB:1, MAR:2, APR:3, MAY:4, JUN:5, JUL:6, AUG:7, SEP:8, OCT:9, NOV:10, DEC:11};
             const mon = monthMap[parsedDate.substring(2, 5).toUpperCase()] || 0;
             const yy = 2000 + parseInt(parsedDate.substring(5, 7), 10);
             
-            const h = Math.floor(calculatedData.estBlockInMins / 60) % 24;
-            const m = calculatedData.estBlockInMins % 60;
+            const h = Math.floor(currentBlockInMins / 60) % 24;
+            const m = currentBlockInMins % 60;
             const utcDateBlk = new Date(Date.UTC(yy, mon, day, h, m));
-            if (calculatedData.estBlockInMins >= 24 * 60) {
-                utcDateBlk.setUTCDate(utcDateBlk.getUTCDate() + Math.floor(calculatedData.estBlockInMins / (24 * 60)));
+            if (currentBlockInMins >= 24 * 60) {
+                utcDateBlk.setUTCDate(utcDateBlk.getUTCDate() + Math.floor(currentBlockInMins / (24 * 60)));
             }
 
             const targetY = utcDateBlk.getUTCFullYear();
@@ -892,19 +896,20 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
             const targetD = String(utcDateBlk.getUTCDate()).padStart(2, '0');
             const targetH = String(utcDateBlk.getUTCHours()).padStart(2, '0');
             
-            // ETAの1時間枠をキーとしてキャッシュを確認
             const cacheKeyStr = `${parsedDestIcao}_${targetY}-${targetM}-${targetD}T${targetH}:00`;
             const cacheRaw = localStorage.getItem(WX_CACHE_KEY);
             let wxCache = cacheRaw ? JSON.parse(cacheRaw) : {};
             const now = Date.now();
 
-            // 3時間以内のキャッシュがあればそれを使う
             if (wxCache[cacheKeyStr] && (now - wxCache[cacheKeyStr].timestamp < 3 * 3600 * 1000)) {
-                if (isMounted) setDestWeather(wxCache[cacheKeyStr].data);
+                if (isMounted) {
+                    setDestWeather(wxCache[cacheKeyStr].data);
+                    setLastFetchedBlockInMins(currentBlockInMins);
+                    setLastFetchedDestIcao(parsedDestIcao);
+                }
                 return;
             }
 
-            // 1. 緯度経度の取得 (ローカル辞書優先 → ない場合API検索)
             let lat, lon;
             if (ICAO_COORDS[parsedDestIcao]) {
                 lat = ICAO_COORDS[parsedDestIcao].lat;
@@ -918,14 +923,12 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                 lon = awData[0].lon;
             }
 
-            // 2. Open-Meteoから予報を取得（CORS制限フリー、UTCベース）
             const omRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,weather_code&timezone=UTC&past_days=7&forecast_days=14`);
             if (!omRes.ok) throw new Error("Open-Meteo error");
             const omData = await omRes.json();
 
             if (!isMounted) return;
 
-            // 3. 到着予定時刻のUTC時間に最も近い1時間枠のデータを抽出
             const targetMs = utcDateBlk.getTime();
             let bestIdx = -1;
             let minDiffMs = Infinity;
@@ -941,7 +944,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                 });
             }
 
-            // 最大3時間以内のデータであれば採用してキャッシュに保存
             if (bestIdx !== -1 && minDiffMs <= 3 * 3600 * 1000) {
                 const rawTemp = omData.hourly.temperature_2m[bestIdx];
                 if (rawTemp !== undefined && rawTemp !== null) {
@@ -970,6 +972,8 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                     localStorage.setItem(WX_CACHE_KEY, JSON.stringify(wxCache));
 
                     setDestWeather(wxDataToSave);
+                    setLastFetchedBlockInMins(currentBlockInMins);
+                    setLastFetchedDestIcao(parsedDestIcao);
                 } else {
                     setDestWeather(null);
                 }
@@ -983,7 +987,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
 
     fetchWeather();
     return () => { isMounted = false; };
-  }, [parsedDestIcao, parsedDate, calculatedData.estBlockInMins]);
+  }, [parsedDestIcao, parsedDate, calculatedData.estBlockInMins, lastFetchedBlockInMins, lastFetchedDestIcao, destWeather]);
 
   useEffect(() => {
     let newLocalBlockIn = "";
@@ -1076,6 +1080,14 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
     }
   };
 
+  // 画面描画時・フライトプラン読み込み完了時に自動的にNowスクロールを実行
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      scrollToCurrentFix();
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [calculatedData.flightData]);
+
   return (
     <div className="flex flex-col h-full w-full absolute inset-0 bg-[#05070a] text-[#cbd5e1] font-sans overflow-hidden rounded-xl border border-slate-700/50">
       
@@ -1151,7 +1163,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
 
               <div className="w-px h-5 bg-slate-700"></div>
 
-              {/* ETA (Z/L) ブロック - LDG と BLK */}
               <div className="flex flex-col items-center justify-center pt-0.5 px-2 min-w-[85px]">
                 <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-0.5">ETA (Z/L)</span>
                 <div className="flex flex-col w-full">
@@ -1174,7 +1185,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
 
               <div className="w-px h-5 bg-slate-700"></div>
 
-              {/* STA (Z/L) ブロック */}
               <div className="flex flex-col items-center justify-center pt-0.5 px-2 min-w-[75px]">
                 <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-0.5">STA (Z/L)</span>
                 <div className="flex items-center gap-1.5 h-4">
@@ -1185,7 +1195,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
 
               <div className="w-px h-5 bg-slate-700"></div>
 
-              {/* DEST WX ブロック：℃と℉がはっきり収まるよう柔軟な可変幅と適切なパディングを設定 */}
               <div className="flex flex-col items-center justify-center pt-0.5 px-3 min-w-[125px] max-w-[180px] shrink-0">
                 <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-0.5">{parsedDestIcao} WX</span>
                 <div className="flex items-center justify-center min-h-[16px] w-full">
@@ -1255,7 +1264,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
           </div>
         </div>
 
-        {/* ETOPS Info Row */}
         <div className="max-w-[1400px] mx-auto mt-1.5 flex flex-wrap items-center gap-2 text-[10px] sm:text-xs font-mono font-bold bg-slate-800/50 px-2 py-0.5 rounded border border-slate-700/50">
             <span className="text-slate-400">ETOPS:</span>
             {parsedEtopsInfo && parsedEtopsInfo.data ? (
@@ -1289,7 +1297,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
         </div>
       </header>
 
-      {/* スクロール領域 */}
       <div className="flex-1 w-full relative overflow-hidden bg-slate-900/40">
         <div className="absolute inset-0 overflow-auto custom-scrollbar p-1 sm:p-2">
             <div className="min-w-[700px] max-w-[1400px] mx-auto pb-16">
