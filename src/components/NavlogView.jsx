@@ -525,8 +525,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
   const [memoModal, setMemoModal] = useState({ isOpen: false, wp: '', text: '' });
 
   const rowRefs = useRef([]);
-  const hasAutoScrolled = useRef(false);
-  const lastLoadId = useRef(null);
 
   const [flightPlan, setFlightPlan] = useState(DEFAULT_FLIGHT_PLAN_DATA);
   const [flightNo, setFlightNo] = useState("ANA0110");
@@ -732,8 +730,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
         } else {
             setParsedEtopsInfo(null);
         }
-
-        hasAutoScrolled.current = false;
         
         if (navlogData.isNew) {
             setActuals({});
@@ -745,8 +741,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
             } else {
                 setTakeoffTime('');
             }
-            
-            lastLoadId.current = Date.now();
         } else {
             setActuals(prev => ({ ...prev }));
         }
@@ -1061,6 +1055,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
     setLocalLdg(newLocalLdg);
   }, [parsedSta, parsedDate, parsedDestIcao, calculatedData.estBlockInMins, calculatedData.estLandingTimeMins]);
 
+  // 現在位置（最寄りのFix）へスクロールする処理
   const scrollToCurrentFix = () => {
     if (!takeoffTime || calculatedData.flightData.length === 0) return;
     const now = new Date();
@@ -1097,15 +1092,19 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
     }
   };
 
+  // ★ 修正：マウント時（タブを開いた時）およびフライトプラン読み込み時のみ自動スクロール
+  // length を依存配列に含めることで、ATO入力中の値変化では再発火しないようにする
   useEffect(() => {
-    const timer = setTimeout(() => {
-      scrollToCurrentFix();
-    }, 150);
-    return () => clearTimeout(timer);
-  }, [calculatedData.flightData]);
+    if (calculatedData.flightData.length > 0) {
+      const timer = setTimeout(() => {
+        scrollToCurrentFix();
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [calculatedData.flightData.length]);
 
-  // 新デザイン: 各列の最小・最大幅を制限して間延びを防止
-  const gridColumnsStyle = { gridTemplateColumns: 'minmax(75px, 1.5fr) 40px 55px 60px 40px 55px 65px minmax(180px, 2.5fr) 60px 32px' };
+  // 左の列（WAYPOINT、GS/TAS）の幅を狭め、ACT等の入力欄に余裕を持たせたレイアウト
+  const gridColumnsStyle = { gridTemplateColumns: '80px 45px 50px 60px 40px 50px 65px minmax(180px, 1fr) 60px 32px' };
 
   return (
     <div className="flex flex-col h-full w-full absolute inset-0 bg-[#05070a] text-[#cbd5e1] font-sans overflow-hidden rounded-xl border border-slate-700/50">
@@ -1316,7 +1315,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
         </div>
       </header>
 
-      {/* スクロールテーブル構造：最大幅を絞って要素の間延びを防止 (10列構成) */}
+      {/* スクロールテーブル構造：最大幅を絞って要素の間延びを防止 */}
       <div className="flex-1 w-full relative overflow-hidden bg-slate-900/40">
         <div className="absolute inset-0 overflow-auto custom-scrollbar p-1">
             <div className="min-w-[700px] max-w-[1000px] mx-auto pb-16">
@@ -1356,7 +1355,17 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                     
                     <div className="flex flex-col px-0.5 gap-0.5 items-center w-full">
                       <span className="text-blue-400 font-mono text-[11px] font-extrabold leading-none">{row.revisedEtoStr || "----"}</span>
-                      <input type="tel" inputMode="numeric" pattern="[0-9]*" placeholder="ATO" maxLength={4} value={row.ato} onChange={(e) => handleUpdateActual(row.wp, 'ato', e.target.value.replace(/[^0-9]/g, ''))} className={`w-full max-w-[50px] mx-auto bg-[#05070a] border rounded py-0.5 text-center font-mono text-xs font-bold focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors ${row.ato ? 'border-blue-500/50 text-white' : 'border-slate-700 text-slate-400'}`} />
+                      <input 
+                          type="tel" 
+                          inputMode="numeric" 
+                          pattern="[0-9]*" 
+                          placeholder="ATO" 
+                          maxLength={4} 
+                          value={row.ato} 
+                          onChange={(e) => handleUpdateActual(row.wp, 'ato', e.target.value.replace(/[^0-9]/g, ''))} 
+                          onBlur={() => scrollToCurrentFix()}
+                          className={`w-full max-w-[50px] mx-auto bg-[#05070a] border rounded py-0.5 text-center font-mono text-xs font-bold focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors ${row.ato ? 'border-blue-500/50 text-white' : 'border-slate-700 text-slate-400'}`} 
+                      />
                     </div>
                     
                     <div className={`font-mono text-[10px] font-bold ${parseInt(row.timeDiffStr) > 0 ? 'text-red-400' : parseInt(row.timeDiffStr) < 0 ? 'text-green-400' : 'text-slate-400'}`}>{row.timeDiffStr}</div>
