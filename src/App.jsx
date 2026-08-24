@@ -1,10 +1,11 @@
+// App.jsx
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import * as LucideIcons from 'lucide-react';
 
 // =========================================================================
 // ★ アプリバージョン設定
 // =========================================================================
-const APP_VERSION = "8.1";
+const APP_VERSION = "";
 // =========================================================================
 
 import { RAW_CSV_DATA, aircraftRegistrationList, BUDDYCOM_LINKS } from './data/flightData';
@@ -132,6 +133,16 @@ export default function App() {
   const [globalEtopsAltns, setGlobalEtopsAltns] = useState(() => getSavedState('globalEtopsAltns', []));
   const [globalEtopsTime, setGlobalEtopsTime] = useState(() => getSavedState('globalEtopsTime', ""));
   const [globalEtops207, setGlobalEtops207] = useState(() => getSavedState('globalEtops207', false));
+
+  useEffect(() => {
+    if (navigator.onLine && 'serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(registrations => {
+        for (let registration of registrations) {
+          registration.update().catch(err => console.log('SW update check failed:', err));
+        }
+      });
+    }
+  }, []);
 
   useEffect(() => {
     const isHidden = localStorage.getItem('hideSetupGuide');
@@ -479,6 +490,7 @@ export default function App() {
     let pendingAlt = "";
     let pendingTmp = "";
     let pendingWind = "";
+    let pendingTasGs = []; 
     let pendingIsa = null;
 
     let eepCtme = null;
@@ -494,6 +506,16 @@ export default function App() {
                 recentTimes.push(mins);
             }
             if (recentTimes.length > 2) recentTimes.shift(); 
+
+            // ★ 時間(CTME/RTME)の前後にある3桁数値をTAS/GS候補として安全に拾う
+            if (i > 0 && /^\d{3}$/.test(tokens[i-1])) {
+                let v = parseInt(tokens[i-1], 10);
+                if (v >= 200 && v <= 750) pendingTasGs.push(tokens[i-1]);
+            }
+            if (i + 1 < tokens.length && /^\d{3}$/.test(tokens[i+1])) {
+                let v = parseInt(tokens[i+1], 10);
+                if (v >= 200 && v <= 750) pendingTasGs.push(tokens[i+1]);
+            }
             continue;
         }
         if (/^\d{2,3}\.\d$/.test(token) && parseFloat(token) < 300) { 
@@ -577,6 +599,11 @@ export default function App() {
               }
             }
 
+            // 重複を削除してTASとGSを抽出（順番はPDFの並びに依存するが、少なくともTC/MCは混入しない）
+            let uniqueTasGs = [...new Set(pendingTasGs)];
+            let parsedGs = uniqueTasGs.length > 0 ? uniqueTasGs[0] : "";
+            let parsedTas = uniqueTasGs.length > 1 ? uniqueTasGs[1] : "";
+
             newPlan.push({ 
               wp: cleanToken, 
               ctme: ctme, 
@@ -585,6 +612,8 @@ export default function App() {
               plnAlt: pendingAlt, 
               plnTmp: pendingTmp, 
               plnWind: pendingWind, 
+              gs: parsedGs,
+              tas: parsedTas,
               isaDev: currentWpIsa,
               hasExplicitIsa: pendingIsa !== null,
               dist: 0,
@@ -599,6 +628,7 @@ export default function App() {
             pendingAlt = ""; 
             pendingTmp = "";
             pendingWind = "";
+            pendingTasGs = []; 
             pendingIsa = null;
             recentTimes = []; 
         }
