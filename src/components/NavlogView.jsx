@@ -997,65 +997,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
     return () => { isMounted = false; };
   }, [parsedDestIcao, parsedDate, calculatedData.estBlockInMins, lastFetchedBlockInMins, lastFetchedDestIcao, destWeather]);
 
-  useEffect(() => {
-    let newLocalBlockIn = "";
-    let newLocalLdg = "";
-
-    if (parsedDestIcao && parsedDate && (calculatedData.estBlockInMins !== null || calculatedData.estLandingTimeMins !== null)) {
-      try {
-        const day = parseInt(parsedDate.substring(0, 2), 10);
-        const monthMap = {JAN:0, FEB:1, MAR:2, APR:3, MAY:4, JUN:5, JUL:6, AUG:7, SEP:8, OCT:9, NOV:10, DEC:11};
-        const monthStr = parsedDate.substring(2, 5).toUpperCase();
-        const mon = monthMap[monthStr] !== undefined ? monthMap[monthStr] : 0;
-        const yy = 2000 + parseInt(parsedDate.substring(5, 7), 10);
-
-        const tz = getLocalTimeZone(parsedDestIcao);
-        const formatter = new Intl.DateTimeFormat('en-GB', {
-          timeZone: tz,
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: false
-        });
-
-        if (calculatedData.estBlockInMins !== null && calculatedData.estBlockInMins !== undefined) {
-          const h = Math.floor(calculatedData.estBlockInMins / 60) % 24;
-          const m = calculatedData.estBlockInMins % 60;
-          
-          const utcDateBlk = new Date(Date.UTC(yy, mon, day, h, m));
-          
-          if (calculatedData.estBlockInMins >= 24 * 60) {
-              utcDateBlk.setUTCDate(utcDateBlk.getUTCDate() + Math.floor(calculatedData.estBlockInMins / (24 * 60)));
-          }
-
-          if (!isNaN(utcDateBlk.getTime())) {
-            newLocalBlockIn = formatter.format(utcDateBlk).replace(':', '');
-          }
-        }
-
-        if (calculatedData.estLandingTimeMins !== null && calculatedData.estLandingTimeMins !== undefined) {
-          const hLdg = Math.floor(calculatedData.estLandingTimeMins / 60) % 24;
-          const mLdg = calculatedData.estLandingTimeMins % 60;
-          
-          const utcDateLdg = new Date(Date.UTC(yy, mon, day, hLdg, mLdg));
-          
-          if (calculatedData.estLandingTimeMins >= 24 * 60) {
-              utcDateLdg.setUTCDate(utcDateLdg.getUTCDate() + Math.floor(calculatedData.estLandingTimeMins / (24 * 60)));
-          }
-
-          if (!isNaN(utcDateLdg.getTime())) {
-            newLocalLdg = formatter.format(utcDateLdg).replace(':', '');
-          }
-        }
-
-      } catch(e) {
-        // Ignore
-      }
-    }
-    setLocalBlockIn(newLocalBlockIn);
-    setLocalLdg(newLocalLdg);
-  }, [parsedSta, parsedDate, parsedDestIcao, calculatedData.estBlockInMins, calculatedData.estLandingTimeMins]);
-
-  // 現在位置（最寄りのFix）へスクロールする処理
   const scrollToCurrentFix = () => {
     if (!takeoffTime || calculatedData.flightData.length === 0) return;
     const now = new Date();
@@ -1092,19 +1033,16 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
     }
   };
 
-  // ★ 修正：マウント時（タブを開いた時）およびフライトプラン読み込み時のみ自動スクロール
-  // length を依存配列に含めることで、ATO入力中の値変化では再発火しないようにする
+  // ★ 修正点: NAVLOGタブを開いた時（コンポーネントマウント時）にも自動スクロールを実行
   useEffect(() => {
-    if (calculatedData.flightData.length > 0) {
-      const timer = setTimeout(() => {
-        scrollToCurrentFix();
-      }, 150);
-      return () => clearTimeout(timer);
-    }
-  }, [calculatedData.flightData.length]);
+    const timer = setTimeout(() => {
+      scrollToCurrentFix();
+    }, 150);
+    return () => clearTimeout(timer);
+  }, []);
 
-  // 左の列（WAYPOINT、GS/TAS）の幅を狭め、ACT等の入力欄に余裕を持たせたレイアウト
-  const gridColumnsStyle = { gridTemplateColumns: '80px 45px 50px 60px 40px 50px 65px minmax(180px, 1fr) 60px 32px' };
+  // 新デザイン: 各列の最小・最大幅を制限して間延びを防止 (10列構成)
+  const gridColumnsStyle = { gridTemplateColumns: 'minmax(75px, 1.5fr) 40px 55px 60px 40px 55px 65px minmax(180px, 2.5fr) 60px 32px' };
 
   return (
     <div className="flex flex-col h-full w-full absolute inset-0 bg-[#05070a] text-[#cbd5e1] font-sans overflow-hidden rounded-xl border border-slate-700/50">
