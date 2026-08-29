@@ -5,7 +5,7 @@ import * as LucideIcons from 'lucide-react';
 // =========================================================================
 // ★ アプリバージョン設定
 // =========================================================================
-const APP_VERSION = "8.4";
+const APP_VERSION = "8.5";
 // =========================================================================
 
 import { RAW_CSV_DATA, aircraftRegistrationList, BUDDYCOM_LINKS } from './data/flightData';
@@ -24,6 +24,7 @@ import { XwindView } from './components/XwindView';
 import { QuickGuideModal } from './components/QuickGuideModal';
 import { NavlogView } from './components/NavlogView';
 import { TarmacView } from './components/TarmacView'; 
+import { WeatherRadarView } from './components/WeatherRadarView';
 
 const LoadDataModal = ({ isOpen, onClose, onFileClick, onPaste, isParsing }) => {
     const [text, setText] = useState("");
@@ -71,7 +72,7 @@ const LoadDataModal = ({ isOpen, onClose, onFileClick, onPaste, isParsing }) => 
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('DASHBOARD');
-  const tabs = ['DASHBOARD', 'TFC INFO', 'WX/MNM', 'ETOPS', 'NAVLOG', 'DOCS', 'スマカタ', 'REST CALC', 'APP CALC', 'TARMAC', 'XWIND'];
+  const tabs = ['DASHBOARD', 'TFC INFO', 'WX/MNM', 'ETOPS', 'NAVLOG', 'WXRDR', 'DOCS', 'スマカタ', 'REST CALC', 'APP CALC', 'TARMAC', 'XWIND'];
 
   const [flightId, setFlightId] = useState(""); 
   const [isWifiModalOpen, setIsWifiModalOpen] = useState(false); 
@@ -492,6 +493,8 @@ export default function App() {
     let pendingWind = "";
     let pendingTasGs = []; 
     let pendingIsa = null;
+    let pendingLat = null; // NAVLOG内の緯度経度抽出用
+    let pendingLatLon = null;
 
     let eepCtme = null;
     let expCtme = null;
@@ -507,7 +510,6 @@ export default function App() {
             }
             if (recentTimes.length > 2) recentTimes.shift(); 
 
-            // ★ 時間(CTME/RTME)の前後にある3桁数値をTAS/GS候補として安全に拾う
             if (i > 0 && /^\d{3}$/.test(tokens[i-1])) {
                 let v = parseInt(tokens[i-1], 10);
                 if (v >= 200 && v <= 750) pendingTasGs.push(tokens[i-1]);
@@ -554,6 +556,32 @@ export default function App() {
         }
 
         let cleanToken = token.replace(/^-+/, '').replace(/-+$/, '');
+
+        // 緯度・経度の抽出処理 (WeatherRadarViewでの正確なプロット用)
+        const latMatch = cleanToken.match(/^[NS]\d{4,6}(?:\.\d+)?$/);
+        if (latMatch) {
+            pendingLat = cleanToken;
+            continue;
+        }
+        const lonMatch = cleanToken.match(/^[EW]\d{4,7}(?:\.\d+)?$/);
+        if (lonMatch) {
+            if (pendingLat) {
+                pendingLatLon = pendingLat + cleanToken;
+                if (newPlan.length > 0 && !newPlan[newPlan.length - 1].latLon) {
+                    newPlan[newPlan.length - 1].latLon = pendingLatLon;
+                }
+            }
+            pendingLat = null;
+            continue;
+        }
+        const latLonMatch = cleanToken.match(/^[NS]\d{4,6}(?:\.\d+)?[EW]\d{4,7}(?:\.\d+)?$/);
+        if (latLonMatch) {
+            pendingLatLon = cleanToken;
+            if (newPlan.length > 0 && !newPlan[newPlan.length - 1].latLon) {
+                newPlan[newPlan.length - 1].latLon = pendingLatLon;
+            }
+            continue;
+        }
         
         if (token === 'FL' && i > 0 && /^\d+$/.test(tokens[i-1])) {
             if (newPlan.length > 0) {
@@ -599,10 +627,11 @@ export default function App() {
               }
             }
 
-            // 重複を削除してTASとGSを抽出（順番はPDFの並びに依存するが、少なくともTC/MCは混入しない）
             let uniqueTasGs = [...new Set(pendingTasGs)];
             let parsedGs = uniqueTasGs.length > 0 ? uniqueTasGs[0] : "";
             let parsedTas = uniqueTasGs.length > 1 ? uniqueTasGs[1] : "";
+
+            pendingLat = null; // 新しいWPが来たのでpending状態をリセット
 
             newPlan.push({ 
               wp: cleanToken, 
@@ -617,7 +646,8 @@ export default function App() {
               isaDev: currentWpIsa,
               hasExplicitIsa: pendingIsa !== null,
               dist: 0,
-              isOffRoute: isOffRoute
+              isOffRoute: isOffRoute,
+              latLon: pendingLatLon
             });
             
             if (destIcao && cleanToken === destIcao) {
@@ -630,6 +660,7 @@ export default function App() {
             pendingWind = "";
             pendingTasGs = []; 
             pendingIsa = null;
+            pendingLatLon = null;
             recentTimes = []; 
         }
     }
@@ -1144,6 +1175,7 @@ export default function App() {
             />
           </div>
         )}
+        {activeTab === 'WXRDR' && (<div className="flex flex-col gap-1 w-full h-full"><WeatherRadarView navlogData={navlogData} /></div>)}
         {activeTab === 'DOCS' && (<div className="flex flex-col gap-1 w-full h-full"><Docs2View /></div>)}
         {activeTab === 'TARMAC' && (<div className="flex flex-col gap-1 w-full h-full"><TarmacView /></div>)}
         {activeTab === 'REST CALC' && (<div className="flex flex-col gap-1 w-full h-full"><RestView flightHours={restCrewSize === 3 ? restFlightHours3 : restFlightHours4} setFlightHours={restCrewSize === 3 ? setRestFlightHours3 : setRestFlightHours4} flightMins={restCrewSize === 3 ? restFlightMins3 : restFlightMins4} setFlightMins={restCrewSize === 3 ? setRestFlightMins3 : setRestFlightMins4} stdHours={stdHours} setStdHours={setStdHours} stdMins={stdMins} setStdMins={setStdMins} isTakeoffAuto={isTakeoffAuto} setIsTakeoffAuto={setIsTakeoffAuto} takeoffHours={restTakeoffHours} setTakeoffHours={setRestTakeoffHours} takeoffMins={restTakeoffMins} setTakeoffMins={setRestTakeoffMins} offsetMins={restOffsetMins} setOffsetMins={setRestOffsetMins} landingOffsetMins={restLandingOffsetMins} setLandingOffsetMins={setRestLandingOffsetMins} crewSize={restCrewSize} setCrewSize={setRestCrewSize} firstRestMins={restFirstRestMins} setFirstRestMins={setRestFirstRestMins} lastRestMins={restLastRestMins} setLastRestMins={setLastRestMins} firstHalfMins={restFirstHalfMins} setFirstHalfMins={setFirstHalfMins} taxiOutMins={taxiOutMins} /></div>)}
