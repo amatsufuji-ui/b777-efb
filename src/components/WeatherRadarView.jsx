@@ -1,11 +1,9 @@
-// src/components/WeatherRadarView.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { SafeIcon } from './SharedComponents';
 
 // =========================================================================
 // 緯度経度変換ヘルパー
 // メモ: NAVLOGから抽出された正確な緯度経度(latLon)を最優先でプロットします。
-// Airport/Waypointのハードコード辞書は不要になったため削除し、コード量を削減しました。
 // =========================================================================
 const parseWaypointToLatLng = (wpObj) => {
   if (!wpObj) return null;
@@ -14,7 +12,6 @@ const parseWaypointToLatLng = (wpObj) => {
 
   // 1. NAVLOGから抽出した座標文字列があれば最優先でパース
   if (latLonStr) {
-      // 例: N35436E140480 (N 35°43.6' E 140°48.0')
       const noDotMatch = latLonStr.match(/^([NS])(\d{2})(\d{3})([EW])(\d{3})(\d{3})$/);
       if (noDotMatch) {
           let lat = parseInt(noDotMatch[2], 10) + parseInt(noDotMatch[3], 10) / 600;
@@ -24,7 +21,6 @@ const parseWaypointToLatLng = (wpObj) => {
           return { lat, lon, name: wpName, isAirport: false };
       }
 
-      // 例: N3530.0E14015.0 または N4500E14000
       const dotMatch = latLonStr.match(/^([NS])(\d{2})(\d{2}(?:\.\d+)?)([EW])(\d{2,3})(\d{2}(?:\.\d+)?)$/);
       if (dotMatch) {
           let lat = parseInt(dotMatch[2], 10) + parseFloat(dotMatch[3]) / 60;
@@ -35,7 +31,7 @@ const parseWaypointToLatLng = (wpObj) => {
       }
   }
 
-  // 2. ARINC 424 フォーマット1: 46E80 (Lat 46N, Lon 180E) >= 100度
+  // 2. ARINC 424 フォーマット1: 46E80
   const arincMatch1 = wpName.match(/^(\d{2})([NSWE])(\d{2})$/);
   if (arincMatch1) {
       let lat = parseInt(arincMatch1[1], 10);
@@ -49,7 +45,7 @@ const parseWaypointToLatLng = (wpObj) => {
       return { lat, lon, name: wpName, isAirport: false };
   }
 
-  // 3. ARINC 424 フォーマット2: 4680N (Lat 46N, Lon 80W) < 100度
+  // 3. ARINC 424 フォーマット2: 4680N
   const arincMatch2 = wpName.match(/^(\d{4})([NSWE])$/);
   if (arincMatch2) {
       let lat = parseInt(arincMatch2[1].substring(0,2), 10);
@@ -150,6 +146,7 @@ const normalizeLongitudes = (latlngs) => {
 
 // フォーマットユーティリティ (正確なUTC時刻表示)
 const formatRvTime = (unixTime) => {
+  if (!unixTime) return '';
   const d = new Date(unixTime * 1000);
   return `${d.getUTCHours().toString().padStart(2, '0')}:${d.getUTCMinutes().toString().padStart(2, '0')}Z`;
 };
@@ -164,24 +161,28 @@ export const WeatherRadarView = ({ navlogData }) => {
   const mapInstanceRef = useRef(null);
   const layersRef = useRef({});
 
-  const [satelliteType, setSatelliteType] = useState("himawari_ir");
-  const [opacity, setOpacity] = useState(0.65);
-  const [showNavlogRoute, setShowNavlogRoute] = useState(true);
+  // 衛星とレーダーのトグル状態（独立してON/OFF可能）
+  const [showHimawari, setShowHimawari] = useState(true);
+  const [showGlobalIr, setShowGlobalIr] = useState(false);
   const [showRadar, setShowRadar] = useState(true);
+  const [showNavlogRoute, setShowNavlogRoute] = useState(true);
+  
+  const [opacity, setOpacity] = useState(0.65);
   const [deviationNM, setDeviationNM] = useState(0); 
   const [isMapLoaded, setIsMapLoaded] = useState(false);
 
   // タイムスライダー用ステート
   const [rvRadarFrames, setRvRadarFrames] = useState([]);
+  const [rvSatFrames, setRvSatFrames] = useState([]);
   const [jmaFrames, setJmaFrames] = useState([]);
   const [frameIndex, setFrameIndex] = useState(0); 
   const [isPlaying, setIsPlaying] = useState(false);
   const [lastFetchTime, setLastFetchTime] = useState(Date.now());
 
-  const satLayerRef = useRef(null);
+  // レイヤー参照
+  const himawariLayerRef = useRef(null);
+  const globalIrLayerRef = useRef(null);
   const radarLayerRef = useRef(null);
-
-  const isHimawari = satelliteType === "himawari_ir";
 
   // 5分おきにAPIを再取得してキャッシュ切れを防ぐ
   useEffect(() => {
@@ -191,13 +192,7 @@ export const WeatherRadarView = ({ navlogData }) => {
     return () => clearInterval(interval);
   }, []);
 
-  // 衛星タイプ変更時に最新フレーム（一番右）に戻す
-  useEffect(() => {
-      setIsPlaying(false);
-      const maxFrames = isHimawari ? jmaFrames.length : rvRadarFrames.length;
-      if (maxFrames > 0) setFrameIndex(maxFrames - 1);
-  }, [satelliteType, jmaFrames.length, rvRadarFrames.length, isHimawari]);
-
+  // マップの初期化
   useEffect(() => {
     let isMounted = true;
 
@@ -221,7 +216,7 @@ export const WeatherRadarView = ({ navlogData }) => {
         if (isMounted && mapContainerRef.current && !mapInstanceRef.current) {
           const L = window.L;
           const map = L.map(mapContainerRef.current, {
-            center: [25.0, 125.0],
+            center: [25.0, 135.0],
             zoom: 4,
             zoomControl: false,
             attributionControl: false
@@ -237,11 +232,13 @@ export const WeatherRadarView = ({ navlogData }) => {
           mapInstanceRef.current = map;
           layersRef.current.base = darkBase;
 
-          // 透過エラータイルを指定して404コンソールエラーを見えなくする
+          // 透過エラータイル（404画像を透明にする）
           const errImg = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
 
-          satLayerRef.current = L.tileLayer('', { opacity: opacity, maxNativeZoom: 5, maxZoom: 16, errorTileUrl: errImg }).addTo(map);
-          radarLayerRef.current = L.tileLayer('', { opacity: opacity, maxZoom: 16, errorTileUrl: errImg }).addTo(map);
+          // 各レイヤーを作成して追加 (クラッシュ防止のため bounds 指定を解除)
+          himawariLayerRef.current = L.tileLayer(errImg, { opacity: opacity, maxNativeZoom: 5, maxZoom: 16, noWrap: false, errorTileUrl: errImg, zIndex: 2 }).addTo(map);
+          globalIrLayerRef.current = L.tileLayer(errImg, { opacity: 0, maxNativeZoom: 5, maxZoom: 16, noWrap: false, errorTileUrl: errImg, zIndex: 1 }).addTo(map);
+          radarLayerRef.current = L.tileLayer(errImg, { opacity: opacity, maxZoom: 16, noWrap: false, errorTileUrl: errImg, zIndex: 3 }).addTo(map);
 
           setIsMapLoaded(true);
         }
@@ -269,7 +266,10 @@ export const WeatherRadarView = ({ navlogData }) => {
           const host = data.host || 'https://tilecache.rainviewer.com';
           if (data.radar && data.radar.past) {
             setRvRadarFrames(data.radar.past.map(f => ({ ...f, host })));
-            if (!isHimawari) setFrameIndex(data.radar.past.length - 1);
+          }
+          if (data.satellite && data.satellite.infrared) {
+            const satData = data.satellite.infrared.map(f => ({ ...f, host }));
+            setRvSatFrames(satData);
           }
         })
         .catch(err => console.error("RainViewer API load error:", err));
@@ -279,96 +279,110 @@ export const WeatherRadarView = ({ navlogData }) => {
         .then(res => res.json())
         .then(data => {
           if (Array.isArray(data) && data.length > 0) {
-            // メモ: JMAのデータ配列は [0] が最新で、後ろに行くほど過去。
-            // タイムスライダー用に古い順（時系列順）へ正しく並べ替えます。
+            // [0] が一番新しく、後ろに行くほど過去。
+            // スライダー用に左（0）が古く、右が新しくなるようにリバースする
             const sortedFrames = [...data].reverse();
-            // 直近24枚（約2時間分）を保持
+            // 過去24枚を保持（約2時間分）
             const recentFrames = sortedFrames.slice(-24);
             setJmaFrames(recentFrames);
-            if (isHimawari) setFrameIndex(recentFrames.length - 1);
           }
         })
         .catch(err => console.error("JMA API load error:", err));
-  }, [lastFetchTime]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [lastFetchTime]);
+
+  // レイヤー数の変化時にスライダーを最新に戻す
+  useEffect(() => {
+      setIsPlaying(false);
+      let activeLengths = [];
+      if (showHimawari) activeLengths.push(jmaFrames.length);
+      if (showGlobalIr) activeLengths.push(rvSatFrames.length);
+      if (showRadar) activeLengths.push(rvRadarFrames.length);
+      const mFrames = activeLengths.length > 0 ? Math.max(...activeLengths, 1) : 1;
+      setFrameIndex(mFrames - 1);
+  }, [showHimawari, showGlobalIr, showRadar, jmaFrames.length, rvSatFrames.length, rvRadarFrames.length]);
 
   useEffect(() => {
     if (!isMapLoaded || !mapInstanceRef.current) return;
-    setTimeout(() => {
-        if (mapInstanceRef.current) mapInstanceRef.current.invalidateSize();
-    }, 100);
-
+    setTimeout(() => { if (mapInstanceRef.current) mapInstanceRef.current.invalidateSize(); }, 100);
     const resizeObserver = new ResizeObserver(() => {
-        if (mapInstanceRef.current) {
-            mapInstanceRef.current.invalidateSize();
-        }
+        if (mapInstanceRef.current) mapInstanceRef.current.invalidateSize();
     });
-
     if (mapContainerRef.current) resizeObserver.observe(mapContainerRef.current);
     return () => resizeObserver.disconnect();
   }, [isMapLoaded]);
 
-  // アニメーション用のインターバル
+  // 同期フレームとURLの決定
+  let activeLengths = [];
+  if (showHimawari) activeLengths.push(jmaFrames.length);
+  if (showGlobalIr) activeLengths.push(rvSatFrames.length);
+  if (showRadar) activeLengths.push(rvRadarFrames.length);
+  
+  const maxFrames = activeLengths.length > 0 ? Math.max(...activeLengths, 1) : 1;
+  const safeFrameIndex = Math.max(0, Math.min(frameIndex, maxFrames - 1));
+
+  const getLayerFrameIndex = (layerFramesLength) => {
+      if (layerFramesLength <= 1 || maxFrames <= 1) return layerFramesLength - 1;
+      return Math.floor((safeFrameIndex / (maxFrames - 1)) * (layerFramesLength - 1));
+  };
+
+  // アニメーションループ
   useEffect(() => {
     let timer;
     if (isPlaying) {
       timer = setInterval(() => {
         setFrameIndex(prev => {
-          const maxFrames = isHimawari ? jmaFrames.length : rvRadarFrames.length;
           if (maxFrames <= 1) return 0;
           return (prev + 1) % maxFrames;
         });
       }, 1000); 
     }
     return () => clearInterval(timer);
-  }, [isPlaying, isHimawari, jmaFrames.length, rvRadarFrames.length]);
+  }, [isPlaying, maxFrames]);
 
   // レイヤーのURLとOpacityの更新
   useEffect(() => {
-    if (!isMapLoaded || !satLayerRef.current || !radarLayerRef.current) return;
-
-    satLayerRef.current.setOpacity(opacity);
-    radarLayerRef.current.setOpacity(opacity);
+    if (!isMapLoaded || !himawariLayerRef.current || !globalIrLayerRef.current || !radarLayerRef.current) return;
 
     const errImg = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
-    let satUrl = errImg;
-    const maxFrames = isHimawari ? Math.max(1, jmaFrames.length) : Math.max(1, rvRadarFrames.length);
-    const safeFrameIndex = Math.max(0, Math.min(frameIndex, maxFrames - 1));
 
-    // Satellite レイヤーの決定 (JMAひまわり赤外カラー / RainViewer Global)
-    if (isHimawari && jmaFrames.length > 0) {
-      const frame = jmaFrames[safeFrameIndex];
-      if (frame && frame.basetime) {
-          // メモ: JMA公式のひまわり8/9赤外カラー階調(B13/surf)を使用してWFBの画面と同等の赤・黄表示を実現
-          satUrl = `https://www.jma.go.jp/bosai/himawari/data/satimg/${frame.basetime}/fd/B13/surf/{z}/{x}/{y}.png`;
-      }
-    } else if (satelliteType === "global_ir") {
-      satUrl = `https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/q2-ir-4km-900913/{z}/{x}/{y}.png`;
+    // Himawari Layer
+    let himawariUrl = errImg;
+    if (showHimawari && jmaFrames.length > 0) {
+        const idx = Math.max(0, Math.min(getLayerFrameIndex(jmaFrames.length), jmaFrames.length - 1));
+        const frame = jmaFrames[idx];
+        if (frame && frame.basetime && frame.validtime) {
+            // 気象庁の雲頂強調画像 (SND/ETC) .jpg 形式
+            himawariUrl = `https://www.jma.go.jp/bosai/himawari/data/satimg/${frame.basetime}/fd/${frame.validtime}/SND/ETC/{z}/{x}/{y}.jpg`;
+        }
     }
+    if (himawariLayerRef.current._url !== himawariUrl) himawariLayerRef.current.setUrl(himawariUrl);
+    himawariLayerRef.current.setOpacity(showHimawari ? opacity : 0);
 
-    if (satLayerRef.current._url !== satUrl) {
-        satLayerRef.current.setUrl(satUrl);
+    // Global IR Layer
+    let globalIrUrl = errImg;
+    if (showGlobalIr && rvSatFrames.length > 0) {
+        const idx = Math.max(0, Math.min(getLayerFrameIndex(rvSatFrames.length), rvSatFrames.length - 1));
+        const frame = rvSatFrames[idx];
+        if (frame) {
+            globalIrUrl = `${frame.host}${frame.path}/256/{z}/{x}/{y}/0/1_1.png`;
+        }
     }
+    if (globalIrLayerRef.current._url !== globalIrUrl) globalIrLayerRef.current.setUrl(globalIrUrl);
+    globalIrLayerRef.current.setOpacity(showGlobalIr ? opacity : 0);
 
-    // Radar レイヤーの決定
+    // Radar Layer
     let radarUrl = errImg;
     if (showRadar && rvRadarFrames.length > 0) {
-        const rMax = rvRadarFrames.length;
-        let rIdx = safeFrameIndex;
-        if (isHimawari && maxFrames > 1) {
-            rIdx = Math.floor((safeFrameIndex / (maxFrames - 1)) * (rMax - 1));
-        }
-        const safeRIdx = Math.max(0, Math.min(rIdx, rMax - 1));
-        const frame = rvRadarFrames[safeRIdx];
+        const idx = Math.max(0, Math.min(getLayerFrameIndex(rvRadarFrames.length), rvRadarFrames.length - 1));
+        const frame = rvRadarFrames[idx];
         if (frame) {
             radarUrl = `${frame.host}${frame.path}/256/{z}/{x}/{y}/2/1_1.png`;
         }
     }
+    if (radarLayerRef.current._url !== radarUrl) radarLayerRef.current.setUrl(radarUrl);
+    radarLayerRef.current.setOpacity(showRadar ? opacity : 0);
 
-    if (radarLayerRef.current._url !== radarUrl || !showRadar) {
-        radarLayerRef.current.setUrl(showRadar ? radarUrl : errImg);
-    }
-
-  }, [isMapLoaded, frameIndex, satelliteType, opacity, showRadar, rvRadarFrames, jmaFrames, isHimawari]);
+  }, [isMapLoaded, frameIndex, opacity, showHimawari, showGlobalIr, showRadar, jmaFrames, rvSatFrames, rvRadarFrames, maxFrames]);
 
   // ルート描画
   useEffect(() => {
@@ -411,29 +425,14 @@ export const WeatherRadarView = ({ navlogData }) => {
       const latlngs = routePoints.map(pt => [pt.lat, pt.lon]);
       normalizeLongitudes(latlngs); 
       
-      const flightPath = L.polyline(latlngs, {
-        color: '#38bdf8',
-        weight: 3,
-        opacity: 0.9
-      });
+      const flightPath = L.polyline(latlngs, { color: '#38bdf8', weight: 3, opacity: 0.9 });
       navlogGroup.addLayer(flightPath);
 
       if (deviationNM > 0) {
           const rightOffset = calculateOffsetLine(latlngs, deviationNM);
           const leftOffset = calculateOffsetLine(latlngs, -deviationNM);
-
-          const rightPath = L.polyline(rightOffset, {
-              color: '#8b5cf6',
-              weight: 2,
-              opacity: 0.8,
-              dashArray: '6, 6'
-          });
-          const leftPath = L.polyline(leftOffset, {
-              color: '#8b5cf6',
-              weight: 2,
-              opacity: 0.8,
-              dashArray: '6, 6'
-          });
+          const rightPath = L.polyline(rightOffset, { color: '#8b5cf6', weight: 2, opacity: 0.8, dashArray: '6, 6' });
+          const leftPath = L.polyline(leftOffset, { color: '#8b5cf6', weight: 2, opacity: 0.8, dashArray: '6, 6' });
           navlogGroup.addLayer(rightPath);
           navlogGroup.addLayer(leftPath);
       }
@@ -461,30 +460,41 @@ export const WeatherRadarView = ({ navlogData }) => {
     layersRef.current.navlogGroup = navlogGroup;
   }, [isMapLoaded, navlogData, showNavlogRoute, deviationNM]);
 
-  // UI用の表示時刻の正確な取得
-  const currentFrames = isHimawari ? jmaFrames : rvRadarFrames;
-  const maxFrames = Math.max(1, currentFrames.length);
-  const safeFrameIndex = Math.max(0, Math.min(frameIndex, maxFrames - 1));
-  
-  let currentTimeLabel = "Loading...";
-  if (isHimawari && jmaFrames.length > 0 && jmaFrames[safeFrameIndex]) {
-      currentTimeLabel = formatJmaTime(jmaFrames[safeFrameIndex].basetime);
-  } else if (!isHimawari && rvRadarFrames.length > 0 && rvRadarFrames[safeFrameIndex]) {
-      currentTimeLabel = formatRvTime(rvRadarFrames[safeFrameIndex].time);
-  } else if (satelliteType === 'none' && !showRadar) {
-      currentTimeLabel = "OFF";
+  // UI表示用のラベル取得
+  let currentTimeLabel = "OFF";
+  let activeLayerName = "No Layer Selected";
+
+  if (showHimawari && jmaFrames.length > 0) {
+      const idx = Math.max(0, Math.min(getLayerFrameIndex(jmaFrames.length), jmaFrames.length - 1));
+      if (jmaFrames[idx]) {
+          currentTimeLabel = formatJmaTime(jmaFrames[idx].validtime || jmaFrames[idx].basetime);
+          activeLayerName = "JMA Himawari-8/9 Cloud Top (SND)";
+      }
+  } else if (showGlobalIr && rvSatFrames.length > 0) {
+      const idx = Math.max(0, Math.min(getLayerFrameIndex(rvSatFrames.length), rvSatFrames.length - 1));
+      if (rvSatFrames[idx]) {
+          currentTimeLabel = formatRvTime(rvSatFrames[idx].time);
+          activeLayerName = "RainViewer Global IR";
+      }
+  } else if (showRadar && rvRadarFrames.length > 0) {
+      const idx = Math.max(0, Math.min(getLayerFrameIndex(rvRadarFrames.length), rvRadarFrames.length - 1));
+      if (rvRadarFrames[idx]) {
+          currentTimeLabel = formatRvTime(rvRadarFrames[idx].time);
+          activeLayerName = "RainViewer Radar Only";
+      }
   }
 
+  // 画面のスクロールを防ぐため、高さを 85vh に制限し内部のみスクロール可能にする
   return (
-    <div className="flex flex-col w-full h-full min-h-[400px] bg-slate-950 rounded-xl border border-slate-800 overflow-hidden relative">
-      <div className="flex items-center justify-between p-2 bg-slate-900 border-b border-slate-800 text-xs flex-wrap gap-2 z-10 shadow-md">
-        <div className="flex items-center gap-2">
+    <div className="flex flex-col w-full h-[85vh] min-h-[500px] bg-slate-950 rounded-xl border border-slate-800 relative shadow-lg overflow-hidden">
+      <div className="w-full flex items-center justify-between p-2 bg-slate-900 border-b border-slate-800 text-xs flex-wrap gap-2 z-[2000] shadow-md relative">
+        <div className="flex items-center gap-2 shrink-0">
           <SafeIcon name="CloudRain" className="w-4 h-4 text-sky-400" />
           <span className="font-bold text-white tracking-wide">WXRDR</span>
         </div>
 
         <div className="flex items-center gap-3 flex-wrap text-[11px]">
-          {(isHimawari || showRadar) && currentFrames.length > 0 && (
+          {maxFrames > 1 && (
             <div className="flex items-center gap-1.5 bg-slate-800 px-2 py-1 rounded border border-slate-700">
               <button 
                 onClick={() => setIsPlaying(!isPlaying)} 
@@ -506,19 +516,6 @@ export const WeatherRadarView = ({ navlogData }) => {
               />
             </div>
           )}
-
-          <div className="flex items-center gap-1 bg-slate-800 px-2 py-1 rounded border border-slate-700">
-            <span className="text-slate-400 font-bold">SAT:</span>
-            <select
-              value={satelliteType}
-              onChange={(e) => setSatelliteType(e.target.value)}
-              className="bg-transparent text-white font-mono focus:outline-none cursor-pointer max-w-[150px]"
-            >
-              <option value="himawari_ir" className="bg-slate-900">Himawari (JMA/Asia)</option>
-              <option value="global_ir" className="bg-slate-900">Global IR (IEM)</option>
-              <option value="none" className="bg-slate-900">OFF</option>
-            </select>
-          </div>
 
           <div className="flex items-center gap-1 bg-slate-800 px-2 py-1 rounded border border-slate-700">
             <span className="text-slate-400 font-bold">Dev:</span>
@@ -554,7 +551,25 @@ export const WeatherRadarView = ({ navlogData }) => {
             />
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3 bg-slate-800 px-2 py-1 rounded border border-slate-700">
+            <label className="flex items-center gap-1 cursor-pointer select-none text-slate-300 hover:text-white">
+              <input
+                type="checkbox"
+                checked={showHimawari}
+                onChange={(e) => setShowHimawari(e.target.checked)}
+                className="accent-sky-500 rounded"
+              />
+              <span>Himawari</span>
+            </label>
+            <label className="flex items-center gap-1 cursor-pointer select-none text-slate-300 hover:text-white">
+              <input
+                type="checkbox"
+                checked={showGlobalIr}
+                onChange={(e) => setShowGlobalIr(e.target.checked)}
+                className="accent-sky-500 rounded"
+              />
+              <span>Global IR</span>
+            </label>
             <label className="flex items-center gap-1 cursor-pointer select-none text-slate-300 hover:text-white">
               <input
                 type="checkbox"
@@ -564,37 +579,29 @@ export const WeatherRadarView = ({ navlogData }) => {
               />
               <span>Radar</span>
             </label>
-            <label className="flex items-center gap-1 cursor-pointer select-none text-slate-300 hover:text-white">
+            <label className="flex items-center gap-1 cursor-pointer select-none text-slate-300 hover:text-white border-l border-slate-600 pl-2">
               <input
                 type="checkbox"
                 checked={showNavlogRoute}
                 onChange={(e) => setShowNavlogRoute(e.target.checked)}
                 className="accent-sky-500 rounded"
               />
-              <span>Route</span>
+              <span className="font-bold text-sky-400">Route</span>
             </label>
           </div>
         </div>
       </div>
 
-      <div className="flex-1 w-full relative flex flex-col min-h-0 bg-slate-950">
-        {!isMapLoaded && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 z-50 text-slate-400 gap-3">
-                <SafeIcon name="Loader2" className="w-8 h-8 animate-spin text-sky-500" />
-                <span className="font-bold text-xs tracking-widest">LOADING MAP ENGINE...</span>
-            </div>
-        )}
-        <div ref={mapContainerRef} className="flex-1 w-full h-full z-0" />
+      <div className="flex-1 relative w-full h-full z-0">
+        <div ref={mapContainerRef} className="absolute inset-0" />
         
-        <div className="absolute bottom-3 left-3 bg-slate-900/90 border border-slate-700/80 rounded-lg p-2.5 backdrop-blur-sm z-[500] text-[10px] text-slate-300 font-mono pointer-events-none space-y-1 shadow-xl min-w-[200px]">
+        <div className="absolute bottom-3 left-3 z-[1000] bg-slate-900/90 border border-slate-700/80 rounded-lg p-2.5 backdrop-blur-sm text-[10px] text-slate-300 font-mono pointer-events-none space-y-1 shadow-xl min-w-[200px]">
           <div className="flex items-center justify-between text-sky-400 font-bold border-b border-slate-700 pb-1 mb-1">
             <span>RADAR & SAT SYNC</span>
             <span className="text-[9px] bg-sky-950 border border-sky-800 text-sky-300 px-1 rounded ml-2">{currentTimeLabel}</span>
           </div>
           <div>
-            {satelliteType === 'himawari_ir' 
-              ? 'JMA Himawari-8/9 IR Color Layer' 
-              : 'IEM Global IR Composite'}
+            {activeLayerName}
           </div>
           {navlogData && navlogData.fNo && (
             <div className="text-amber-300 font-bold border-t border-slate-800 pt-1 mt-1 flex justify-between gap-4">
