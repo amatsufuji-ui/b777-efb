@@ -163,7 +163,7 @@ export const WeatherRadarView = ({ navlogData }) => {
 
   // 衛星とレーダーのトグル状態（独立してON/OFF可能）
   const [showHimawari, setShowHimawari] = useState(true);
-  const [showGlobalIr, setShowGlobalIr] = useState(false);
+  const [showGlobalIr, setShowGlobalIr] = useState(true); // 全球IRをデフォルトでON
   const [showRadar, setShowRadar] = useState(true);
   const [showNavlogRoute, setShowNavlogRoute] = useState(true);
   
@@ -236,8 +236,9 @@ export const WeatherRadarView = ({ navlogData }) => {
           const errImg = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
 
           // 各レイヤーを作成して追加 (クラッシュ防止のため bounds 指定を解除)
-          himawariLayerRef.current = L.tileLayer(errImg, { opacity: opacity, maxNativeZoom: 5, maxZoom: 16, noWrap: false, errorTileUrl: errImg, zIndex: 2 }).addTo(map);
-          globalIrLayerRef.current = L.tileLayer(errImg, { opacity: 0, maxNativeZoom: 5, maxZoom: 16, noWrap: false, errorTileUrl: errImg, zIndex: 1 }).addTo(map);
+          // 雲画像は mix-blend-mode: screen (sat-blendクラス) を適用して、黒背景を透過させ重なりを自然にする
+          himawariLayerRef.current = L.tileLayer(errImg, { opacity: opacity, maxNativeZoom: 5, maxZoom: 16, noWrap: false, errorTileUrl: errImg, zIndex: 2, className: 'sat-blend' }).addTo(map);
+          globalIrLayerRef.current = L.tileLayer(errImg, { opacity: opacity, maxNativeZoom: 5, maxZoom: 16, noWrap: false, errorTileUrl: errImg, zIndex: 1, className: 'sat-blend' }).addTo(map);
           radarLayerRef.current = L.tileLayer(errImg, { opacity: opacity, maxZoom: 16, noWrap: false, errorTileUrl: errImg, zIndex: 3 }).addTo(map);
 
           setIsMapLoaded(true);
@@ -359,12 +360,15 @@ export const WeatherRadarView = ({ navlogData }) => {
     himawariLayerRef.current.setOpacity(showHimawari ? opacity : 0);
 
     // Global IR Layer
+    // メモ: RainViewerの静止気象衛星コンポジット画像を使用。
+    // 静止衛星のカバー範囲外となる極端な高緯度（70度以上等）は表示されない可能性があります。
     let globalIrUrl = errImg;
     if (showGlobalIr && rvSatFrames.length > 0) {
         const idx = Math.max(0, Math.min(getLayerFrameIndex(rvSatFrames.length), rvSatFrames.length - 1));
         const frame = rvSatFrames[idx];
         if (frame) {
-            globalIrUrl = `${frame.host}${frame.path}/256/{z}/{x}/{y}/0/1_1.png`;
+            // オプションを衛星画像向け（0_0）に変更して正常に取得できるように修正
+            globalIrUrl = `${frame.host}${frame.path}/256/{z}/{x}/{y}/0/0_0.png`;
         }
     }
     if (globalIrLayerRef.current._url !== globalIrUrl) globalIrLayerRef.current.setUrl(globalIrUrl);
@@ -464,7 +468,13 @@ export const WeatherRadarView = ({ navlogData }) => {
   let currentTimeLabel = "OFF";
   let activeLayerName = "No Layer Selected";
 
-  if (showHimawari && jmaFrames.length > 0) {
+  if (showHimawari && showGlobalIr && jmaFrames.length > 0 && rvSatFrames.length > 0) {
+      const idx = Math.max(0, Math.min(getLayerFrameIndex(jmaFrames.length), jmaFrames.length - 1));
+      if (jmaFrames[idx]) {
+          currentTimeLabel = formatJmaTime(jmaFrames[idx].validtime || jmaFrames[idx].basetime);
+          activeLayerName = "Himawari + Global IR (Merged)";
+      }
+  } else if (showHimawari && jmaFrames.length > 0) {
       const idx = Math.max(0, Math.min(getLayerFrameIndex(jmaFrames.length), jmaFrames.length - 1));
       if (jmaFrames[idx]) {
           currentTimeLabel = formatJmaTime(jmaFrames[idx].validtime || jmaFrames[idx].basetime);
@@ -622,6 +632,9 @@ export const WeatherRadarView = ({ navlogData }) => {
           padding: 1px 4px !important;
           border-radius: 4px !important;
           box-shadow: 0 2px 4px rgba(0,0,0,0.5) !important;
+        }
+        .sat-blend {
+          mix-blend-mode: screen;
         }
       `}</style>
     </div>
