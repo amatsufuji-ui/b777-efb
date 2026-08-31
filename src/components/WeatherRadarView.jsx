@@ -163,7 +163,10 @@ export const WeatherRadarView = ({ navlogData }) => {
 
   // 衛星とレーダーのトグル状態（独立してON/OFF可能）
   const [showHimawari, setShowHimawari] = useState(true);
-  const [showGlobalIr, setShowGlobalIr] = useState(true); // 全球IRをデフォルトでON
+  const [showGoes, setShowGoes] = useState(true); // ひまわりより東(太平洋〜米大陸)をカバーするGOES衛星
+  const [showMeteosat, setShowMeteosat] = useState(true); // 欧州・中東・インド洋(トルコ〜中国)をカバーするMeteosat
+  const [showArctic, setShowArctic] = useState(true); // 北極圏、カナダ北部、グリーンランド等をカバーする極軌道含む全球コンポジット
+  const [showGlobalIr, setShowGlobalIr] = useState(false); // RainViewerの全球IR (任意)
   const [showRadar, setShowRadar] = useState(true);
   const [showNavlogRoute, setShowNavlogRoute] = useState(true);
   
@@ -181,8 +184,15 @@ export const WeatherRadarView = ({ navlogData }) => {
 
   // レイヤー参照
   const himawariLayerRef = useRef(null);
+  const goesLayerRef = useRef(null); 
+  const meteosatLayerRef = useRef(null); 
+  const arcticLayerRef = useRef(null); // カナダ北部・北極圏・グリーンランド用 (SSEC RealEarth)
   const globalIrLayerRef = useRef(null);
   const radarLayerRef = useRef(null);
+
+  // メモ: 洋上や極域は地上レーダーの電波が届かないため、降水レーダー（Radar）は表示されません。
+  // 代わりに各種衛星の赤外画像(IR)コンポジットで雲頂高度を見て天候を予測します。
+  // SSEC RealEarthのWMSは極軌道衛星(LEO)のデータも含み、静止衛星がカバーできない極域(カナダ北部等)をカバーします。
 
   // 5分おきにAPIを再取得してキャッシュ切れを防ぐ
   useEffect(() => {
@@ -237,7 +247,30 @@ export const WeatherRadarView = ({ navlogData }) => {
 
           // 各レイヤーを作成して追加 (クラッシュ防止のため bounds 指定を解除)
           // 雲画像は mix-blend-mode: screen (sat-blendクラス) を適用して、黒背景を透過させ重なりを自然にする
+          
+          // EUMETSAT (Meteosat) WMS: 欧州(0度)とインド洋(41.5度)の合成。トルコ〜中国までの広範囲をカバー。
+          meteosatLayerRef.current = L.tileLayer.wms('https://view.eumetsat.int/geoserver/ows', {
+            layers: 'msg_fes:ir108,msg_iodc:ir108',
+            format: 'image/png',
+            transparent: true,
+            version: '1.3.0',
+            opacity: opacity,
+            zIndex: 2,
+            className: 'sat-blend'
+          }).addTo(map);
+
+          // SSEC RealEarth WMS: 全球合成IR。極軌道衛星データを含むため、静止衛星から見えない北極圏・カナダ北部・グリーンランドを強力にカバーします。
+          arcticLayerRef.current = L.tileLayer.wms('https://realearth.ssec.wisc.edu/wms/', {
+            layers: 'globalir',
+            format: 'image/png',
+            transparent: true,
+            opacity: opacity,
+            zIndex: 1,
+            className: 'sat-blend'
+          }).addTo(map);
+
           himawariLayerRef.current = L.tileLayer(errImg, { opacity: opacity, maxNativeZoom: 5, maxZoom: 16, noWrap: false, errorTileUrl: errImg, zIndex: 2, className: 'sat-blend' }).addTo(map);
+          goesLayerRef.current = L.tileLayer(errImg, { opacity: opacity, maxNativeZoom: 5, maxZoom: 16, noWrap: false, errorTileUrl: errImg, zIndex: 2, className: 'sat-blend' }).addTo(map);
           globalIrLayerRef.current = L.tileLayer(errImg, { opacity: opacity, maxNativeZoom: 5, maxZoom: 16, noWrap: false, errorTileUrl: errImg, zIndex: 1, className: 'sat-blend' }).addTo(map);
           radarLayerRef.current = L.tileLayer(errImg, { opacity: opacity, maxZoom: 16, noWrap: false, errorTileUrl: errImg, zIndex: 3 }).addTo(map);
 
@@ -342,7 +375,7 @@ export const WeatherRadarView = ({ navlogData }) => {
 
   // レイヤーのURLとOpacityの更新
   useEffect(() => {
-    if (!isMapLoaded || !himawariLayerRef.current || !globalIrLayerRef.current || !radarLayerRef.current) return;
+    if (!isMapLoaded || !himawariLayerRef.current || !goesLayerRef.current || !meteosatLayerRef.current || !arcticLayerRef.current || !globalIrLayerRef.current || !radarLayerRef.current) return;
 
     const errImg = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
 
@@ -359,15 +392,26 @@ export const WeatherRadarView = ({ navlogData }) => {
     if (himawariLayerRef.current._url !== himawariUrl) himawariLayerRef.current.setUrl(himawariUrl);
     himawariLayerRef.current.setOpacity(showHimawari ? opacity : 0);
 
-    // Global IR Layer
-    // メモ: RainViewerの静止気象衛星コンポジット画像を使用。
-    // 静止衛星のカバー範囲外となる極端な高緯度（70度以上等）は表示されない可能性があります。
+    // GOES Layer (太平洋〜アメリカ大陸カバー用)
+    let goesUrl = errImg;
+    if (showGoes) {
+        goesUrl = `https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/goes-ir-4km-900913/{z}/{x}/{y}.png`;
+    }
+    if (goesLayerRef.current._url !== goesUrl) goesLayerRef.current.setUrl(goesUrl);
+    goesLayerRef.current.setOpacity(showGoes ? opacity : 0);
+
+    // Meteosat Layer (欧州〜中東〜中国カバー用 WMS)
+    meteosatLayerRef.current.setOpacity(showMeteosat ? opacity : 0);
+
+    // Arctic/Canada Layer (SSEC RealEarth WMS 全球IR)
+    arcticLayerRef.current.setOpacity(showArctic ? opacity : 0);
+
+    // Global IR Layer (RainViewer提供)
     let globalIrUrl = errImg;
     if (showGlobalIr && rvSatFrames.length > 0) {
         const idx = Math.max(0, Math.min(getLayerFrameIndex(rvSatFrames.length), rvSatFrames.length - 1));
         const frame = rvSatFrames[idx];
         if (frame) {
-            // オプションを衛星画像向け（0_0）に変更して正常に取得できるように修正
             globalIrUrl = `${frame.host}${frame.path}/256/{z}/{x}/{y}/0/0_0.png`;
         }
     }
@@ -386,7 +430,7 @@ export const WeatherRadarView = ({ navlogData }) => {
     if (radarLayerRef.current._url !== radarUrl) radarLayerRef.current.setUrl(radarUrl);
     radarLayerRef.current.setOpacity(showRadar ? opacity : 0);
 
-  }, [isMapLoaded, frameIndex, opacity, showHimawari, showGlobalIr, showRadar, jmaFrames, rvSatFrames, rvRadarFrames, maxFrames]);
+  }, [isMapLoaded, frameIndex, opacity, showHimawari, showGoes, showMeteosat, showArctic, showGlobalIr, showRadar, jmaFrames, rvSatFrames, rvRadarFrames, maxFrames]);
 
   // ルート描画
   useEffect(() => {
@@ -468,17 +512,11 @@ export const WeatherRadarView = ({ navlogData }) => {
   let currentTimeLabel = "OFF";
   let activeLayerName = "No Layer Selected";
 
-  if (showHimawari && showGlobalIr && jmaFrames.length > 0 && rvSatFrames.length > 0) {
+  if (showHimawari && jmaFrames.length > 0) {
       const idx = Math.max(0, Math.min(getLayerFrameIndex(jmaFrames.length), jmaFrames.length - 1));
       if (jmaFrames[idx]) {
           currentTimeLabel = formatJmaTime(jmaFrames[idx].validtime || jmaFrames[idx].basetime);
-          activeLayerName = "Himawari + Global IR (Merged)";
-      }
-  } else if (showHimawari && jmaFrames.length > 0) {
-      const idx = Math.max(0, Math.min(getLayerFrameIndex(jmaFrames.length), jmaFrames.length - 1));
-      if (jmaFrames[idx]) {
-          currentTimeLabel = formatJmaTime(jmaFrames[idx].validtime || jmaFrames[idx].basetime);
-          activeLayerName = "JMA Himawari-8/9 Cloud Top (SND)";
+          activeLayerName = "JMA Himawari-8/9 Cloud Top" + (showGoes || showMeteosat || showArctic ? " & Others" : "");
       }
   } else if (showGlobalIr && rvSatFrames.length > 0) {
       const idx = Math.max(0, Math.min(getLayerFrameIndex(rvSatFrames.length), rvSatFrames.length - 1));
@@ -492,6 +530,13 @@ export const WeatherRadarView = ({ navlogData }) => {
           currentTimeLabel = formatRvTime(rvRadarFrames[idx].time);
           activeLayerName = "RainViewer Radar Only";
       }
+  } else if (showGoes || showMeteosat || showArctic) {
+      currentTimeLabel = "LIVE";
+      let parts = [];
+      if (showGoes) parts.push("GOES");
+      if (showMeteosat) parts.push("Meteosat");
+      if (showArctic) parts.push("SSEC(Arctic)");
+      activeLayerName = parts.join(" + ");
   }
 
   // 画面のスクロールを防ぐため、高さを 85vh に制限し内部のみスクロール可能にする
@@ -561,33 +606,60 @@ export const WeatherRadarView = ({ navlogData }) => {
             />
           </div>
 
-          <div className="flex items-center gap-3 bg-slate-800 px-2 py-1 rounded border border-slate-700">
-            <label className="flex items-center gap-1 cursor-pointer select-none text-slate-300 hover:text-white">
+          <div className="flex items-center gap-2 bg-slate-800 px-2 py-1 rounded border border-slate-700 flex-wrap">
+            <label className="flex items-center gap-1 cursor-pointer select-none text-slate-300 hover:text-white" title="アジア・西太平洋">
               <input
                 type="checkbox"
                 checked={showHimawari}
                 onChange={(e) => setShowHimawari(e.target.checked)}
                 className="accent-sky-500 rounded"
               />
-              <span>Himawari</span>
+              <span>HIMAWARI</span>
             </label>
-            <label className="flex items-center gap-1 cursor-pointer select-none text-slate-300 hover:text-white">
+            <label className="flex items-center gap-1 cursor-pointer select-none text-slate-300 hover:text-white" title="欧州・中東・アフリカ・インド洋(トルコ〜中国)">
+              <input
+                type="checkbox"
+                checked={showMeteosat}
+                onChange={(e) => setShowMeteosat(e.target.checked)}
+                className="accent-sky-500 rounded"
+              />
+              <span>METEOSAT</span>
+            </label>
+            <label className="flex items-center gap-1 cursor-pointer select-none text-slate-300 hover:text-white" title="北米・南米・太平洋">
+              <input
+                type="checkbox"
+                checked={showGoes}
+                onChange={(e) => setShowGoes(e.target.checked)}
+                className="accent-sky-500 rounded"
+              />
+              <span>GOES</span>
+            </label>
+            <label className="flex items-center gap-1 cursor-pointer select-none text-slate-300 hover:text-white" title="極軌道衛星を含む全球IR（北極圏・カナダ北部・グリーンランドを強力にカバー）">
+              <input
+                type="checkbox"
+                checked={showArctic}
+                onChange={(e) => setShowArctic(e.target.checked)}
+                className="accent-sky-500 rounded"
+              />
+              <span className="font-bold text-sky-200">ARCTIC(Global)</span>
+            </label>
+            <label className="flex items-center gap-1 cursor-pointer select-none text-slate-300 hover:text-white border-l border-slate-600 pl-2" title="RainViewerの全球IR">
               <input
                 type="checkbox"
                 checked={showGlobalIr}
                 onChange={(e) => setShowGlobalIr(e.target.checked)}
                 className="accent-sky-500 rounded"
               />
-              <span>Global IR</span>
+              <span>RV-IR</span>
             </label>
-            <label className="flex items-center gap-1 cursor-pointer select-none text-slate-300 hover:text-white">
+            <label className="flex items-center gap-1 cursor-pointer select-none text-slate-300 hover:text-white" title="降水レーダー(陸上主体)">
               <input
                 type="checkbox"
                 checked={showRadar}
                 onChange={(e) => setShowRadar(e.target.checked)}
                 className="accent-sky-500 rounded"
               />
-              <span>Radar</span>
+              <span>RADAR</span>
             </label>
             <label className="flex items-center gap-1 cursor-pointer select-none text-slate-300 hover:text-white border-l border-slate-600 pl-2">
               <input
