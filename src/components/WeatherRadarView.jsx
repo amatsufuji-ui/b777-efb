@@ -1,5 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { SafeIcon } from './SharedComponents';
+
+// =========================================================================
+// アイコンコンポーネント (外部依存を減らすためSVGをインライン化)
+// =========================================================================
+const IconCloudRain = ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M16 14v6"/><path d="M8 14v6"/><path d="M12 16v6"/></svg>;
+const IconDownloadCloud = ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m8 17 4 4 4-4"/></svg>;
+const IconFileText = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>;
+const IconClipboard = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>;
+const IconLoader2 = ({className}) => <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>;
+const IconPlane = ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.2-1.1.6L3 8l6 5-3.5 3.5-2.5-.5-1.5 1.5 4 1 1 4 1.5-1.5-.5-2.5 3.5-3.5 5 6l1.2-.7c.4-.2.7-.6.6-1.1z"/></svg>;
 
 // =========================================================================
 // 緯度経度変換ヘルパー
@@ -64,7 +73,6 @@ const parseWaypointToLatLng = (wpObj) => {
       if (coordMatch[3] === 'W') lon = -lon;
       return { lat, lon, name: wpName, isAirport: false };
   }
-
   return null;
 };
 
@@ -89,17 +97,14 @@ const getDestination = (lat, lon, brng, distNM) => {
     const rLon = toRad(lon);
     const rBrng = toRad(brng);
     const dR = distNM / R;
-
     const rLat2 = Math.asin(Math.sin(rLat) * Math.cos(dR) + Math.cos(rLat) * Math.sin(dR) * Math.cos(rBrng));
     const rLon2 = rLon + Math.atan2(Math.sin(rBrng) * Math.sin(dR) * Math.cos(rLat), Math.cos(dR) - Math.sin(rLat) * Math.sin(rLat2));
-
     return [toDeg(rLat2), toDeg(rLon2)];
 };
 
 const calculateOffsetLine = (latlngs, offsetNM) => {
     if (latlngs.length < 2) return [];
     const offsetPoints = [];
-
     for (let i = 0; i < latlngs.length; i++) {
         let brng;
         if (i === 0) {
@@ -109,13 +114,11 @@ const calculateOffsetLine = (latlngs, offsetNM) => {
         } else {
             const b1 = getBearing(latlngs[i-1][0], latlngs[i-1][1], latlngs[i][0], latlngs[i][1]);
             const b2 = getBearing(latlngs[i][0], latlngs[i][1], latlngs[i+1][0], latlngs[i+1][1]);
-            
             let diff = b2 - b1;
             if (diff > 180) diff -= 360;
             if (diff < -180) diff += 360;
             brng = (b1 + diff / 2 + 360) % 360;
         }
-
         const rightBrng = (brng + 90) % 360;
         offsetPoints.push(getDestination(latlngs[i][0], latlngs[i][1], rightBrng, offsetNM));
     }
@@ -127,13 +130,10 @@ const normalizeLongitudes = (latlngs) => {
     for (let i = 1; i < latlngs.length; i++) {
         let prevLon = latlngs[i-1][1];
         let currLon = latlngs[i][1] + offset;
-        
         if (prevLon - currLon > 180) {
-            offset += 360;
-            currLon += 360;
+            offset += 360; currLon += 360;
         } else if (currLon - prevLon > 180) {
-            offset -= 360;
-            currLon -= 360;
+            offset -= 360; currLon -= 360;
         }
         latlngs[i][1] = currLon;
     }
@@ -152,6 +152,103 @@ const formatJmaTime = (basetime) => {
 };
 
 // =========================================================================
+// NAVLOG テキスト解析
+// =========================================================================
+const parseNavlogText = (text) => {
+    let newPlan = [];
+    const fNoMatch = text.match(/(?:ANA|JAL|NCA|NH|JL)(\d{2,4}[A-Z]?)/);
+    let fNo = fNoMatch ? fNoMatch[0] : "UNKNOWN";
+    
+    const routeMatch = text.match(/([A-Z]{4})\s*-\s*([A-Z]{4})/);
+    const depIcao = routeMatch ? routeMatch[1] : null;
+    const destIcao = routeMatch ? routeMatch[2] : null;
+
+    let cleanTextForWp = text;
+    const logStartIndex = cleanTextForWp.indexOf('WSCP');
+    if (logStartIndex !== -1) {
+        cleanTextForWp = cleanTextForWp.substring(logStartIndex);
+    } 
+
+    cleanTextForWp = cleanTextForWp.replace(/\(\s+/g, '(');
+    const tokens = cleanTextForWp.split(/\s+/);
+    
+    let ignoreList = new Set([
+        "ELEV", "RDIS", "TMP", "ZWIND", "SAT", "SPOT", "ETO", "ZTME", "ALT", "FUEL", "POS", "ATO", "DIST", "FL", "RMG", 
+        "RJTT", "KJFK", "KEWR", "PANC", "CYVR", "RJCC", "DEC", "CLM", "LRC", "PROG", "STEP", "CLIMB", "MINTMP", 
+        "COMPUTED", "COMPANY", "CLEARANCE", "MW/TP", "WSCP", "NONE", "OAT", "INTENTION", "SPEED", "ROUTE", "DATA", 
+        "AWY", "OFP", "LOG", "RMK", "NAV", "FOB", "PLN", "ACT", "DIFF", "MEMO", "TIME", "MAX", "WT", "PAGE", "DIS", 
+        "WND", "SHR", "TRK", "INFO", "IFR", "VFR", 
+        "TC", "GS", "CTME", "MC", "TAS", "RTME", "WP", "LAT", "LONG", "LAT/LONG"
+    ]);
+    
+    if (fNoMatch) ignoreList.add(fNoMatch[0]);
+    if (routeMatch) {
+        ignoreList.delete(routeMatch[1]);
+        ignoreList.delete(routeMatch[2]);
+    }
+
+    let pendingLat = null; 
+    let pendingLatLon = null;
+
+    for (let i = 0; i < tokens.length; i++) {
+        let token = tokens[i];
+        let cleanToken = token.replace(/^-+/, '').replace(/-+$/, '');
+
+        const latMatch = cleanToken.match(/^[NS]\d{4,6}(?:\.\d+)?$/);
+        if (latMatch) {
+            pendingLat = cleanToken;
+            continue;
+        }
+        const lonMatch = cleanToken.match(/^[EW]\d{4,7}(?:\.\d+)?$/);
+        if (lonMatch) {
+            if (pendingLat) {
+                pendingLatLon = pendingLat + cleanToken;
+                if (newPlan.length > 0 && !newPlan[newPlan.length - 1].latLon) {
+                    newPlan[newPlan.length - 1].latLon = pendingLatLon;
+                }
+            }
+            pendingLat = null;
+            continue;
+        }
+        const latLonMatch = cleanToken.match(/^[NS]\d{4,6}(?:\.\d+)?[EW]\d{4,7}(?:\.\d+)?$/);
+        if (latLonMatch) {
+            pendingLatLon = cleanToken;
+            if (newPlan.length > 0 && !newPlan[newPlan.length - 1].latLon) {
+                newPlan[newPlan.length - 1].latLon = pendingLatLon;
+            }
+            continue;
+        }
+
+        const isCoord = /^[NS]\d{4,5}[EW]\d{4,6}$/.test(cleanToken);
+        const isAlphaWp = /^[A-Z][A-Z0-9]{1,5}$/.test(cleanToken) && !ignoreList.has(cleanToken);
+        const isArincWp = /^\d{2}[NSWE]\d{2}$/.test(cleanToken);
+        const isSpecialWp = ["TOC", "TOD"].includes(cleanToken);
+
+        if (!isCoord && (isAlphaWp || isArincWp || isSpecialWp)) {
+            if (newPlan.length > 0 && newPlan[newPlan.length - 1].wp === cleanToken) {
+                continue;
+            }
+            pendingLat = null;
+            newPlan.push({ 
+              wp: cleanToken, 
+              latLon: pendingLatLon
+            });
+            
+            if (destIcao && cleanToken === destIcao) break; 
+            pendingLatLon = null;
+        }
+    }
+
+    if (newPlan.length >= 2) {
+        const last = newPlan[newPlan.length - 1];
+        const prev = newPlan[newPlan.length - 2];
+        if (last.wp === prev.wp) newPlan.pop();
+    }
+
+    return { newPlan, fNo, depIcao, destIcao };
+};
+
+// =========================================================================
 // APIキャッシュ (タブ切り替えによる不要な再読み込みを防ぐ)
 // =========================================================================
 let apiCache = {
@@ -159,6 +256,81 @@ let apiCache = {
   rvSatFrames: null,
   jmaFrames: null,
   timestamp: 0
+};
+
+// =========================================================================
+// UI コンポーネント (Modal & Toast)
+// =========================================================================
+const Toast = ({ message, visible, onClose }) => {
+  if (!visible) return null;
+  return (
+    <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-[9999] bg-slate-800 border border-slate-600 text-white px-4 py-3 rounded shadow-2xl flex items-center gap-3">
+      <span className="text-sm font-bold">{message}</span>
+      <button onClick={onClose} className="text-slate-400 hover:text-white">&times;</button>
+    </div>
+  );
+};
+
+const LoadDataModal = ({ isOpen, onClose, onFileLoad, onTextLoad, isParsing }) => {
+    const [text, setText] = useState("");
+    const fileInputRef = useRef(null);
+
+    if (!isOpen) return null;
+
+    const handleFileChange = (e) => {
+        if (e.target.files && e.target.files[0]) {
+            onFileLoad(e.target.files[0]);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/80 z-[3000] flex items-center justify-center p-4 backdrop-blur-sm">
+            <div className="bg-slate-900 border border-slate-700 rounded-xl p-5 max-w-lg w-full shadow-2xl flex flex-col">
+                <div className="flex justify-between items-center border-b border-slate-700 pb-3 mb-4">
+                    <h3 className="text-white font-bold flex items-center gap-2 text-lg">
+                        <IconDownloadCloud className="w-5 h-5 text-sky-400" />
+                        Load Flight Plan
+                    </h3>
+                    <button onClick={onClose} className="text-slate-400 hover:text-white font-bold text-2xl leading-none">&times;</button>
+                </div>
+                
+                <div className="flex flex-col gap-3">
+                    <input type="file" accept="application/pdf" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
+                    <button 
+                        onClick={() => fileInputRef.current?.click()} 
+                        disabled={isParsing} 
+                        className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-800 text-white font-bold py-4 rounded-lg flex items-center justify-center gap-2 transition-colors shadow-lg"
+                    >
+                        {isParsing ? <IconLoader2 className="animate-spin w-5 h-5" /> : <IconFileText />}
+                        {isParsing ? 'Reading PDF...' : 'Upload NAVLOG PDF'}
+                    </button>
+                </div>
+
+                <div className="flex items-center gap-3 py-5">
+                    <div className="h-px bg-slate-700 flex-1"></div>
+                    <span className="text-xs text-slate-500 font-bold uppercase">OR</span>
+                    <div className="h-px bg-slate-700 flex-1"></div>
+                </div>
+
+                <div className="flex flex-col gap-3">
+                    <textarea 
+                        value={text} 
+                        onChange={e => setText(e.target.value)} 
+                        className="w-full h-40 bg-slate-950 border border-slate-700 rounded-lg p-3 text-slate-300 focus:outline-none focus:border-sky-500 resize-none font-mono text-xs"
+                        placeholder="Paste NAVLOG text here..."
+                    ></textarea>
+                    <button 
+                        onClick={() => { onTextLoad(text); setText(""); }} 
+                        disabled={!text.trim()} 
+                        className="w-full bg-sky-600 hover:bg-sky-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-bold py-4 rounded-lg flex items-center justify-center gap-2 transition-colors shadow-lg"
+                    >
+                        <IconClipboard />
+                        Load from Text
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
 };
 
 // =========================================================================
@@ -172,10 +344,10 @@ export const WeatherRadarView = ({ navlogData }) => {
   // 衛星とレーダーのトグル状態
   const [showHimawari, setShowHimawari] = useState(true);
   const [showGoes, setShowGoes] = useState(true); 
-  const [showMeteosat, setShowMeteosat] = useState(true); 
+  const [showMeteosat, setShowMeteosat] = useState(false); 
   const [showArctic, setShowArctic] = useState(true); 
   const [showGlobalIr, setShowGlobalIr] = useState(false); 
-  const [showRadar, setShowRadar] = useState(true);
+  const [showRadar, setShowRadar] = useState(false);
   const [showNavlogRoute, setShowNavlogRoute] = useState(true);
   
   const [opacity, setOpacity] = useState(0.65);
@@ -192,8 +364,9 @@ export const WeatherRadarView = ({ navlogData }) => {
 
   // レイヤー参照
   const himawariLayerRef = useRef(null);
+  const goesLayerRef = useRef(null); // 米国カラー強調用 (IEM)
   const meteosatLayerRef = useRef(null); 
-  const ssecLayerRef = useRef(null); // ★ GOESとARCTICを統合する共通の全球レイヤー
+  const arcticLayerRef = useRef(null); // 全球白黒用 (SSEC)
   const globalIrLayerRef = useRef(null);
   const radarLayerRef = useRef(null);
 
@@ -247,6 +420,7 @@ export const WeatherRadarView = ({ navlogData }) => {
 
           const errImg = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
 
+          // カラーフィルター(sat-blue)は削除し、自然な合成を行う(sat-blend)のみ適用
           const style = document.createElement('style');
           style.innerHTML = `
             .sat-blend { mix-blend-mode: screen !important; }
@@ -255,19 +429,29 @@ export const WeatherRadarView = ({ navlogData }) => {
           `;
           document.head.appendChild(style);
 
-          // ★ 修正1: GOESとARCTICを別々に追加すると白飛びするため、1枚の共通SSEC全球レイヤーに統合
+          // ★ ARCTIC用: SSEC全球IRベース (全球をカバーする白黒画像)
           const ssecGlobalIrUrl = 'https://realearth.ssec.wisc.edu/tiles/globalir/{z}/{x}/{y}.png';
-          const ssecOptions = {
+          arcticLayerRef.current = L.tileLayer(ssecGlobalIrUrl, {
             opacity: opacity,
             maxNativeZoom: 4,  
             maxZoom: 16,
-            zIndex: 1,
+            zIndex: 1, // 一番下に敷く
             className: 'sat-blend',
-            keepBuffer: 16, // キャッシュを長持ちさせる
+            keepBuffer: 16,
             updateWhenIdle: true
-          };
+          }).addTo(map);
 
-          ssecLayerRef.current = L.tileLayer(ssecGlobalIrUrl, ssecOptions).addTo(map);
+          // ★ GOES用: IEMベース (米国周辺のカラー強調画像)
+          const iemGoesUrl = 'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/goes-ir-4km-900913/{z}/{x}/{y}.png';
+          goesLayerRef.current = L.tileLayer(iemGoesUrl, {
+            opacity: opacity,
+            maxNativeZoom: 5,
+            maxZoom: 16,
+            zIndex: 2, // 白黒の全球画像の上にカラーを重ねる
+            className: 'sat-blend', 
+            keepBuffer: 16,
+            updateWhenIdle: true
+          }).addTo(map);
 
           meteosatLayerRef.current = L.tileLayer.wms('https://view.eumetsat.int/geoserver/wms', {
             layers: 'msg_fes:ir108',
@@ -281,9 +465,7 @@ export const WeatherRadarView = ({ navlogData }) => {
           }).addTo(map);
 
           globalIrLayerRef.current = L.tileLayer(errImg, { opacity: opacity, maxNativeZoom: 5, maxZoom: 16, noWrap: false, errorTileUrl: errImg, zIndex: 1, className: 'sat-blend', keepBuffer: 16 }).addTo(map);
-
           himawariLayerRef.current = L.tileLayer(errImg, { opacity: opacity, maxNativeZoom: 5, maxZoom: 16, noWrap: false, errorTileUrl: errImg, zIndex: 2, className: 'sat-blend', keepBuffer: 16 }).addTo(map);
-
           radarLayerRef.current = L.tileLayer(errImg, { opacity: opacity, maxZoom: 16, noWrap: false, errorTileUrl: errImg, zIndex: 3, keepBuffer: 16 }).addTo(map);
 
           L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_lines/{z}/{x}/{y}.png', {
@@ -312,11 +494,10 @@ export const WeatherRadarView = ({ navlogData }) => {
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // APIデータの取得 (★ 修正2: キャッシュを利用して無駄なリロードを防ぐ)
+  // APIデータの取得 (キャッシュを利用)
   useEffect(() => {
       const now = Date.now();
       
-      // 5分以内であれば、APIを再フェッチせずにキャッシュされた配列をセットする
       if (apiCache.timestamp && (now - apiCache.timestamp < 5 * 60 * 1000) && apiCache.rvSatFrames && apiCache.jmaFrames) {
           setRvRadarFrames(apiCache.rvRadarFrames);
           setRvSatFrames(apiCache.rvSatFrames);
@@ -343,7 +524,6 @@ export const WeatherRadarView = ({ navlogData }) => {
               newJma = sortedFrames.slice(-24);
           }
 
-          // 取得した結果をキャッシュに保存
           apiCache = {
               rvRadarFrames: newRvRadar,
               rvSatFrames: newRvSat,
@@ -409,7 +589,7 @@ export const WeatherRadarView = ({ navlogData }) => {
 
   // レイヤーのURLとOpacityの更新
   useEffect(() => {
-    if (!isMapLoaded || !himawariLayerRef.current || !ssecLayerRef.current || !meteosatLayerRef.current || !globalIrLayerRef.current || !radarLayerRef.current) return;
+    if (!isMapLoaded || !himawariLayerRef.current || !arcticLayerRef.current || !goesLayerRef.current || !meteosatLayerRef.current || !globalIrLayerRef.current || !radarLayerRef.current) return;
 
     const errImg = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
 
@@ -427,11 +607,16 @@ export const WeatherRadarView = ({ navlogData }) => {
     if (himawariLayerRef.current._url !== himawariUrl) himawariLayerRef.current.setUrl(himawariUrl);
     himawariLayerRef.current.setOpacity(showHimawari ? opacity : 0);
 
-    // ★ 修正3: GOESとARCTICのどちらかがONなら、統合されたSSEC全球レイヤーを表示する (白飛び回避)
-    if (ssecLayerRef.current) {
-        ssecLayerRef.current.setOpacity((showGoes || showArctic) ? opacity : 0);
+    // ★ ARCTIC (全球白黒画像)
+    if (arcticLayerRef.current) {
+        arcticLayerRef.current.setOpacity(showArctic ? opacity : 0);
     }
     
+    // ★ GOES (米国カラー画像)
+    if (goesLayerRef.current) {
+        goesLayerRef.current.setOpacity(showGoes ? opacity : 0);
+    }
+
     if (meteosatLayerRef.current) {
         meteosatLayerRef.current.setOpacity(showMeteosat ? opacity : 0);
     }
@@ -568,16 +753,10 @@ export const WeatherRadarView = ({ navlogData }) => {
       currentTimeLabel = "LIVE";
       let parts = [];
       
-      // GOESとARCTICを統合表示
-      if (showGoes && showArctic) {
-          parts.push("GOES/ARCTIC(Global)");
-      } else if (showGoes) {
-          parts.push("GOES(Global)");
-      } else if (showArctic) {
-          parts.push("ARCTIC(Global)");
-      }
-      
+      if (showGoes) parts.push("GOES(Color)");
+      if (showArctic) parts.push("ARCTIC(B/W)");
       if (showMeteosat) parts.push("Meteosat");
+      
       activeLayerName = parts.join(" + ");
   }
 
@@ -585,7 +764,7 @@ export const WeatherRadarView = ({ navlogData }) => {
     <div className="flex flex-col w-full h-[85vh] min-h-[500px] bg-slate-950 rounded-xl border border-slate-800 relative shadow-lg overflow-hidden">
       <div className="w-full flex items-center justify-between p-2 bg-slate-900 border-b border-slate-800 text-xs flex-wrap gap-2 z-[2000] shadow-md relative">
         <div className="flex items-center gap-2 shrink-0">
-          <SafeIcon name="CloudRain" className="w-4 h-4 text-sky-400" />
+          <IconCloudRain className="w-4 h-4 text-sky-400" />
           <span className="font-bold text-white tracking-wide">WXRDR</span>
         </div>
 
@@ -666,7 +845,7 @@ export const WeatherRadarView = ({ navlogData }) => {
               />
               <span>METEOSAT</span>
             </label>
-            <label className="flex items-center gap-1 cursor-pointer select-none text-slate-300 hover:text-white" title="北米・南米・太平洋">
+            <label className="flex items-center gap-1 cursor-pointer select-none text-slate-300 hover:text-white" title="米国周辺をカラー強調表示 (IEM)">
               <input
                 type="checkbox"
                 checked={showGoes}
@@ -675,7 +854,7 @@ export const WeatherRadarView = ({ navlogData }) => {
               />
               <span>GOES</span>
             </label>
-            <label className="flex items-center gap-1 cursor-pointer select-none text-slate-300 hover:text-white" title="極軌道衛星を含む全球IR（北極圏・カナダ北部・グリーンランドを強力にカバー）">
+            <label className="flex items-center gap-1 cursor-pointer select-none text-slate-300 hover:text-white" title="北極圏・カナダ等を含む全球カバー (SSEC)">
               <input
                 type="checkbox"
                 checked={showArctic}
@@ -737,3 +916,125 @@ export const WeatherRadarView = ({ navlogData }) => {
     </div>
   );
 };
+
+// =========================================================================
+// メインアプリケーション
+// =========================================================================
+export default function App() {
+  const [navlogData, setNavlogData] = useState(() => {
+    try {
+      const savedItem = localStorage.getItem('pilotNavlogData');
+      return savedItem ? JSON.parse(savedItem) : null;
+    } catch (error) {
+      console.error("localStorageの読み込みエラー:", error);
+      return null;
+    }
+  });
+  const [isLoadModalOpen, setIsLoadModalOpen] = useState(false);
+  const [isParsingPdf, setIsParsingPdf] = useState(false);
+  const [toastData, setToastData] = useState({ message: '', visible: false });
+
+  useEffect(() => {
+    if (navlogData) {
+      localStorage.setItem('pilotNavlogData', JSON.stringify(navlogData));
+    }
+  }, [navlogData]);
+
+  const showToast = (message) => {
+    setToastData({ message, visible: true });
+    setTimeout(() => setToastData({ message: '', visible: false }), 4000);
+  };
+
+  const handlePdfUpload = (file) => {
+    if (!file) return;
+    setIsParsingPdf(true);
+    showToast('PDFを解析しています...');
+    
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        if (!window.pdfjsLib) {
+          const script = document.createElement('script');
+          script.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+          await new Promise(res => { script.onload = res; document.head.appendChild(script); });
+          window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+        }
+
+        const typedarray = new Uint8Array(event.target.result);
+        const pdf = await window.pdfjsLib.getDocument(typedarray).promise;
+        let fullText = "";
+        
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          fullText += content.items.map(item => item.str).join(" ") + "\n";
+        }
+
+        const parsedData = parseNavlogText(fullText);
+        
+        if (parsedData.newPlan.length > 0) {
+            setNavlogData(parsedData); 
+            setIsLoadModalOpen(false);
+            showToast(`ルートを読み込みました: ${parsedData.depIcao} -> ${parsedData.destIcao}`);
+        } else { 
+            showToast('フライトプランの読み取りに失敗しました。PDFの形式を確認してください。'); 
+        }
+      } catch (err) { 
+        console.error(err); 
+        showToast('PDFの解析に失敗しました。'); 
+      } finally { 
+        setIsParsingPdf(false); 
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  const handleTextLoad = (text) => {
+      const parsed = parseNavlogText(text);
+      if (parsed && parsed.newPlan.length > 0) {
+          setNavlogData(parsed);
+          setIsLoadModalOpen(false);
+          showToast(`ルートを読み込みました: ${parsed.depIcao} -> ${parsed.destIcao}`);
+      } else {
+          showToast('テキストの解析に失敗しました。');
+      }
+  };
+
+  return (
+    <div className="flex flex-col h-screen bg-slate-950 overflow-hidden font-sans text-slate-100">
+      <Toast message={toastData.message} visible={toastData.visible} onClose={() => setToastData({ ...toastData, visible: false })} />
+      
+      <LoadDataModal 
+        isOpen={isLoadModalOpen} 
+        onClose={() => setIsLoadModalOpen(false)} 
+        isParsing={isParsingPdf}
+        onFileLoad={handlePdfUpload}
+        onTextLoad={handleTextLoad}
+      />
+
+      {/* Header */}
+      <header className="flex items-center justify-between px-4 py-3 bg-slate-900 border-b border-slate-800 shrink-0">
+        <div className="flex items-center gap-3">
+          <span className="text-sky-400 bg-sky-900/30 p-1.5 rounded-lg border border-sky-800">
+            <IconPlane className="w-5 h-5 text-sky-400" />
+          </span>
+          <h1 className="text-white font-black text-lg tracking-wide hidden sm:block">GLOBAL WX RADAR</h1>
+          <h1 className="text-white font-black text-lg tracking-wide sm:hidden">WX RADAR</h1>
+        </div>
+
+        <button 
+            onClick={() => setIsLoadModalOpen(true)} 
+            className="bg-sky-600 hover:bg-sky-500 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors shadow-lg border border-sky-400/30 text-sm"
+        >
+            <IconDownloadCloud className="w-4 h-4" />
+            <span>Load Plan</span>
+        </button>
+      </header>
+
+      {/* Main Content */}
+      <main className="flex-1 relative">
+        <WeatherRadarView navlogData={navlogData} />
+      </main>
+    </div>
+  );
+}
