@@ -92,6 +92,7 @@ export const QuickGuideModal = ({ isOpen, onClose }) => {
             </div>
           )}
           
+          {}
           <section>
             <h3 className="text-emerald-400 font-bold mb-2 border-l-4 border-emerald-400 pl-2">1. データの読み込み (LOAD)</h3>
             <p className="text-xs leading-relaxed ml-1">
@@ -99,6 +100,7 @@ export const QuickGuideModal = ({ isOpen, onClose }) => {
             </p>
           </section>
 
+          {}
           <section>
             <h3 className="text-sky-400 font-bold mb-2 border-l-4 border-sky-400 pl-2">2. ヘッダーボタンの機能</h3>
             <ul className="text-xs leading-relaxed space-y-2 pl-1">
@@ -112,18 +114,25 @@ export const QuickGuideModal = ({ isOpen, onClose }) => {
             </ul>
           </section>
 
+          {}
           <section>
             <h3 className="text-amber-400 font-bold mb-3 border-l-4 border-amber-400 pl-2">3. 各機能・タブの説明</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pl-1 text-xs">
               
-              <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
+              <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700 md:col-span-2">
                 <div className="text-amber-300 font-bold mb-1">DASHBOARD</div>
-                <p className="leading-relaxed">PTOW/PLDWを読み込んでVREF、Flap Up Maneuver、Hold Speedや、着陸時のMAX AUTO / MAN 距離などをスライダーと連動してリアルタイムに計算します。<br/><span className="text-rose-400 mt-1 inline-block">※ ENG INOPを選ぶとPTOWを着陸重量に反映するのでTAKEOFF RTNが可能かの判断に使用できます。</span></p>
+                <p className="leading-relaxed">
+                  PTOW/PLDWを読み込んでVREF、Flap Up Maneuver、Hold Speedや、着陸時のMAX AUTO / MAN 距離などをスライダーと連動してリアルタイムに計算します。<br/>
+                  <span className="text-rose-400 mt-1 inline-block font-bold">※ ENG INOPを選ぶとPTOWを着陸重量に反映するのでTAKEOFF RTNが可能かの判断に使用できます。</span>
+                </p>
               </div>
 
               <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
                 <div className="text-amber-300 font-bold mb-1">TFC INFO</div>
-                <p className="leading-relaxed">読み込んだ便の前後の便を表示します。また、便名を入力することで関連機の情報を表示します。</p>
+                <ul className="leading-relaxed list-disc pl-4 space-y-1">
+                  <li>読み込んだ便の前後の便を表示します。</li>
+                  <li>便名を入力することで関連機の情報を表示します。</li>
+                </ul>
               </div>
 
               <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
@@ -133,7 +142,16 @@ export const QuickGuideModal = ({ isOpen, onClose }) => {
 
               <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
                 <div className="text-amber-300 font-bold mb-1">ETOPS</div>
-                <p className="leading-relaxed">欧州線のみADDITIONAL FUEL要否の判断ツール、HF周波数の取得、ETOPS関連情報を確認できます。</p>
+                <ul className="leading-relaxed list-disc pl-4 space-y-1">
+                  <li>欧州線のみADDITIONAL FUEL要否の判断ツール</li>
+                  <li>HF周波数の取得</li>
+                  <li>ETOPS関連情報を確認できます。</li>
+                </ul>
+              </div>
+
+              <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
+                <div className="text-amber-300 font-bold mb-1">DOCS</div>
+                <p className="leading-relaxed">危険品の混載確認や、配慮を要する旅客情報の確認、Tarmac Delay時の対応タイムラインおよびチェックリストの利用ができます。</p>
               </div>
               
               <div className="bg-slate-900/50 p-3 rounded border border-slate-700 md:col-span-2">
@@ -151,23 +169,25 @@ export const QuickGuideModal = ({ isOpen, onClose }) => {
               </div>
 
               <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
-                <div className="text-amber-300 font-bold mb-1">DOCS</div>
-                <p className="leading-relaxed">危険品の混載確認や、配慮を要する旅客情報の確認ができます。</p>
-              </div>
-
-              <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
                 <div className="text-amber-300 font-bold mb-1">スマカタ</div>
                 <p className="leading-relaxed">よく使うものの直リンクです。</p>
               </div>
 
               <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
                 <div className="text-amber-300 font-bold mb-1">REST CALC</div>
-                <p className="leading-relaxed">REST計算ツールです。T/O TIMEはSTD+AVG TAXI TIMEがDEFAULTになります。</p>
+                <ul className="leading-relaxed list-disc pl-4 space-y-1">
+                  <li>REST計算ツールです。</li>
+                  <li>T/O TIMEはSTD+AVG TAXI TIMEがDEFAULTになります。</li>
+                </ul>
               </div>
 
-              <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
+              <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700 md:col-span-2">
                 <div className="text-amber-300 font-bold mb-1">APP CALC</div>
-                <p className="leading-relaxed">温度変化によるLDA時のFAFからMXまでのFPA計算、ILSZ34Lでは高温時にFAF手前のどれくらいでGS CAPTUREするかを算出、TRAFFIC PATTERNとMIN CIRCでは降下開始点を算出します。</p>
+                <ul className="leading-relaxed list-disc pl-4 space-y-1">
+                  <li>温度変化によるLDA時のFAFからMXまでのFPA計算を行います。</li>
+                  <li>ILSZ34Lでは高温時にFAF手前のどれくらいでGS CAPTUREするかを算出します。</li>
+                  <li>TRAFFIC PATTERNとMIN CIRCでは降下開始点を算出します。</li>
+                </ul>
               </div>
               
               <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
@@ -178,6 +198,11 @@ export const QuickGuideModal = ({ isOpen, onClose }) => {
               <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
                 <div className="text-amber-300 font-bold mb-1">XWIND</div>
                 <p className="leading-relaxed">TAIL LIMITを選択可能な横風計算ツールです。</p>
+              </div>
+
+              <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700 md:col-span-2">
+                <div className="text-amber-300 font-bold mb-1">SID</div>
+                <p className="leading-relaxed">WELDA / TAURA / ROVER の通過高度確認ができます。</p>
               </div>
 
             </div>

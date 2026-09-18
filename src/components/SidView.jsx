@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 
 export const SidView = ({ state }) => {
     const [selectedWaypoint, setSelectedWaypoint] = useState('ROVER');
@@ -11,15 +11,8 @@ export const SidView = ({ state }) => {
     const [oat, setOat] = useState(30);
 
     const waypoints = ['ROVER', 'TAURA', 'WELDA'];
-        // FPLのPTOWを反映
-    useEffect(() => {
-        const w = state.ptowOrig || state.cruiseWeight;
-        if (w) {
-            setTowLbs(Math.round(w / 1000));
-        }
-    }, [state.ptowOrig, state.cruiseWeight]);
-
-       // FPLのPTOWを反映
+    
+    // FPLのPTOWを反映
     useEffect(() => {
         const w = state.ptowOrig || state.cruiseWeight;
         if (w) {
@@ -34,17 +27,17 @@ export const SidView = ({ state }) => {
         
         if (selectedWaypoint === 'WELDA') {
             if (manualAircraftType === '777-300ER') { max = 769; min = 700; }
-            if (manualAircraftType === '787-8') { max = 503; min = 480; } // 502,500lbs -> 503
+            if (manualAircraftType === '787-8') { max = 503; min = 480; }
             if (manualAircraftType === '787-9') { max = 553; min = 500; }
         } else if (selectedWaypoint === 'TAURA') {
             if (manualAircraftType.includes('777-200')) { max = 535; min = 440; }
             if (manualAircraftType === '777-300') { max = 550; min = 500; }
-            if (manualAircraftType === '787-8') { max = 503; min = 440; } // 502,500lbs -> 503
+            if (manualAircraftType === '787-8') { max = 503; min = 440; }
             if (manualAircraftType === '787-9') { max = 490; min = 430; }
             if (manualAircraftType === '787-10') { max = 535; min = 450; }
         } else if (selectedWaypoint === 'ROVER') {
             if (manualAircraftType === '777-300ER') { max = 769; min = 600; }
-            if (manualAircraftType === '787-8') { max = 503; min = 440; } // 502,500lbs -> 503
+            if (manualAircraftType === '787-8') { max = 503; min = 440; }
             if (manualAircraftType === '787-9') { max = 553; min = 500; }
         } else {
             // Fallbacks
@@ -96,7 +89,7 @@ export const SidView = ({ state }) => {
         }
     }, [selectedWaypoint, manualAircraftType]);
 
-    // Helper for 2D interpolation
+    // Helper for 2D interpolation (Weightのバグを修正)
     const interpolate2D = (t, o, data) => {
         const oats = Object.keys(data).map(Number).sort((a, b) => a - b);
         let oatL = oats[0], oatH = oats[oats.length - 1];
@@ -114,6 +107,7 @@ export const SidView = ({ state }) => {
 
         const interpolate1D = (t_val, oat_val) => {
             if (!data[oat_val]) return "N/A";
+            // 確実に重量の降順でソート
             const rowData = [...data[oat_val]].sort((a, b) => b.w - a.w);
             const maxW = rowData[0].w;
             const minW = rowData[rowData.length - 1].w;
@@ -133,6 +127,7 @@ export const SidView = ({ state }) => {
                 const w1 = rowData[idx].w, a1 = rowData[idx].a;
                 const w2 = rowData[idx+1].w, a2 = rowData[idx+1].a;
                 if (a1 === "N/A" || a2 === "N/A") return "N/A";
+                // 線形補間
                 return a1 + (a2 - a1) * ((t_val - w1) / (w2 - w1));
             }
         };
@@ -265,7 +260,7 @@ export const SidView = ({ state }) => {
                     alt3000 = interpolate2D(wt, oat, data3000);
                 }
             } else {
-                noDataMsg = "No Data Available for this Type at WELDA";
+                noDataMsg = `No Data Available for ${type} at WELDA`;
             }
         } else if (selectedWaypoint === 'TAURA') {
              restriction = "9000 ft or Above (RWY16R)";
@@ -585,4 +580,4 @@ export const SidView = ({ state }) => {
             </div>
         </div>
     );
-};っっっs
+};
