@@ -500,7 +500,7 @@ const MemoModal = ({ isOpen, initialMemo, wpName, onClose, onSave }) => {
                     inputMode="email"
                     autoCapitalize="none"
                     autoCorrect="off"
-                    spellCheck="false"
+                    spellCheck={false}
                     lang="en"
                     className="w-full h-32 bg-slate-900 border border-slate-600 rounded-lg p-2 text-white focus:outline-none focus:border-blue-500 mb-4 resize-none font-mono"
                     placeholder="Enter notes here..."
@@ -525,6 +525,8 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
   const [memoModal, setMemoModal] = useState({ isOpen: false, wp: '', text: '' });
 
   const rowRefs = useRef([]);
+  const hasAutoScrolled = useRef(false);
+  const lastLoadId = useRef(null);
 
   const [flightPlan, setFlightPlan] = useState(DEFAULT_FLIGHT_PLAN_DATA);
   const [flightNo, setFlightNo] = useState("ANA0110");
@@ -730,6 +732,8 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
         } else {
             setParsedEtopsInfo(null);
         }
+
+        hasAutoScrolled.current = false;
         
         if (navlogData.isNew) {
             setActuals({});
@@ -741,6 +745,8 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
             } else {
                 setTakeoffTime('');
             }
+            
+            lastLoadId.current = Date.now();
         } else {
             setActuals(prev => ({ ...prev }));
         }
@@ -997,6 +1003,64 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
     return () => { isMounted = false; };
   }, [parsedDestIcao, parsedDate, calculatedData.estBlockInMins, lastFetchedBlockInMins, lastFetchedDestIcao, destWeather]);
 
+  useEffect(() => {
+    let newLocalBlockIn = "";
+    let newLocalLdg = "";
+
+    if (parsedDestIcao && parsedDate && (calculatedData.estBlockInMins !== null || calculatedData.estLandingTimeMins !== null)) {
+      try {
+        const day = parseInt(parsedDate.substring(0, 2), 10);
+        const monthMap = {JAN:0, FEB:1, MAR:2, APR:3, MAY:4, JUN:5, JUL:6, AUG:7, SEP:8, OCT:9, NOV:10, DEC:11};
+        const monthStr = parsedDate.substring(2, 5).toUpperCase();
+        const mon = monthMap[monthStr] !== undefined ? monthMap[monthStr] : 0;
+        const yy = 2000 + parseInt(parsedDate.substring(5, 7), 10);
+
+        const tz = getLocalTimeZone(parsedDestIcao);
+        const formatter = new Intl.DateTimeFormat('en-GB', {
+          timeZone: tz,
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false
+        });
+
+        if (calculatedData.estBlockInMins !== null && calculatedData.estBlockInMins !== undefined) {
+          const h = Math.floor(calculatedData.estBlockInMins / 60) % 24;
+          const m = calculatedData.estBlockInMins % 60;
+          
+          const utcDateBlk = new Date(Date.UTC(yy, mon, day, h, m));
+          
+          if (calculatedData.estBlockInMins >= 24 * 60) {
+              utcDateBlk.setUTCDate(utcDateBlk.getUTCDate() + Math.floor(calculatedData.estBlockInMins / (24 * 60)));
+          }
+
+          if (!isNaN(utcDateBlk.getTime())) {
+            newLocalBlockIn = formatter.format(utcDateBlk).replace(':', '');
+          }
+        }
+
+        if (calculatedData.estLandingTimeMins !== null && calculatedData.estLandingTimeMins !== undefined) {
+          const hLdg = Math.floor(calculatedData.estLandingTimeMins / 60) % 24;
+          const mLdg = calculatedData.estLandingTimeMins % 60;
+          
+          const utcDateLdg = new Date(Date.UTC(yy, mon, day, hLdg, mLdg));
+          
+          if (calculatedData.estLandingTimeMins >= 24 * 60) {
+              utcDateLdg.setUTCDate(utcDateLdg.getUTCDate() + Math.floor(calculatedData.estLandingTimeMins / (24 * 60)));
+          }
+
+          if (!isNaN(utcDateLdg.getTime())) {
+            newLocalLdg = formatter.format(utcDateLdg).replace(':', '');
+          }
+        }
+
+      } catch(e) {
+        // Ignore
+      }
+    }
+    setLocalBlockIn(newLocalBlockIn);
+    setLocalLdg(newLocalLdg);
+  }, [parsedSta, parsedDate, parsedDestIcao, calculatedData.estBlockInMins, calculatedData.estLandingTimeMins]);
+
   const scrollToCurrentFix = () => {
     if (!takeoffTime || calculatedData.flightData.length === 0) return;
     const now = new Date();
@@ -1033,16 +1097,16 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
     }
   };
 
-  // ★ 修正点: NAVLOGタブを開いた時（コンポーネントマウント時）にも自動スクロールを実行
   useEffect(() => {
-    const timer = setTimeout(() => {
-      scrollToCurrentFix();
-    }, 150);
-    return () => clearTimeout(timer);
-  }, []);
+    if (calculatedData.flightData.length > 0) {
+      const timer = setTimeout(() => {
+        scrollToCurrentFix();
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [calculatedData.flightData.length]);
 
-  // 新デザイン: 各列の最小・最大幅を制限して間延びを防止 (10列構成)
-  const gridColumnsStyle = { gridTemplateColumns: 'minmax(75px, 1.5fr) 40px 55px 60px 40px 55px 65px minmax(180px, 2.5fr) 60px 32px' };
+  const gridColumnsStyle = { gridTemplateColumns: 'minmax(75px, 1.5fr) 40px 40px 50px 40px 45px minmax(180px, 2.5fr) 50px 32px' };
 
   return (
     <div className="flex flex-col h-full w-full absolute inset-0 bg-[#05070a] text-[#cbd5e1] font-sans overflow-hidden rounded-xl border border-slate-700/50">
@@ -1114,7 +1178,20 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
 
               <div className="flex flex-col items-center px-0.5">
                 <label className="text-[7px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-0.5">Takeoff(Z)</label>
-                <input type="tel" inputMode="numeric" pattern="[0-9]*" placeholder="HHMM" maxLength={4} value={takeoffTime} onChange={(e) => setTakeoffTime(e.target.value.replace(/[^0-9]/g, ''))} className="bg-slate-800 border border-slate-600 rounded px-1 py-0 text-[10px] font-mono font-black text-white text-center w-11 h-4 focus:outline-none focus:border-blue-500 transition-colors" />
+                <input 
+                  type="text" 
+                  inputMode="numeric" 
+                  pattern="\d*" 
+                  lang="en"
+                  autoCapitalize="none" 
+                  autoCorrect="off" 
+                  spellCheck={false}
+                  placeholder="HHMM" 
+                  maxLength={4} 
+                  value={takeoffTime} 
+                  onChange={(e) => setTakeoffTime(e.target.value.replace(/[^0-9]/g, ''))} 
+                  className="bg-slate-800 border border-slate-600 rounded px-1 py-0 text-[10px] font-mono font-black text-white text-center w-11 h-4 focus:outline-none focus:border-blue-500 transition-colors" 
+                />
               </div>
 
               <div className="w-px h-4 bg-slate-700"></div>
@@ -1253,7 +1330,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
         </div>
       </header>
 
-      {/* スクロールテーブル構造：最大幅を絞って要素の間延びを防止 */}
       <div className="flex-1 w-full relative overflow-hidden bg-slate-900/40">
         <div className="absolute inset-0 overflow-auto custom-scrollbar p-1">
             <div className="min-w-[700px] max-w-[1000px] mx-auto pb-16">
@@ -1294,9 +1370,13 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                     <div className="flex flex-col px-0.5 gap-0.5 items-center w-full">
                       <span className="text-blue-400 font-mono text-[11px] font-extrabold leading-none">{row.revisedEtoStr || "----"}</span>
                       <input 
-                          type="tel" 
+                          type="text" 
                           inputMode="numeric" 
-                          pattern="[0-9]*" 
+                          pattern="\d*" 
+                          lang="en"
+                          autoCapitalize="none"
+                          autoCorrect="off"
+                          spellCheck={false}
                           placeholder="ATO" 
                           maxLength={4} 
                           value={row.ato} 
@@ -1314,24 +1394,65 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                       <span className={`font-mono text-[8px] leading-none ${row.fuelDiff > 0 ? 'text-green-400 font-bold' : row.fuelDiff < 0 ? 'text-red-400 font-bold' : 'text-transparent'}`}>
                           {row.fuelDiff !== null ? (`${row.fuelDiff > 0 ? '+' : ''}${row.fuelDiff.toFixed(1)}`) : '-'}
                       </span>
-                      <input type="tel" inputMode="decimal" placeholder="RMG" value={row.afob} onChange={(e) => handleUpdateActual(row.wp, 'afob', e.target.value.replace(/[^0-9.]/g, ''))} className={`w-full max-w-[55px] mx-auto bg-[#05070a] border rounded py-0.5 text-center font-mono text-xs font-bold focus:outline-none focus:ring-1 focus:ring-green-500 transition-colors ${row.afob ? 'border-green-500/50 text-white' : 'border-slate-700 text-slate-400'}`} />
+                      <input 
+                          type="text" 
+                          inputMode="decimal" 
+                          lang="en"
+                          autoCapitalize="none"
+                          autoCorrect="off"
+                          spellCheck={false}
+                          placeholder="RMG" 
+                          value={row.afob} 
+                          onChange={(e) => handleUpdateActual(row.wp, 'afob', e.target.value.replace(/[^0-9.]/g, ''))} 
+                          className={`w-full max-w-[55px] mx-auto bg-[#05070a] border rounded py-0.5 text-center font-mono text-xs font-bold focus:outline-none focus:ring-1 focus:ring-green-500 transition-colors ${row.afob ? 'border-green-500/50 text-white' : 'border-slate-700 text-slate-400'}`} 
+                      />
                     </div>
 
                     <div className="grid grid-cols-[1fr_1fr_1.2fr] gap-1 px-1 w-full max-w-[210px] mx-auto">
                         <div className="flex flex-col items-center justify-center w-full">
-                            <input type="text" autoCapitalize="characters" placeholder="ACT" value={row.actAlt} onChange={(e) => handleUpdateActual(row.wp, 'actAlt', e.target.value.toUpperCase())} className="w-full max-w-[55px] bg-[#05070a] border border-slate-700 rounded text-center text-[10px] font-mono font-bold py-0.5 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-inner" />
+                            <input 
+                              type="text" 
+                              lang="en"
+                              autoCapitalize="characters" 
+                              autoCorrect="off"
+                              spellCheck={false}
+                              placeholder="ACT" 
+                              value={row.actAlt} 
+                              onChange={(e) => handleUpdateActual(row.wp, 'actAlt', e.target.value.toUpperCase())} 
+                              className="w-full max-w-[55px] bg-[#05070a] border border-slate-700 rounded text-center text-[10px] font-mono font-bold py-0.5 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-inner" 
+                            />
                             <span className="text-[7.5px] text-slate-500 font-mono mt-0.5 leading-none">{row.plnAlt || "-"}</span>
                         </div>
                         <div className="flex flex-col items-center justify-center w-full">
                             <span className="text-[7.5px] text-purple-400 font-mono font-bold leading-none mb-0.5 whitespace-nowrap">
                               {row.isaDev !== undefined && !isNaN(row.isaDev) ? `ISA${row.isaDev >= 0 ? '+' : ''}${row.isaDev}` : "-"}
                             </span>
-                            <input type="text" autoCapitalize="characters" placeholder="ACT" value={row.actTmp} onChange={(e) => handleUpdateActual(row.wp, 'actTmp', e.target.value)} className="w-full max-w-[55px] bg-[#05070a] border border-slate-700 rounded text-center text-[10px] font-mono font-bold py-0.5 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-inner" />
+                            <input 
+                              type="text" 
+                              lang="en"
+                              autoCapitalize="characters" 
+                              autoCorrect="off"
+                              spellCheck={false}
+                              placeholder="ACT" 
+                              value={row.actTmp} 
+                              onChange={(e) => handleUpdateActual(row.wp, 'actTmp', e.target.value)} 
+                              className="w-full max-w-[55px] bg-[#05070a] border border-slate-700 rounded text-center text-[10px] font-mono font-bold py-0.5 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-inner" 
+                            />
                             <span className="text-[7.5px] text-slate-500 font-mono mt-0.5 leading-none">{row.plnTmp || "-"}</span>
                         </div>
                         <div className="flex flex-col items-center justify-center w-full">
                             <span className="text-[7.5px] text-slate-500 font-mono leading-none mb-0.5 text-transparent">-</span>
-                            <input type="text" autoCapitalize="characters" placeholder="ACT" value={row.actWind} onChange={(e) => handleUpdateActual(row.wp, 'actWind', e.target.value)} className="w-full max-w-[65px] bg-[#05070a] border border-slate-700 rounded text-center text-[10px] font-mono font-bold py-0.5 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-inner" />
+                            <input 
+                              type="text" 
+                              lang="en"
+                              autoCapitalize="characters" 
+                              autoCorrect="off"
+                              spellCheck={false}
+                              placeholder="ACT" 
+                              value={row.actWind} 
+                              onChange={(e) => handleUpdateActual(row.wp, 'actWind', e.target.value)} 
+                              className="w-full max-w-[65px] bg-[#05070a] border border-slate-700 rounded text-center text-[10px] font-mono font-bold py-0.5 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-inner" 
+                            />
                             <span className="text-[7.5px] text-slate-500 font-mono mt-0.5 leading-none">{row.plnWind || "-"}</span>
                         </div>
                     </div>

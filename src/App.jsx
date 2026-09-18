@@ -1,11 +1,10 @@
-// App.jsx
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import * as LucideIcons from 'lucide-react';
 
 // =========================================================================
 // ★ アプリバージョン設定
 // =========================================================================
-const APP_VERSION = "9.1";
+const APP_VERSION = "9.2"; 
 // =========================================================================
 
 import { RAW_CSV_DATA, aircraftRegistrationList, BUDDYCOM_LINKS } from './data/flightData';
@@ -24,7 +23,7 @@ import { XwindView } from './components/XwindView';
 import { QuickGuideModal } from './components/QuickGuideModal';
 import { NavlogView } from './components/NavlogView';
 import { TarmacView } from './components/TarmacView'; 
-import { WeatherRadarView } from './components/WeatherRadarView';
+import { SidView } from './components/SidView'; 
 
 const LoadDataModal = ({ isOpen, onClose, onFileClick, onPaste, isParsing }) => {
     const [text, setText] = useState("");
@@ -72,7 +71,7 @@ const LoadDataModal = ({ isOpen, onClose, onFileClick, onPaste, isParsing }) => 
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('DASHBOARD');
-  const tabs = ['DASHBOARD', 'TFC INFO', 'WX/MNM', 'ETOPS', 'NAVLOG', 'WXRDR', 'DOCS', 'スマカタ', 'REST CALC', 'APP CALC', 'TARMAC', 'XWIND'];
+  const tabs = ['DASHBOARD', 'TFC INFO', 'WX/MNM', 'ETOPS', 'NAVLOG', 'DOCS', 'スマカタ', 'REST CALC', 'APP CALC', 'TARMAC', 'XWIND', 'SID'];
 
   const [flightId, setFlightId] = useState(""); 
   const [isWifiModalOpen, setIsWifiModalOpen] = useState(false); 
@@ -305,6 +304,9 @@ export default function App() {
   };
 
   const parseNavlogPDFText = (text) => {
+    // ★PDF抽出時のギリシャ文字(Alpha, Nu)が混入するバグ対策★
+    text = text.replace(/\u0391/g, 'A').replace(/\u039D/g, 'N');
+    
     let newPlan = [];
     
     const fNoMatch = text.match(/(?:ANA|JAL|NCA|NH|JL)(\d{2,4}[A-Z]?)/);
@@ -401,8 +403,8 @@ export default function App() {
 
     const etopsSectionIndex = text.indexOf('-ETP/EEP/EXP/ET.LT');
     let etopsData = null;
-    let eepWpName = null;
-    let expWpName = null;
+    let eepCtme = null;
+    let expCtme = null;
     let extractedEtopsAltns = [];
     
     if (etopsSectionIndex !== -1) {
@@ -411,14 +413,6 @@ export default function App() {
       const etopsText = nextSectionIndex !== -1 
           ? text.substring(etopsSectionIndex, etopsSectionIndex + 1 + nextSectionIndex)
           : text.substring(etopsSectionIndex);
-
-      const eepMatch1 = etopsText.match(/EEP\/([A-Z0-9]+)/);
-      const eepMatch2 = etopsText.match(/([A-Z0-9]+)\s+EEP\//);
-      eepWpName = eepMatch1 ? eepMatch1[1].replace(/\+\d+$/, '') : (eepMatch2 ? eepMatch2[1] : null);
-
-      const expMatch1 = etopsText.match(/EXP\/[\s\/]*([A-Z0-9]+)/i);
-      const expMatch2 = etopsText.match(/([A-Z0-9]+)\s+EXP\//i);
-      expWpName = expMatch1 ? expMatch1[1].replace(/\+\d+$/, '') : (expMatch2 ? expMatch2[1] : null);
 
       etopsData = [];
       const etpMatches = [...etopsText.matchAll(/([A-Z]{4})\/([A-Z]{4})\s+(\d{2})\/(\d{2})/g)];
@@ -436,7 +430,19 @@ export default function App() {
               endCtme: endCtme
           });
       });
-      if (etopsData.length === 0) etopsData = null;
+
+      if (etopsData.length === 0) {
+          etopsData = null;
+      } else {
+          const firstEt = etopsData[0].et;
+          const lastLt = etopsData[etopsData.length - 1].lt;
+          if (firstEt && firstEt.length === 4) {
+              eepCtme = parseInt(firstEt.substring(0, 2), 10) * 60 + parseInt(firstEt.substring(2, 4), 10);
+          }
+          if (lastLt && lastLt.length === 4) {
+              expCtme = parseInt(lastLt.substring(0, 2), 10) * 60 + parseInt(lastLt.substring(2, 4), 10);
+          }
+      }
 
       const altnMatches = [...etopsText.matchAll(/\b([A-Z]{4})\b/g)];
       const ignoreAirports = new Set([depIcao, destIcao, "NONE", "AUTO", "DISP", "WSCP", "ETP1", "ETP2", "ETP3"]);
@@ -493,11 +499,6 @@ export default function App() {
     let pendingWind = "";
     let pendingTasGs = []; 
     let pendingIsa = null;
-    let pendingLat = null; // NAVLOG内の緯度経度抽出用
-    let pendingLatLon = null;
-
-    let eepCtme = null;
-    let expCtme = null;
 
     for (let i = 0; i < tokens.length; i++) {
         let token = tokens[i];
@@ -556,32 +557,6 @@ export default function App() {
         }
 
         let cleanToken = token.replace(/^-+/, '').replace(/-+$/, '');
-
-        // 緯度・経度の抽出処理 (WeatherRadarViewでの正確なプロット用)
-        const latMatch = cleanToken.match(/^[NS]\d{4,6}(?:\.\d+)?$/);
-        if (latMatch) {
-            pendingLat = cleanToken;
-            continue;
-        }
-        const lonMatch = cleanToken.match(/^[EW]\d{4,7}(?:\.\d+)?$/);
-        if (lonMatch) {
-            if (pendingLat) {
-                pendingLatLon = pendingLat + cleanToken;
-                if (newPlan.length > 0 && !newPlan[newPlan.length - 1].latLon) {
-                    newPlan[newPlan.length - 1].latLon = pendingLatLon;
-                }
-            }
-            pendingLat = null;
-            continue;
-        }
-        const latLonMatch = cleanToken.match(/^[NS]\d{4,6}(?:\.\d+)?[EW]\d{4,7}(?:\.\d+)?$/);
-        if (latLonMatch) {
-            pendingLatLon = cleanToken;
-            if (newPlan.length > 0 && !newPlan[newPlan.length - 1].latLon) {
-                newPlan[newPlan.length - 1].latLon = pendingLatLon;
-            }
-            continue;
-        }
         
         if (token === 'FL' && i > 0 && /^\d+$/.test(tokens[i-1])) {
             if (newPlan.length > 0) {
@@ -608,9 +583,6 @@ export default function App() {
             let ctme = recentTimes.length > 0 ? recentTimes[0] : 0;
             let rtme = recentTimes.length > 1 ? recentTimes[1] : 0;
             if (recentTimes.length === 1) rtme = 0; 
-            
-            if (cleanToken === eepWpName) eepCtme = ctme;
-            if (cleanToken === expWpName) expCtme = ctme;
 
             if (newPlan.length > 0 && newPlan[newPlan.length - 1].wp === cleanToken) {
                 continue;
@@ -631,8 +603,6 @@ export default function App() {
             let parsedGs = uniqueTasGs.length > 0 ? uniqueTasGs[0] : "";
             let parsedTas = uniqueTasGs.length > 1 ? uniqueTasGs[1] : "";
 
-            pendingLat = null; // 新しいWPが来たのでpending状態をリセット
-
             newPlan.push({ 
               wp: cleanToken, 
               ctme: ctme, 
@@ -646,8 +616,7 @@ export default function App() {
               isaDev: currentWpIsa,
               hasExplicitIsa: pendingIsa !== null,
               dist: 0,
-              isOffRoute: isOffRoute,
-              latLon: pendingLatLon
+              isOffRoute: isOffRoute
             });
             
             if (destIcao && cleanToken === destIcao) {
@@ -660,7 +629,6 @@ export default function App() {
             pendingWind = "";
             pendingTasGs = []; 
             pendingIsa = null;
-            pendingLatLon = null;
             recentTimes = []; 
         }
     }
@@ -1175,12 +1143,12 @@ export default function App() {
             />
           </div>
         )}
-        {activeTab === 'WXRDR' && (<div className="flex flex-col gap-1 w-full h-full"><WeatherRadarView navlogData={navlogData} /></div>)}
         {activeTab === 'DOCS' && (<div className="flex flex-col gap-1 w-full h-full"><Docs2View /></div>)}
         {activeTab === 'TARMAC' && (<div className="flex flex-col gap-1 w-full h-full"><TarmacView /></div>)}
         {activeTab === 'REST CALC' && (<div className="flex flex-col gap-1 w-full h-full"><RestView flightHours={restCrewSize === 3 ? restFlightHours3 : restFlightHours4} setFlightHours={restCrewSize === 3 ? setRestFlightHours3 : setRestFlightHours4} flightMins={restCrewSize === 3 ? restFlightMins3 : restFlightMins4} setFlightMins={restCrewSize === 3 ? setRestFlightMins3 : setRestFlightMins4} stdHours={stdHours} setStdHours={setStdHours} stdMins={stdMins} setStdMins={setStdMins} isTakeoffAuto={isTakeoffAuto} setIsTakeoffAuto={setIsTakeoffAuto} takeoffHours={restTakeoffHours} setTakeoffHours={setRestTakeoffHours} takeoffMins={restTakeoffMins} setTakeoffMins={setRestTakeoffMins} offsetMins={restOffsetMins} setOffsetMins={setRestOffsetMins} landingOffsetMins={restLandingOffsetMins} setLandingOffsetMins={setRestLandingOffsetMins} crewSize={restCrewSize} setCrewSize={setRestCrewSize} firstRestMins={restFirstRestMins} setFirstRestMins={setRestFirstRestMins} lastRestMins={restLastRestMins} setLastRestMins={setLastRestMins} firstHalfMins={restFirstHalfMins} setFirstHalfMins={setFirstHalfMins} taxiOutMins={taxiOutMins} /></div>)}
         {activeTab === 'APP CALC' && (<div className="flex flex-col gap-1 w-full h-full"><ApproachCalcView /></div>)}
         {activeTab === 'XWIND' && (<div className="flex flex-col gap-1 w-full h-full mt-0.5"><XwindView /></div>)}
+        {activeTab === 'SID' && (<div className="flex flex-col gap-1 w-full h-full"><SidView state={state} /></div>)}
       </div>
     </div>
   );
