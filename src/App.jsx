@@ -1,11 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import * as LucideIcons from 'lucide-react';
 
-// =========================================================================
-// ★ アプリバージョン設定
-// =========================================================================
-const APP_VERSION = "9.3"; 
-// =========================================================================
+const APP_VERSION = "9.4"; 
 
 import { RAW_CSV_DATA, aircraftRegistrationList, BUDDYCOM_LINKS } from './data/flightData';
 import { aircraftPerformanceData, defaultCruiseWeights, defaultLandingWeights, modelKeyMap, AIRCRAFT_DIMENSIONS, SEAT_DATA, CRUISE_PERF_DATA, VREF_DATA, HOLD_SPD_DATA_RAW, MANEUVER_1_3G_MACH_DATA, TARGET_PITCH_N1_DATA_RAW, LANDING_DIST_DATA_RAW, B777_WIND_LIMITS, MAX_MAN_DATA } from './data/perfData';
@@ -24,6 +20,7 @@ import { QuickGuideModal } from './components/QuickGuideModal';
 import { NavlogView } from './components/NavlogView';
 import { TarmacView } from './components/TarmacView'; 
 import { SidView } from './components/SidView'; 
+import { WeatherRadarView } from './components/WeatherRadarView';
 
 const LoadDataModal = ({ isOpen, onClose, onFileClick, onPaste, isParsing }) => {
     const [text, setText] = useState("");
@@ -71,7 +68,7 @@ const LoadDataModal = ({ isOpen, onClose, onFileClick, onPaste, isParsing }) => 
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('DASHBOARD');
-  const tabs = ['DASHBOARD', 'TFC INFO', 'WX/MNM', 'ETOPS', 'NAVLOG', 'DOCS', 'スマカタ', 'REST CALC', 'APP CALC', 'TARMAC', 'XWIND', 'SID'];
+  const tabs = ['DASHBOARD', 'TFC INFO', 'WX/MNM', 'RDR',  'ETOPS', 'NAVLOG', 'DOCS', 'スマカタ', 'REST CALC', 'APP CALC', 'TARMAC', 'XWIND', 'SID'];
 
   const [flightId, setFlightId] = useState(""); 
   const [isWifiModalOpen, setIsWifiModalOpen] = useState(false); 
@@ -304,7 +301,6 @@ export default function App() {
   };
 
   const parseNavlogPDFText = (text) => {
-    // ★PDF抽出時のギリシャ文字(Alpha, Nu)が混入するバグ対策★
     text = text.replace(/\u0391/g, 'A').replace(/\u039D/g, 'N');
     
     let newPlan = [];
@@ -500,6 +496,9 @@ export default function App() {
     let pendingTasGs = []; 
     let pendingIsa = null;
 
+    let pendingLat = null; 
+    let pendingLatLon = null;
+
     for (let i = 0; i < tokens.length; i++) {
         let token = tokens[i];
         
@@ -558,6 +557,30 @@ export default function App() {
 
         let cleanToken = token.replace(/^-+/, '').replace(/-+$/, '');
         
+        const latMatch = cleanToken.match(/^[NS]\d{4,6}(?:\.\d+)?$/);
+        if (latMatch) {
+            pendingLat = cleanToken;
+        }
+        const lonMatch = cleanToken.match(/^[EW]\d{4,7}(?:\.\d+)?$/);
+        if (lonMatch) {
+            if (pendingLat) {
+                pendingLatLon = pendingLat + cleanToken;
+                if (newPlan.length > 0 && !newPlan[newPlan.length - 1].latLon) {
+                    newPlan[newPlan.length - 1].latLon = pendingLatLon;
+                }
+            }
+            pendingLat = null;
+            continue;
+        }
+        const latLonMatch = cleanToken.match(/^[NS]\d{4,6}(?:\.\d+)?[EW]\d{4,7}(?:\.\d+)?$/);
+        if (latLonMatch) {
+            pendingLatLon = cleanToken;
+            if (newPlan.length > 0 && !newPlan[newPlan.length - 1].latLon) {
+                newPlan[newPlan.length - 1].latLon = pendingLatLon;
+            }
+            continue;
+        }
+
         if (token === 'FL' && i > 0 && /^\d+$/.test(tokens[i-1])) {
             if (newPlan.length > 0) {
                 newPlan[newPlan.length - 1].dist = parseInt(tokens[i-1], 10);
@@ -605,6 +628,7 @@ export default function App() {
 
             newPlan.push({ 
               wp: cleanToken, 
+              latLon: pendingLatLon,
               ctme: ctme, 
               rtme: rtme, 
               fob: pendingFob !== null ? pendingFob : 0, 
@@ -629,6 +653,7 @@ export default function App() {
             pendingWind = "";
             pendingTasGs = []; 
             pendingIsa = null;
+            pendingLatLon = null;
             recentTimes = []; 
         }
     }
@@ -1149,7 +1174,8 @@ export default function App() {
         {activeTab === 'APP CALC' && (<div className="flex flex-col gap-1 w-full h-full"><ApproachCalcView /></div>)}
         {activeTab === 'XWIND' && (<div className="flex flex-col gap-1 w-full h-full mt-0.5"><XwindView /></div>)}
         {activeTab === 'SID' && (<div className="flex flex-col gap-1 w-full h-full"><SidView state={state} /></div>)}
-      </div>
+        {activeTab === 'RDR' && (<div className="flex flex-col gap-1 w-full h-full"><WeatherRadarView navlogData={navlogData} /></div>)}
+       </div>
     </div>
   );
 }

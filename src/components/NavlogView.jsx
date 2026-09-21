@@ -1,4 +1,3 @@
-// NavlogView.jsx
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { SafeIcon } from './SharedComponents';
 
@@ -1106,7 +1105,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
     }
   }, [calculatedData.flightData.length]);
 
-  const gridColumnsStyle = { gridTemplateColumns: 'minmax(75px, 1.5fr) 40px 40px 50px 40px 45px minmax(180px, 2.5fr) 50px 32px' };
+  const gridColumnsStyle = { gridTemplateColumns: 'minmax(85px, 1.5fr) 40px 45px 55px 35px 45px 55px minmax(180px, 2.8fr) 55px 35px' };
 
   return (
     <div className="flex flex-col h-full w-full absolute inset-0 bg-[#05070a] text-[#cbd5e1] font-sans overflow-hidden rounded-xl border border-slate-700/50">
@@ -1139,45 +1138,48 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
         flightData={calculatedData.flightData}
       />
 
-      <header className="shrink-0 bg-gradient-to-r from-slate-900 via-[#131c2f] to-slate-900 border-b border-slate-700/80 px-1.5 sm:px-2 py-1 shadow-lg z-20">
-        <div className="max-w-[1400px] mx-auto flex flex-wrap justify-between items-center gap-1.5">
+      <header className="shrink-0 bg-gradient-to-r from-slate-900 via-[#131c2f] to-slate-900 border-b border-slate-700/80 px-2 py-2 shadow-lg z-20">
+        <div className="max-w-[1400px] mx-auto flex flex-wrap justify-between items-center gap-2">
           
-          <div className="flex items-center gap-1.5">
-            <div className="bg-blue-500/20 p-1 rounded border border-blue-500/30 shadow-inner">
-              <SafeIcon name="Map" className="w-3.5 h-3.5 text-blue-400"/>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <div className="flex items-center gap-1.5 mr-2">
+                <div className="bg-blue-500/20 p-1 rounded border border-blue-500/30 shadow-inner">
+                  <SafeIcon name="Map" className="w-3.5 h-3.5 text-blue-400"/>
+                </div>
+                <h1 className="text-sm sm:text-base font-black text-white uppercase tracking-wider leading-none drop-shadow-sm">
+                  {flightNo}
+                </h1>
             </div>
-            <h1 className="text-xs sm:text-sm font-black text-white uppercase tracking-wider leading-none drop-shadow-sm">
-              {flightNo}
-            </h1>
-            <span className="text-[9px] sm:text-[10px] font-black font-mono text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded border border-cyan-500/30 tracking-wider">
-                {routeInfo}
-            </span>
-            <div className="flex gap-1 items-center font-mono">
-                <span className="text-[8px] font-bold text-slate-300 bg-slate-800 border border-slate-600 rounded px-1 py-0.5">{parsedReg}</span>
-                {parsedDate && <span className="text-[8px] font-bold text-blue-300 bg-blue-900/40 border border-blue-500/40 rounded px-1 py-0.5">{parsedDate}</span>}
-                <span className="text-[8px] font-bold text-slate-300 bg-slate-800 border border-slate-600 rounded px-1 py-0.5">ZFW:{parsedPzfw}</span>
-                <span className="text-[8px] font-bold text-slate-300 bg-slate-800 border border-slate-600 rounded px-1 py-0.5">TAXI:{parsedTaxiOut}/{parsedTaxiIn}M</span>
+            
+            <div className="flex gap-1.5 items-center font-mono flex-wrap">
+                <span className="text-[10px] sm:text-[11px] font-black text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded border border-cyan-500/30 tracking-wider">
+                    {routeInfo}
+                </span>
+                <span className="text-[10px] sm:text-[11px] font-bold text-slate-300 bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5">{parsedReg}</span>
+                {parsedDate && <span className="text-[10px] sm:text-[11px] font-bold text-blue-300 bg-blue-900/40 border border-blue-500/40 rounded px-1.5 py-0.5">{parsedDate}</span>}
+                <span className="text-[10px] sm:text-[11px] font-bold text-slate-300 bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5">ZFW:{parsedPzfw}</span>
+                <span className="text-[10px] sm:text-[11px] font-bold text-slate-300 bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5">TAXI:{parsedTaxiOut}/{parsedTaxiIn}M</span>
             </div>
           </div>
           
-          <div className="flex flex-wrap items-center gap-1 sm:gap-1.5">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             
-            <div className="flex items-center gap-1.5 bg-[#0f172a] px-1.5 py-0.5 rounded-lg border border-slate-700 shadow-inner">
+            <div className="flex items-center gap-2 bg-[#0f172a] px-2 py-1.5 rounded-lg border border-slate-700 shadow-inner">
               
-              <div className="flex flex-col items-center px-0.5">
-                <span className="text-[7px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-0.5">STD(Z/L)</span>
-                <div className="flex items-center gap-1 h-3.5">
-                  <span className="text-[10px] font-mono font-extrabold text-slate-300 leading-none">
+              <div className="flex flex-col items-center px-1">
+                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">STD(Z/L)</span>
+                <div className="flex items-center gap-1.5 h-4">
+                  <span className="text-xs font-mono font-extrabold text-slate-300 leading-none">
                     {navlogData && navlogData.stdH !== undefined && navlogData.stdM !== undefined ? `${String(navlogData.stdH).padStart(2, '0')}${String(navlogData.stdM).padStart(2, '0')}` : "----"}
                   </span>
-                  <span className="text-[10px] font-mono font-bold text-cyan-300/80 leading-none">({localStd || "----"})</span>
+                  <span className="text-[11px] font-mono font-bold text-cyan-300/80 leading-none">({localStd || "----"})</span>
                 </div>
               </div>
 
-              <div className="w-px h-4 bg-slate-700"></div>
+              <div className="w-px h-6 bg-slate-700"></div>
 
-              <div className="flex flex-col items-center px-0.5">
-                <label className="text-[7px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-0.5">Takeoff(Z)</label>
+              <div className="flex flex-col items-center px-1">
+                <label className="text-[9px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">Takeoff(Z)</label>
                 <input 
                   type="text" 
                   inputMode="numeric" 
@@ -1190,117 +1192,117 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                   maxLength={4} 
                   value={takeoffTime} 
                   onChange={(e) => setTakeoffTime(e.target.value.replace(/[^0-9]/g, ''))} 
-                  className="bg-slate-800 border border-slate-600 rounded px-1 py-0 text-[10px] font-mono font-black text-white text-center w-11 h-4 focus:outline-none focus:border-blue-500 transition-colors" 
+                  className="bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5 text-xs font-mono font-black text-white text-center w-14 h-5 focus:outline-none focus:border-blue-500 transition-colors" 
                 />
               </div>
 
-              <div className="w-px h-4 bg-slate-700"></div>
+              <div className="w-px h-6 bg-slate-700"></div>
 
-              <div className="flex flex-col items-center justify-center pt-0.5 px-1 min-w-[75px]">
-                <span className="text-[7px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-0.5">ETA (Z/L)</span>
-                <div className="flex flex-col w-full">
-                    <div className="flex items-center justify-between gap-0.5 w-full">
-                        <span className="text-[7px] text-slate-500 font-bold">LDG</span>
-                        <div className="flex items-center gap-0.5">
-                            <span className="text-[9px] font-mono font-extrabold text-white leading-none">{calculatedData.estLandingTimeStr || "----"}</span>
-                            <span className="text-[8px] font-mono font-bold text-slate-300/80 leading-none">({localLdg || "----"})</span>
+              <div className="flex flex-col items-center justify-center px-1 min-w-[90px]">
+                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">ETA (Z/L)</span>
+                <div className="flex flex-col w-full gap-0.5">
+                    <div className="flex items-center justify-between gap-1 w-full">
+                        <span className="text-[9px] text-slate-500 font-bold">LDG</span>
+                        <div className="flex items-center gap-1">
+                            <span className="text-xs font-mono font-extrabold text-white leading-none">{calculatedData.estLandingTimeStr || "----"}</span>
+                            <span className="text-[10px] font-mono font-bold text-slate-300/80 leading-none">({localLdg || "----"})</span>
                         </div>
                     </div>
-                    <div className="flex items-center justify-between gap-0.5 w-full">
-                        <span className="text-[7px] text-slate-500 font-bold">BLK</span>
-                        <div className="flex items-center gap-0.5">
-                            <span className="text-[9px] font-mono font-extrabold text-amber-400 leading-none">{calculatedData.estBlockInStr || "----"}</span>
-                            <span className="text-[8px] font-mono font-bold text-amber-200/80 leading-none">({localBlockIn || "----"})</span>
+                    <div className="flex items-center justify-between gap-1 w-full">
+                        <span className="text-[9px] text-slate-500 font-bold">BLK</span>
+                        <div className="flex items-center gap-1">
+                            <span className="text-xs font-mono font-extrabold text-amber-400 leading-none">{calculatedData.estBlockInStr || "----"}</span>
+                            <span className="text-[10px] font-mono font-bold text-amber-200/80 leading-none">({localBlockIn || "----"})</span>
                         </div>
                     </div>
                 </div>
               </div>
 
-              <div className="w-px h-4 bg-slate-700"></div>
+              <div className="w-px h-6 bg-slate-700"></div>
 
-              <div className="flex flex-col items-center justify-center pt-0.5 px-1 min-w-[65px]">
-                <span className="text-[7px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-0.5">STA (Z/L)</span>
-                <div className="flex items-center gap-1 h-3.5">
-                  <span className="text-[10px] font-mono font-extrabold text-slate-300 leading-none">{parsedSta || "----"}</span>
-                  <span className="text-[10px] font-mono font-bold text-cyan-300/80 leading-none">({localSta || "----"})</span>
+              <div className="flex flex-col items-center justify-center px-1 min-w-[80px]">
+                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">STA (Z/L)</span>
+                <div className="flex items-center gap-1 h-4">
+                  <span className="text-xs font-mono font-extrabold text-slate-300 leading-none">{parsedSta || "----"}</span>
+                  <span className="text-[11px] font-mono font-bold text-cyan-300/80 leading-none">({localSta || "----"})</span>
                 </div>
               </div>
 
-              <div className="w-px h-4 bg-slate-700"></div>
+              <div className="w-px h-6 bg-slate-700"></div>
 
-              <div className="flex flex-col items-center justify-center pt-0.5 px-1.5 min-w-[110px] max-w-[150px] shrink-0">
-                <span className="text-[7px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-0.5">{parsedDestIcao} WX</span>
-                <div className="flex items-center justify-center min-h-[14px] w-full">
+              <div className="flex flex-col items-center justify-center px-2 min-w-[130px] shrink-0">
+                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">{parsedDestIcao} WX</span>
+                <div className="flex items-center justify-center w-full">
                   {destWeather ? (
-                    <div className="flex items-center gap-1 cursor-help whitespace-nowrap" title={destWeather.text}>
-                      <span className="text-[12px] leading-none">{destWeather.icon}</span>
-                      <span className="text-[10px] font-mono font-bold text-amber-300">
-                        {destWeather.tempC}℃ <span className="text-amber-300/80 text-[9px]">({destWeather.tempF}℉)</span>
+                    <div className="flex items-center gap-1.5 cursor-help whitespace-nowrap" title={destWeather.text}>
+                      <span className="text-lg leading-none">{destWeather.icon}</span>
+                      <span className="text-xs font-mono font-bold text-amber-300">
+                        {destWeather.tempC}℃ <span className="text-amber-300/80 text-[10px]">({destWeather.tempF}℉)</span>
                       </span>
                     </div>
                   ) : (
-                    <span className="text-[10px] font-mono font-bold text-slate-500">----</span>
+                    <span className="text-xs font-mono font-bold text-slate-500">----</span>
                   )}
                 </div>
               </div>
 
             </div>
 
-            <div className="flex items-center gap-1 bg-[#0f172a] px-1.5 py-0.5 rounded-lg border border-slate-700 shadow-inner">
-              <div className="flex flex-col items-center min-w-[38px] pt-0.5 px-0.5">
-                <span className="text-[7px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-0.5">TIME DIFF</span>
-                <span className={`text-[10px] font-mono font-extrabold leading-none h-3.5 flex items-center ${parseInt(calculatedData.latestAtoTimeDiffStr) > 0 ? 'text-red-400' : parseInt(calculatedData.latestAtoTimeDiffStr) < 0 ? 'text-green-400' : 'text-slate-200'}`}>
+            <div className="flex items-center gap-1.5 bg-[#0f172a] px-2 py-1.5 rounded-lg border border-slate-700 shadow-inner">
+              <div className="flex flex-col items-center min-w-[45px] px-1">
+                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">TIME DIFF</span>
+                <span className={`text-xs font-mono font-extrabold leading-none flex items-center ${parseInt(calculatedData.latestAtoTimeDiffStr) > 0 ? 'text-red-400' : parseInt(calculatedData.latestAtoTimeDiffStr) < 0 ? 'text-green-400' : 'text-slate-200'}`}>
                     {calculatedData.latestAtoTimeDiffStr || "±0"}
                 </span>
               </div>
 
-              <div className="w-px h-4 bg-slate-700"></div>
+              <div className="w-px h-6 bg-slate-700"></div>
 
-              <div className="flex flex-col items-center min-w-[50px] pt-0.5 px-0.5">
-                <span className="text-[7px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-0.5">FUEL DIFF</span>
-                <div className="flex items-center gap-0.5 h-3.5">
+              <div className="flex flex-col items-center min-w-[60px] px-1">
+                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">FUEL DIFF</span>
+                <div className="flex items-center gap-1 h-4">
                   {calculatedData.lastValidWpIndex !== -1 ? (
-                    <span className={`text-[10px] font-mono font-extrabold leading-none ${calculatedData.totalBurnDiff >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    <span className={`text-xs font-mono font-extrabold leading-none ${calculatedData.totalBurnDiff >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                       {calculatedData.totalBurnDiff > 0 ? '+' : ''}{calculatedData.totalBurnDiff.toFixed(1)}
                     </span>
-                  ) : (<span className="text-slate-500 font-mono text-[10px] font-bold leading-none">--.-</span>)}
+                  ) : (<span className="text-slate-500 font-mono text-xs font-bold leading-none">--.-</span>)}
                   
-                  <button onClick={() => setIsGraphOpen(true)} className="bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded px-0.5 flex items-center justify-center transition-colors h-[16px]" title="Trend Graph">
-                    <span className="text-[9px] leading-none">📊</span>
+                  <button onClick={() => setIsGraphOpen(true)} className="bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded px-1 flex items-center justify-center transition-colors h-4" title="Trend Graph">
+                    <span className="text-[10px] leading-none">📊</span>
                   </button>
                 </div>
               </div>
 
-              <div className="w-px h-4 bg-slate-700"></div>
+              <div className="w-px h-6 bg-slate-700"></div>
               
-              <div className="flex flex-col items-center pt-0.5 px-0.5">
-                 <span className="text-[7px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-0.5">MAX ALT</span>
-                 <div className="flex items-center bg-slate-900 rounded border border-slate-700 cursor-pointer overflow-hidden shadow-inner h-3.5" onClick={() => setIs15gLimit(!is15gLimit)}>
-                    <div className={`px-1 h-full flex items-center text-[7px] font-black ${!is15gLimit ? 'bg-blue-600 text-white' : 'text-slate-500'}`}>1.3G</div>
-                    <div className={`px-1 h-full flex items-center text-[7px] font-black ${is15gLimit ? 'bg-red-600 text-white' : 'text-slate-500'}`}>1.5G</div>
+              <div className="flex flex-col items-center px-1">
+                 <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">MAX ALT</span>
+                 <div className="flex items-center bg-slate-900 rounded border border-slate-700 cursor-pointer overflow-hidden shadow-inner h-4" onClick={() => setIs15gLimit(!is15gLimit)}>
+                    <div className={`px-1.5 h-full flex items-center text-[9px] font-black ${!is15gLimit ? 'bg-blue-600 text-white' : 'text-slate-500'}`}>1.3G</div>
+                    <div className={`px-1.5 h-full flex items-center text-[9px] font-black ${is15gLimit ? 'bg-red-600 text-white' : 'text-slate-500'}`}>1.5G</div>
                  </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-1 ml-auto sm:ml-0">
-                <button onClick={scrollToCurrentFix} className="bg-slate-700 hover:bg-indigo-600 border border-indigo-500/50 text-indigo-300 hover:text-white px-1.5 py-1 rounded text-[8px] font-black tracking-wider shadow-sm transition-colors flex items-center gap-0.5">
-                    <SafeIcon name="MapPin" className="w-2.5 h-2.5" /> NOW
+            <div className="flex items-center gap-1.5 ml-auto sm:ml-0">
+                <button onClick={scrollToCurrentFix} className="bg-slate-700 hover:bg-indigo-600 border border-indigo-500/50 text-indigo-300 hover:text-white px-2 py-1.5 rounded text-[10px] font-black tracking-wider shadow-sm transition-colors flex items-center gap-1">
+                    <SafeIcon name="MapPin" className="w-3 h-3" /> NOW
                 </button>
-                <button onClick={() => setIsDistCheckOpen(true)} className="bg-slate-700 hover:bg-sky-600 border border-sky-500/50 text-sky-300 hover:text-white px-1.5 py-1 rounded text-[8px] font-black tracking-wider shadow-sm transition-colors flex items-center gap-0.5">
-                    <SafeIcon name="Ruler" className="w-2.5 h-2.5" /> DIST CK
+                <button onClick={() => setIsDistCheckOpen(true)} className="bg-slate-700 hover:bg-sky-600 border border-sky-500/50 text-sky-300 hover:text-white px-2 py-1.5 rounded text-[10px] font-black tracking-wider shadow-sm transition-colors flex items-center gap-1">
+                    <SafeIcon name="Ruler" className="w-3 h-3" /> DIST CK
                 </button>
-                <button onClick={() => setIsSyncModalOpen(true)} className="bg-slate-700 hover:bg-emerald-600 border border-emerald-500/50 text-emerald-300 hover:text-white px-1.5 py-1 rounded text-[8px] font-black tracking-wider shadow-sm transition-colors flex items-center gap-0.5">
-                    <SafeIcon name="RefreshCw" className="w-2.5 h-2.5" /> SYNC
+                <button onClick={() => setIsSyncModalOpen(true)} className="bg-slate-700 hover:bg-emerald-600 border border-emerald-500/50 text-emerald-300 hover:text-white px-2 py-1.5 rounded text-[10px] font-black tracking-wider shadow-sm transition-colors flex items-center gap-1">
+                    <SafeIcon name="RefreshCw" className="w-3 h-3" /> SYNC
                 </button>
             </div>
 
           </div>
         </div>
 
-        <div className="max-w-[1400px] mx-auto mt-1 flex flex-wrap items-center gap-1 text-[9px] font-mono font-bold bg-slate-800/50 px-1.5 py-0.5 rounded border border-slate-700/50">
+        <div className="max-w-[1400px] mx-auto mt-2 flex flex-wrap items-center gap-1.5 text-[11px] font-mono font-bold bg-slate-800/50 px-2 py-1 rounded border border-slate-700/50">
             <span className="text-slate-400">ETOPS:</span>
             {parsedEtopsInfo && parsedEtopsInfo.data ? (
-                <div className="flex flex-wrap gap-1 items-center">
+                <div className="flex flex-wrap gap-1.5 items-center">
                     {parsedEtopsInfo.data.map((data, idx) => {
                         const etMins = timeToMinutes(data.et);
                         const revisedEt = etMins !== null ? minutesToTime((etMins + etopsTimeDiff + 1440 * 10) % 1440) : data.et;
@@ -1310,15 +1312,15 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                         const isActive = activeEtopsAirport === data.airport;
 
                         return (
-                            <div key={idx} className={`flex items-center gap-1 border px-1.5 py-0.5 rounded shadow-inner transition-colors duration-300 ${isActive ? 'bg-sky-800 border-sky-500 text-white' : 'bg-slate-900/90 border-slate-700 text-slate-300'}`}>
-                                <span className={`${isActive ? 'text-white' : 'text-sky-300'} font-extrabold`}>{data.airport}</span>
+                            <div key={idx} className={`flex items-center gap-1.5 border px-2 py-0.5 rounded shadow-inner transition-colors duration-300 ${isActive ? 'bg-sky-800 border-sky-500 text-white' : 'bg-slate-900/90 border-slate-700 text-slate-300'}`}>
+                                <span className={`${isActive ? 'text-white' : 'text-sky-300'} font-extrabold text-xs`}>{data.airport}</span>
                                 <div className="flex items-center gap-0.5">
-                                    <span className={`${isActive ? 'text-sky-200' : 'text-slate-500'} text-[8px] font-semibold`}>ET</span>
-                                    <span className={`${isActive ? 'text-white' : 'text-slate-200'} font-bold`}>{revisedEt}</span>
+                                    <span className={`${isActive ? 'text-sky-200' : 'text-slate-500'} text-[9px] font-semibold`}>ET</span>
+                                    <span className={`${isActive ? 'text-white' : 'text-slate-200'} font-bold text-[11px]`}>{revisedEt}</span>
                                 </div>
                                 <div className="flex items-center gap-0.5">
-                                    <span className={`${isActive ? 'text-sky-200' : 'text-slate-500'} text-[8px] font-semibold`}>LT</span>
-                                    <span className={`${isActive ? 'text-white' : 'text-slate-200'} font-bold`}>{revisedLt}</span>
+                                    <span className={`${isActive ? 'text-sky-200' : 'text-slate-500'} text-[9px] font-semibold`}>LT</span>
+                                    <span className={`${isActive ? 'text-white' : 'text-slate-200'} font-bold text-[11px]`}>{revisedLt}</span>
                                 </div>
                             </div>
                         );
@@ -1354,21 +1356,21 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
               
               <div className="divide-y divide-slate-800/80 bg-slate-900/60 rounded-b-lg border-x border-b border-slate-700/80">
                 {calculatedData.flightData.map((row, idx) => (
-                  <div key={idx} ref={el => rowRefs.current[idx] = el} className="grid py-0.5 px-1 items-center hover:bg-slate-800/60 transition-colors group text-center gap-x-1 box-border" style={gridColumnsStyle}>
-                    <div className="font-mono text-xs sm:text-sm font-black text-left pl-1 text-slate-200 truncate">{row.wp}</div>
+                  <div key={idx} ref={el => rowRefs.current[idx] = el} className="grid py-1.5 px-1 items-center hover:bg-slate-800/60 transition-colors group text-center gap-x-1 box-border" style={gridColumnsStyle}>
+                    <div className="font-mono text-sm sm:text-[15px] font-black text-left pl-1 text-slate-200 truncate">{row.wp}</div>
                     
                     <div className="flex flex-col items-center justify-center leading-none py-0.5 font-mono">
-                        <span className="text-[10px] text-cyan-300 font-bold">{row.gs || '-'}</span>
-                        <span className="text-[9px] text-cyan-500/80 font-medium mt-0.5">{row.tas || '-'}</span>
+                        <span className="text-[13px] text-cyan-300 font-bold">{row.gs || '-'}</span>
+                        <span className="text-[11px] text-cyan-500/80 font-medium mt-0.5">{row.tas || '-'}</span>
                     </div>
 
                     <div className="flex flex-col items-center justify-center leading-none py-0.5 font-mono">
-                        <span className="text-[10px] text-slate-300 font-bold">{formatTimePlus(row.ctme)}</span>
-                        <span className="text-[8px] text-slate-500 font-medium mt-0.5">{formatTimePlus(row.rtme)}</span>
+                        <span className="text-xs text-slate-300 font-bold">{formatTimePlus(row.ctme)}</span>
+                        <span className="text-[10px] text-slate-500 font-medium mt-0.5">{formatTimePlus(row.rtme)}</span>
                     </div>
                     
-                    <div className="flex flex-col px-0.5 gap-0.5 items-center w-full">
-                      <span className="text-blue-400 font-mono text-[11px] font-extrabold leading-none">{row.revisedEtoStr || "----"}</span>
+                    <div className="flex flex-col px-0.5 gap-1 items-center w-full">
+                      <span className="text-blue-400 font-mono text-[14px] font-extrabold leading-none">{row.revisedEtoStr || "----"}</span>
                       <input 
                           type="text" 
                           inputMode="numeric" 
@@ -1382,18 +1384,15 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                           value={row.ato} 
                           onChange={(e) => handleUpdateActual(row.wp, 'ato', e.target.value.replace(/[^0-9]/g, ''))} 
                           onBlur={() => scrollToCurrentFix()}
-                          className={`w-full max-w-[50px] mx-auto bg-[#05070a] border rounded py-0.5 text-center font-mono text-xs font-bold focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors ${row.ato ? 'border-blue-500/50 text-white' : 'border-slate-700 text-slate-400'}`} 
+                          className={`w-full max-w-[65px] mx-auto bg-[#05070a] border rounded py-1 text-center font-mono text-xs font-bold focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors ${row.ato ? 'border-blue-500/50 text-white' : 'border-slate-700 text-slate-400'}`} 
                       />
                     </div>
                     
-                    <div className={`font-mono text-[10px] font-bold ${parseInt(row.timeDiffStr) > 0 ? 'text-red-400' : parseInt(row.timeDiffStr) < 0 ? 'text-green-400' : 'text-slate-400'}`}>{row.timeDiffStr}</div>
+                    <div className={`font-mono text-[11px] font-bold ${parseInt(row.timeDiffStr) > 0 ? 'text-red-400' : parseInt(row.timeDiffStr) < 0 ? 'text-green-400' : 'text-slate-400'}`}>{row.timeDiffStr}</div>
 
-                    <div className="font-mono text-[10px] text-slate-400 font-bold">{row.fob ? row.fob.toFixed(1) : ''}</div>
+                    <div className="font-mono text-[13px] text-slate-400 font-bold">{row.fob ? row.fob.toFixed(1) : ''}</div>
 
-                    <div className="flex flex-col px-0.5 gap-0.5 items-center w-full">
-                      <span className={`font-mono text-[8px] leading-none ${row.fuelDiff > 0 ? 'text-green-400 font-bold' : row.fuelDiff < 0 ? 'text-red-400 font-bold' : 'text-transparent'}`}>
-                          {row.fuelDiff !== null ? (`${row.fuelDiff > 0 ? '+' : ''}${row.fuelDiff.toFixed(1)}`) : '-'}
-                      </span>
+                    <div className="flex flex-col px-0.5 gap-1 items-center w-full">
                       <input 
                           type="text" 
                           inputMode="decimal" 
@@ -1404,12 +1403,16 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                           placeholder="RMG" 
                           value={row.afob} 
                           onChange={(e) => handleUpdateActual(row.wp, 'afob', e.target.value.replace(/[^0-9.]/g, ''))} 
-                          className={`w-full max-w-[55px] mx-auto bg-[#05070a] border rounded py-0.5 text-center font-mono text-xs font-bold focus:outline-none focus:ring-1 focus:ring-green-500 transition-colors ${row.afob ? 'border-green-500/50 text-white' : 'border-slate-700 text-slate-400'}`} 
+                          className={`w-full max-w-[55px] mx-auto bg-[#05070a] border rounded py-1 text-center font-mono text-xs font-bold focus:outline-none focus:ring-1 focus:ring-green-500 transition-colors ${row.afob ? 'border-green-500/50 text-white' : 'border-slate-700 text-slate-400'}`} 
                       />
+                      <span className={`font-mono text-[9px] leading-none ${row.fuelDiff > 0 ? 'text-green-400 font-bold' : row.fuelDiff < 0 ? 'text-red-400 font-bold' : 'text-transparent'}`}>
+                          {row.fuelDiff !== null ? (`${row.fuelDiff > 0 ? '+' : ''}${row.fuelDiff.toFixed(1)}`) : '-'}
+                      </span>
                     </div>
 
-                    <div className="grid grid-cols-[1fr_1fr_1.2fr] gap-1 px-1 w-full max-w-[210px] mx-auto">
-                        <div className="flex flex-col items-center justify-center w-full">
+                    <div className="grid grid-cols-[0.8fr_0.8fr_1.4fr] gap-1 px-1 w-full mx-auto">
+                        <div className="flex flex-col items-center justify-center w-full relative">
+                            <span className="absolute -top-3 text-[7.5px] text-slate-500 font-mono leading-none">{row.plnAlt || ""}</span>
                             <input 
                               type="text" 
                               lang="en"
@@ -1419,14 +1422,11 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                               placeholder="ACT" 
                               value={row.actAlt} 
                               onChange={(e) => handleUpdateActual(row.wp, 'actAlt', e.target.value.toUpperCase())} 
-                              className="w-full max-w-[55px] bg-[#05070a] border border-slate-700 rounded text-center text-[10px] font-mono font-bold py-0.5 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-inner" 
+                              className="w-full max-w-[45px] bg-[#05070a] border border-slate-700 rounded text-center text-[10px] font-mono font-bold py-1 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-inner mx-auto" 
                             />
-                            <span className="text-[7.5px] text-slate-500 font-mono mt-0.5 leading-none">{row.plnAlt || "-"}</span>
                         </div>
-                        <div className="flex flex-col items-center justify-center w-full">
-                            <span className="text-[7.5px] text-purple-400 font-mono font-bold leading-none mb-0.5 whitespace-nowrap">
-                              {row.isaDev !== undefined && !isNaN(row.isaDev) ? `ISA${row.isaDev >= 0 ? '+' : ''}${row.isaDev}` : "-"}
-                            </span>
+                        <div className="flex flex-col items-center justify-center w-full relative">
+                            <span className="absolute -top-3 text-[7.5px] text-slate-500 font-mono leading-none">{row.plnTmp || ""}</span>
                             <input 
                               type="text" 
                               lang="en"
@@ -1436,12 +1436,11 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                               placeholder="ACT" 
                               value={row.actTmp} 
                               onChange={(e) => handleUpdateActual(row.wp, 'actTmp', e.target.value)} 
-                              className="w-full max-w-[55px] bg-[#05070a] border border-slate-700 rounded text-center text-[10px] font-mono font-bold py-0.5 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-inner" 
+                              className="w-full max-w-[45px] bg-[#05070a] border border-slate-700 rounded text-center text-[10px] font-mono font-bold py-1 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-inner mx-auto" 
                             />
-                            <span className="text-[7.5px] text-slate-500 font-mono mt-0.5 leading-none">{row.plnTmp || "-"}</span>
                         </div>
-                        <div className="flex flex-col items-center justify-center w-full">
-                            <span className="text-[7.5px] text-slate-500 font-mono leading-none mb-0.5 text-transparent">-</span>
+                        <div className="flex flex-col items-center justify-center w-full relative">
+                            <span className="absolute -top-3 text-[7.5px] text-slate-500 font-mono leading-none">{row.plnWind || ""}</span>
                             <input 
                               type="text" 
                               lang="en"
@@ -1451,24 +1450,26 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                               placeholder="ACT" 
                               value={row.actWind} 
                               onChange={(e) => handleUpdateActual(row.wp, 'actWind', e.target.value)} 
-                              className="w-full max-w-[65px] bg-[#05070a] border border-slate-700 rounded text-center text-[10px] font-mono font-bold py-0.5 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-inner" 
+                              className="w-full max-w-[65px] bg-[#05070a] border border-slate-700 rounded text-center text-[10px] font-mono font-bold py-1 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-inner mx-auto" 
                             />
-                            <span className="text-[7.5px] text-slate-500 font-mono mt-0.5 leading-none">{row.plnWind || "-"}</span>
                         </div>
                     </div>
 
                     <div className="flex flex-col items-center justify-center leading-none">
-                        <span className="font-mono text-xs sm:text-sm font-black text-purple-400">{row.maxAlt}</span>
-                        <span className="text-[7.5px] text-slate-500 font-mono mt-0.5">W:{row.currentWeight}</span>
+                        <span className="text-[7px] text-purple-400 font-mono font-bold leading-none mb-0.5 whitespace-nowrap">
+                              {row.isaDev !== undefined && !isNaN(row.isaDev) ? `ISA${row.isaDev >= 0 ? '+' : ''}${row.isaDev}` : ""}
+                        </span>
+                        <span className="font-mono text-[14px] font-black text-purple-400">{row.maxAlt}</span>
+                        <span className="text-[9px] text-slate-500 font-mono mt-1">W:{row.currentWeight}</span>
                     </div>
 
                     <div className="flex justify-center items-center">
                         <button 
                             onClick={() => setMemoModal({ isOpen: true, wp: row.wp, text: row.memo })}
-                            className={`p-0.5 rounded transition-colors border shadow-sm flex items-center justify-center ${row.memo ? 'bg-amber-600 border-amber-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white hover:bg-slate-700'}`}
+                            className={`p-1.5 rounded transition-colors border shadow-sm flex items-center justify-center ${row.memo ? 'bg-amber-600 border-amber-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white hover:bg-slate-700'}`}
                             title={row.memo ? "Edit Memo" : "Add Memo"}
                         >
-                            <span className="text-[10px] leading-none">📝</span>
+                            <span className="text-xs leading-none">📝</span>
                         </button>
                     </div>
 
