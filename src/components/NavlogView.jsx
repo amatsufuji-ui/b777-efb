@@ -319,14 +319,15 @@ const DistCheckModal = ({ isOpen, onClose, flightData }) => {
             }
 
             const isExclude = wp.isOffRoute || /^(TOC|TOD|CLM|DEC|WPT|EEP\d*|ETP\d*|EXP\d*)$/i.test(wp.wp);
-            const isLatLon = /^\d{2}[A-Z]\d{2}$/.test(wp.wp);
+            // ★修正: 8080N などの緯度経度省略形を DIST CHECK の区切りとして確実に判定
+            const isLatLon = /^\d{2}[A-Z]\d{2}$|^\d{4}[A-Z]$|^\d{2}[NS]\d{2}[EW]$/.test(wp.wp);
 
             if (isExclude) {
                 continue;
             }
 
             if (lastBoundaryWp) {
-                const wasLatLon = /^\d{2}[A-Z]\d{2}$/.test(lastBoundaryWp.wp);
+                const wasLatLon = /^\d{2}[A-Z]\d{2}$|^\d{4}[A-Z]$|^\d{2}[NS]\d{2}[EW]$/.test(lastBoundaryWp.wp);
                 if (wasLatLon || isLatLon) {
                     segs.push({
                         from: lastBoundaryWp.wp,

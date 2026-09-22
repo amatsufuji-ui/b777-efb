@@ -684,6 +684,9 @@ const WeatherRadarMap = ({
   const [rvRadarFrames, setRvRadarFrames] = useState([]);
   const [rvSatFrames, setRvSatFrames] = useState([]); 
   const [jmaFrames, setJmaFrames] = useState([]);
+  const prevRouteStrRef = useRef("");
+
+  const RDR_CACHE_KEY = 'efb_rdr_layer_cache';
 
   const fetchData = useCallback(() => {
       const cb = new Date().getTime();
@@ -691,14 +694,45 @@ const WeatherRadarMap = ({
         .then(res => res.json())
         .then(data => {
           const host = data.host || 'https://tilecache.rainviewer.com';
-          if (data.radar?.past) setRvRadarFrames(data.radar.past.map(f => ({ ...f, host })));
-          if (data.satellite?.infrared) setRvSatFrames(data.satellite.infrared.map(f => ({ ...f, host })));
-        }).catch(err => console.error("RainViewer Fetch Error:", err));
+          const rFrames = data.radar?.past ? data.radar.past.map(f => ({ ...f, host })) : [];
+          const sFrames = data.satellite?.infrared ? data.satellite.infrared.map(f => ({ ...f, host })) : [];
+          setRvRadarFrames(rFrames);
+          setRvSatFrames(sFrames);
+          
+          try {
+              const currentCache = JSON.parse(localStorage.getItem(RDR_CACHE_KEY) || '{}');
+              currentCache.rvRadarFrames = rFrames;
+              currentCache.rvSatFrames = sFrames;
+              localStorage.setItem(RDR_CACHE_KEY, JSON.stringify(currentCache));
+          } catch(e) {}
+        }).catch(err => {
+            console.warn("RainViewer Fetch Error, trying cache...", err);
+        });
 
       fetch(`https://www.jma.go.jp/bosai/himawari/data/satimg/targetTimes_fd.json?_=${cb}`)
         .then(res => res.json())
-        .then(data => { if (Array.isArray(data) && data.length > 0) setJmaFrames(data.slice(-24)); })
-        .catch(err => console.error("JMA Fetch Error:", err));
+        .then(data => { 
+            if (Array.isArray(data) && data.length > 0) {
+                const jFrames = data.slice(-24);
+                setJmaFrames(jFrames);
+                try {
+                    const currentCache = JSON.parse(localStorage.getItem(RDR_CACHE_KEY) || '{}');
+                    currentCache.jmaFrames = jFrames;
+                    localStorage.setItem(RDR_CACHE_KEY, JSON.stringify(currentCache));
+                } catch(e) {}
+            } 
+        }).catch(err => {
+             console.warn("JMA Fetch Error, trying cache...", err);
+        });
+  }, []);
+
+  useEffect(() => {
+      try {
+          const cached = JSON.parse(localStorage.getItem(RDR_CACHE_KEY) || '{}');
+          if (cached.rvRadarFrames) setRvRadarFrames(cached.rvRadarFrames);
+          if (cached.rvSatFrames) setRvSatFrames(cached.rvSatFrames);
+          if (cached.jmaFrames) setJmaFrames(cached.jmaFrames);
+      } catch (e) {}
   }, []);
 
   useEffect(() => {
@@ -889,21 +923,27 @@ const WeatherRadarMap = ({
             drawRoute(360);
             drawRoute(-360);
 
-            if (latlngs.length >= 2) {
-                const bounds = L.polyline(latlngs).getBounds();
-                if (bounds && bounds.isValid()) {
-                    try {
-                        setTimeout(() => { 
-                            if (mapInstanceRef.current) mapInstanceRef.current.fitBounds(bounds, { padding: [50, 50] }); 
-                        }, 50);
-                    } catch (e) { console.warn('Leaflet fitBounds error:', e); }
+            const currentRouteStr = validWps.map(w => w.name).join('-');
+            if (prevRouteStrRef.current !== currentRouteStr) {
+                if (latlngs.length >= 2) {
+                    const bounds = L.polyline(latlngs).getBounds();
+                    if (bounds && bounds.isValid()) {
+                        try {
+                            setTimeout(() => { 
+                                if (mapInstanceRef.current) mapInstanceRef.current.fitBounds(bounds, { padding: [50, 50] }); 
+                            }, 50);
+                        } catch (e) { console.warn('Leaflet fitBounds error:', e); }
+                    }
+                } else if (latlngs.length === 1) {
+                    map.setView(latlngs[0], 6);
                 }
-            } else if (latlngs.length === 1) {
-                map.setView(latlngs[0], 6);
+                prevRouteStrRef.current = currentRouteStr;
             }
         }
         navlogGroup.addTo(map);
         layersRef.current.navlogGroup = navlogGroup;
+    } else {
+        prevRouteStrRef.current = "";
     }
 
     if (layersRef.current.airspaceGroup) map.removeLayer(layersRef.current.airspaceGroup);
@@ -1243,18 +1283,14 @@ export const WeatherRadarView = ({ navlogData }) => {
         }
     }, [navlogData]);
 
+    const CS_CACHE_KEY = 'efb_cross_section_cache_v2';
+
     const fetchWeatherDataForRoute = async (wps) => {
         setIsLoadingWeather(true);
         showToast('気象データを取得・解析中...');
-        try {
-            const lats = wps.map(wp => wp.lat).join(',');
-            const lons = wps.map(wp => wp.lon).join(',');
-            const url = `https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lons}&hourly=temperature_1000hPa,windspeed_1000hPa,winddirection_1000hPa,temperature_850hPa,windspeed_850hPa,winddirection_850hPa,temperature_700hPa,windspeed_700hPa,winddirection_700hPa,temperature_500hPa,windspeed_500hPa,winddirection_500hPa,temperature_400hPa,windspeed_400hPa,winddirection_400hPa,temperature_300hPa,windspeed_300hPa,winddirection_300hPa,temperature_250hPa,windspeed_250hPa,winddirection_250hPa,temperature_200hPa,windspeed_200hPa,winddirection_200hPa,temperature_150hPa,windspeed_150hPa,winddirection_150hPa&windspeed_unit=kn&forecast_days=2`;
+        const routeKey = wps.map(w => w.name).join('-');
 
-            const res = await fetch(url);
-            const data = await res.json();
-            const results = Array.isArray(data) ? data : [data];
-
+        const processWeatherData = (results) => {
             const now = new Date();
             const currentHourStr = now.toISOString().substring(0, 13) + ":00";
             let startIndex = results[0].hourly.time.findIndex(t => t.startsWith(currentHourStr));
@@ -1305,8 +1341,37 @@ export const WeatherRadarView = ({ navlogData }) => {
             }
             setWeatherData(wData);
             setTimeIndex(0); 
+        };
+
+        try {
+            const lats = wps.map(wp => wp.lat).join(',');
+            const lons = wps.map(wp => wp.lon).join(',');
+            const url = `https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lons}&hourly=temperature_1000hPa,windspeed_1000hPa,winddirection_1000hPa,temperature_850hPa,windspeed_850hPa,winddirection_850hPa,temperature_700hPa,windspeed_700hPa,winddirection_700hPa,temperature_500hPa,windspeed_500hPa,winddirection_500hPa,temperature_400hPa,windspeed_400hPa,winddirection_400hPa,temperature_300hPa,windspeed_300hPa,winddirection_300hPa,temperature_250hPa,windspeed_250hPa,winddirection_250hPa,temperature_200hPa,windspeed_200hPa,winddirection_200hPa,temperature_150hPa,windspeed_150hPa,winddirection_150hPa&windspeed_unit=kn&forecast_days=2`;
+
+            const res = await fetch(url);
+            const data = await res.json();
+            const results = Array.isArray(data) ? data : [data];
+            
+            try {
+                localStorage.setItem(CS_CACHE_KEY, JSON.stringify({ routeKey, results, timestamp: Date.now() }));
+            } catch(e) {}
+
+            processWeatherData(results);
             showToast('気象データを反映しました。');
-        } catch (err) { console.error(err); showToast('気象データの取得に失敗しました。'); } 
+        } catch (err) { 
+            console.warn("Fetch failed, trying cache...", err); 
+            try {
+                const cached = JSON.parse(localStorage.getItem(CS_CACHE_KEY));
+                if (cached && cached.routeKey === routeKey && cached.results) {
+                    processWeatherData(cached.results);
+                    showToast('オフライン: キャッシュから気象データを読み込みました。');
+                } else {
+                    showToast('気象データの取得に失敗しました。');
+                }
+            } catch (cacheErr) {
+                showToast('気象データの取得に失敗しました。');
+            }
+        } 
         finally { setIsLoadingWeather(false); }
     };
 

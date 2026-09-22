@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import * as LucideIcons from 'lucide-react';
 
-const APP_VERSION = "9.4"; 
+const APP_VERSION = "9.4.1"; 
 
 import { RAW_CSV_DATA, aircraftRegistrationList, BUDDYCOM_LINKS } from './data/flightData';
 import { aircraftPerformanceData, defaultCruiseWeights, defaultLandingWeights, modelKeyMap, AIRCRAFT_DIMENSIONS, SEAT_DATA, CRUISE_PERF_DATA, VREF_DATA, HOLD_SPD_DATA_RAW, MANEUVER_1_3G_MACH_DATA, TARGET_PITCH_N1_DATA_RAW, LANDING_DIST_DATA_RAW, B777_WIND_LIMITS, MAX_MAN_DATA } from './data/perfData';
@@ -20,7 +20,7 @@ import { QuickGuideModal } from './components/QuickGuideModal';
 import { NavlogView } from './components/NavlogView';
 import { TarmacView } from './components/TarmacView'; 
 import { SidView } from './components/SidView'; 
-import { WeatherRadarView } from './components/WeatherRadarView';
+import WeatherRadarView from './components/WeatherRadarView';
 
 const LoadDataModal = ({ isOpen, onClose, onFileClick, onPaste, isParsing }) => {
     const [text, setText] = useState("");
@@ -596,9 +596,11 @@ export default function App() {
         const isCoord = /^[NS]\d{4,5}[EW]\d{4,6}$/.test(cleanToken);
         const isAlphaWp = /^[A-Z][A-Z0-9]{1,5}$/.test(cleanToken) && !ignoreList.has(cleanToken);
         const isArincWp = /^\d{2}[NSWE]\d{2}$/.test(cleanToken);
+        // ★修正: 新しい緯度経度の省略形をパース条件に追加
+        const isShorthandCoord = /^\d{2}[A-Z]\d{2}$|^\d{4}[A-Z]$|^\d{2}[NS]\d{2}[EW]$/.test(cleanToken);
         const isSpecialWp = ["TOC", "TOD"].includes(cleanToken);
 
-        if (!isCoord && (isAlphaWp || isArincWp || isSpecialWp)) {
+        if (!isCoord && (isAlphaWp || isArincWp || isShorthandCoord || isSpecialWp)) {
             if (recentTimes.length === 0 && !isSpecialWp) {
                 continue; 
             }
@@ -619,6 +621,10 @@ export default function App() {
               if (!isNaN(flNum) && !isNaN(actualTmp)) {
                 const stdTmpAtAlt = 15 - (2 * flNum);
                 currentWpIsa = actualTmp - stdTmpAtAlt;
+                // ★修正: 異常なISA値(ISA+594等)を弾く
+                if (currentWpIsa > 40 || currentWpIsa < -40) {
+                    currentWpIsa = isa;
+                }
               }
             }
 
