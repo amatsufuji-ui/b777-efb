@@ -1,7 +1,6 @@
 import React, { useMemo } from 'react';
 import { SafeIcon } from './SharedComponents';
 
-
 // --- [5-3] RestView (REST CALC) ---
 export const RestView = ({
   flightHours, setFlightHours,
@@ -21,14 +20,31 @@ export const RestView = ({
 }) => {
 
   const totalMins = useMemo(() => flightHours * 60 + flightMins, [flightHours, flightMins]);
-  const takeoffTotalMins = useMemo(() => takeoffHours * 60 + takeoffMins, [takeoffHours, takeoffMins]);
-  const arrivalTotalMins = useMemo(() => takeoffTotalMins + totalMins, [takeoffTotalMins, totalMins]);
+  
+  // ★ AUTOモードなら STD+TaxiOut、MANUALモードなら指定された時間 を使用する
+  const effectiveTakeoffTotalMins = useMemo(() => {
+      if (isTakeoffAuto) {
+          return (stdHours * 60 + stdMins + taxiOutMins) % 1440;
+      } else {
+          return (takeoffHours * 60 + takeoffMins) % 1440;
+      }
+  }, [isTakeoffAuto, stdHours, stdMins, taxiOutMins, takeoffHours, takeoffMins]);
 
-  // ★変更: 休憩開始時間を5分単位で切り上げ（繰り上げ）
-  const startTimeMins = useMemo(() => Math.ceil((takeoffTotalMins + offsetMins) / 5) * 5, [takeoffTotalMins, offsetMins]);
+  // プルダウン表示用のHour/Min（AUTOのときは計算値を表示する）
+  const displayTakeoffHours = Math.floor(effectiveTakeoffTotalMins / 60) % 24;
+  const displayTakeoffMins = effectiveTakeoffTotalMins % 60;
+
+  const arrivalTotalMins = useMemo(() => effectiveTakeoffTotalMins + totalMins, [effectiveTakeoffTotalMins, totalMins]);
+
+  // 休憩開始時間を5分単位で切り上げ（繰り上げ）
+  const startTimeMins = useMemo(() => Math.ceil((effectiveTakeoffTotalMins + offsetMins) / 5) * 5, [effectiveTakeoffTotalMins, offsetMins]);
 
   // 切り上げた結果、実際のオフセット時間（離陸から休憩開始まで）が何分になったかを算出
-  const actualOffsetMins = useMemo(() => startTimeMins - takeoffTotalMins, [startTimeMins, takeoffTotalMins]);
+  const actualOffsetMins = useMemo(() => {
+      let diff = startTimeMins - effectiveTakeoffTotalMins;
+      if (diff < 0) diff += 1440; // 日またがり対策
+      return diff;
+  }, [startTimeMins, effectiveTakeoffTotalMins]);
 
   // 実際に休憩に割り当て可能な時間を再計算（繰り上がった分、休憩枠が減る）
   const restableMins = useMemo(() => Math.max(0, totalMins - actualOffsetMins - landingOffsetMins), [totalMins, actualOffsetMins, landingOffsetMins]);
@@ -296,7 +312,8 @@ export const RestView = ({
               <div className="absolute top-[-32px] lg:top-[-36px] left-0 w-full h-[32px] lg:h-[36px]">
                 {markerPositions.map(({ m, isTop }) => {
                   const yClass = isTop ? 'top-[-6px] lg:top-[-8px]' : 'top-[10px] lg:top-[12px]';
-                  const timeStr = formatTimeWithWrap(takeoffTotalMins + m);
+                  // 表示上の時刻は「算出された離陸時刻(AUTO/MAN問わず) + m(経過分数)」
+                  const timeStr = formatTimeWithWrap(effectiveTakeoffTotalMins + m);
                   const isTakeoff = m === 0;
                   const isLanding = Math.abs(m - actualChartTotal) < 1;
 
@@ -498,11 +515,19 @@ export const RestView = ({
                   </button>
                 </div>
                 <div className="flex items-center gap-1">
-                  <select value={takeoffHours} onChange={(e) => { setTakeoffHours(Number(e.target.value)); setIsTakeoffAuto(false); }} className={`bg-slate-800 border ${isTakeoffAuto ? 'border-sky-500/50 text-sky-200' : 'border-slate-500 text-white'} rounded-lg text-center text-base lg:text-lg font-mono font-black w-[46px] py-0.5 appearance-none outline-none focus:border-sky-400 cursor-pointer shadow-inner transition-colors`} style={{ textAlignLast: 'center' }}>
+                  <select value={displayTakeoffHours} onChange={(e) => { 
+                      setTakeoffHours(Number(e.target.value)); 
+                      setTakeoffMins(displayTakeoffMins); // 時だけ変更しても分を保持
+                      setIsTakeoffAuto(false); 
+                    }} className={`bg-slate-800 border ${isTakeoffAuto ? 'border-sky-500/50 text-sky-200' : 'border-slate-500 text-white'} rounded-lg text-center text-base lg:text-lg font-mono font-black w-[46px] py-0.5 appearance-none outline-none focus:border-sky-400 cursor-pointer shadow-inner transition-colors`} style={{ textAlignLast: 'center' }}>
                     {Array.from({ length: 24 }, (_, i) => i).map(h => <option key={h} value={h}>{h.toString().padStart(2, '0')}</option>)}
                   </select>
                   <span className="text-lg text-slate-500 font-black leading-none mb-1">:</span>
-                  <select value={takeoffMins} onChange={(e) => { setTakeoffMins(Number(e.target.value)); setIsTakeoffAuto(false); }} className={`bg-slate-800 border ${isTakeoffAuto ? 'border-sky-500/50 text-sky-200' : 'border-slate-500 text-white'} rounded-lg text-center text-base lg:text-lg font-mono font-black w-[46px] py-0.5 appearance-none outline-none focus:border-sky-400 cursor-pointer shadow-inner transition-colors`} style={{ textAlignLast: 'center' }}>
+                  <select value={displayTakeoffMins} onChange={(e) => { 
+                      setTakeoffMins(Number(e.target.value)); 
+                      setTakeoffHours(displayTakeoffHours); // 分だけ変更しても時を保持
+                      setIsTakeoffAuto(false); 
+                    }} className={`bg-slate-800 border ${isTakeoffAuto ? 'border-sky-500/50 text-sky-200' : 'border-slate-500 text-white'} rounded-lg text-center text-base lg:text-lg font-mono font-black w-[46px] py-0.5 appearance-none outline-none focus:border-sky-400 cursor-pointer shadow-inner transition-colors`} style={{ textAlignLast: 'center' }}>
                     {Array.from({ length: 60 }, (_, i) => i).map(m => <option key={m} value={m}>{m.toString().padStart(2, '0')}</option>)}
                   </select>
                 </div>

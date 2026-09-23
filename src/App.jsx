@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import * as LucideIcons from 'lucide-react';
 
-const APP_VERSION = "9.9"; 
+const APP_VERSION = "10"; 
 
 import { RAW_CSV_DATA, aircraftRegistrationList, BUDDYCOM_LINKS } from './data/flightData';
 import { aircraftPerformanceData, defaultCruiseWeights, defaultLandingWeights, modelKeyMap, AIRCRAFT_DIMENSIONS, SEAT_DATA, CRUISE_PERF_DATA, VREF_DATA, HOLD_SPD_DATA_RAW, MANEUVER_1_3G_MACH_DATA, TARGET_PITCH_N1_DATA_RAW, LANDING_DIST_DATA_RAW, B777_WIND_LIMITS, MAX_MAN_DATA } from './data/perfData';
@@ -21,7 +21,6 @@ import { NavlogView } from './components/NavlogView';
 import { TarmacView } from './components/TarmacView'; 
 import { SidView } from './components/SidView'; 
 import { WeatherRadarView } from './components/WeatherRadarView';
-
 
 const LoadDataModal = ({ isOpen, onClose, onFileClick, onPaste, isParsing }) => {
     const [text, setText] = useState("");
@@ -289,8 +288,14 @@ export default function App() {
     }
     
     if (data.stdH !== undefined) { setStdHours(data.stdH); setStdMins(data.stdM); setIsTakeoffAuto(true); }
-    if (data.avgTaxiOut !== undefined) setTaxiOutMins(data.avgTaxiOut); else setTaxiOutMins(20);
-    if (data.avgTaxiIn !== undefined) setTaxiInMins(data.avgTaxiIn); else setTaxiInMins(5);
+    
+    if (data.isTaxiFallback) {
+        setTaxiOutMins(20);
+        window.dispatchEvent(new CustomEvent('show-toast', { detail: 'TAXI OUT時間が未記載のため、デフォルト(20分)を適用しました' }));
+    } else {
+        if (data.pTaxiOut !== undefined) setTaxiOutMins(data.pTaxiOut); else setTaxiOutMins(20);
+    }
+    if (data.pTaxiIn !== undefined) setTaxiInMins(data.pTaxiIn); else setTaxiInMins(5);
     
     if (data.route) setGlobalRoute(data.route);
     if (data.dest) setGlobalDest(data.dest); 
@@ -326,6 +331,7 @@ export default function App() {
 
     let ptow, pldw, pPzfw = 400.0, alt, isa = 0, toElev, ldElev, fltTimeH, fltTimeM, stdH, stdM, staH, staM;
     let pTaxiOut = 20, pTaxiIn = 5;
+    let isTaxiFallback = false;
 
     const zfwMatch = text.match(/(?:ZFW|PZFW)\s+([0-9,.]+)/);
     if (zfwMatch) {
@@ -389,10 +395,20 @@ export default function App() {
       staM = parseInt(staMatch[2], 10);
     }
 
-    const taxiMatch = text.match(/AVG:\s*(\d+)\/(\d+)MIN/i) || text.match(/(?:AVG|TAXI|OUT)[^\d]*(\d+)\/(\d+)MIN/i);
+    // ★ 修正: AVG: XX/YYMIN または CONX: XX/YYMIN AVG: AA/BBMIN から正しく数値を拾う正規表現
+    const taxiMatch = text.match(/AVG:\s*(\d+)\/(\d+)MIN/i) || 
+                      text.match(/CONX:\s*\d+\/\d+MIN\s*AVG:\s*(\d+)\/(\d+)MIN/i) ||
+                      text.match(/(?:AVG|TAXI|OUT)[^\d]*(\d+)\/(\d+)MIN/i);
     if (taxiMatch) {
-        pTaxiOut = parseInt(taxiMatch[1], 10);
-        pTaxiIn = parseInt(taxiMatch[2], 10);
+        // match[1], match[2] に入る値が保証されるように、配列の後ろの方から拾う（CONXパターン対応）
+        const outVal = taxiMatch[1] ? taxiMatch[1] : taxiMatch[3];
+        const inVal = taxiMatch[2] ? taxiMatch[2] : taxiMatch[4];
+        pTaxiOut = parseInt(outVal, 10) || 20;
+        pTaxiIn = parseInt(inVal, 10) || 5;
+    } else {
+        isTaxiFallback = true;
+        pTaxiOut = 20;
+        pTaxiIn = 5;
     }
 
     const dateMatch = text.match(/\b(\d{2}[A-Z]{3}\d{2})\b/);
@@ -597,7 +613,6 @@ export default function App() {
         const isCoord = /^[NS]\d{4,5}[EW]\d{4,6}$/.test(cleanToken);
         const isAlphaWp = /^[A-Z][A-Z0-9]{1,5}$/.test(cleanToken) && !ignoreList.has(cleanToken);
         const isArincWp = /^\d{2}[NSWE]\d{2}$/.test(cleanToken);
-        // ★修正: 新しい緯度経度の省略形をパース条件に追加
         const isShorthandCoord = /^\d{2}[A-Z]\d{2}$|^\d{4}[A-Z]$|^\d{2}[NS]\d{2}[EW]$/.test(cleanToken);
         const isSpecialWp = ["TOC", "TOD"].includes(cleanToken);
 
@@ -622,7 +637,6 @@ export default function App() {
               if (!isNaN(flNum) && !isNaN(actualTmp)) {
                 const stdTmpAtAlt = 15 - (2 * flNum);
                 currentWpIsa = actualTmp - stdTmpAtAlt;
-                // ★修正: 異常なISA値(ISA+594等)を弾く
                 if (currentWpIsa > 40 || currentWpIsa < -40) {
                     currentWpIsa = isa;
                 }
@@ -708,7 +722,8 @@ export default function App() {
     return { 
         newPlan, fNo, flightIdRaw, flightId: flightIdRaw, rInfo, depIcao, destIcao, dest: destIcao, pReg, pPzfw, pTaxiOut, pTaxiIn, pDate, 
         ptow, pldw, alt, isa, toElev, ldElev, fltTimeH, fltTimeM, stdH, stdM, staH, staM,
-        fullRouteStr, route: fullRouteStr, etopsAltns: extractedEtopsAltns, isEtops207, loadId: Date.now(), parsedEtopsInfo 
+        fullRouteStr, route: fullRouteStr, etopsAltns: extractedEtopsAltns, isEtops207, loadId: Date.now(), parsedEtopsInfo,
+        isTaxiFallback // 追加: fallbackが起きたかどうかを返す
     };
   };
 
