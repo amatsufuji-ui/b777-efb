@@ -319,7 +319,6 @@ const DistCheckModal = ({ isOpen, onClose, flightData }) => {
             }
 
             const isExclude = wp.isOffRoute || /^(TOC|TOD|CLM|DEC|WPT|EEP\d*|ETP\d*|EXP\d*)$/i.test(wp.wp);
-            // ★修正: 8080N などの緯度経度省略形を DIST CHECK の区切りとして確実に判定
             const isLatLon = /^\d{2}[A-Z]\d{2}$|^\d{4}[A-Z]$|^\d{2}[NS]\d{2}[EW]$/.test(wp.wp);
 
             if (isExclude) {
@@ -708,6 +707,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
       return parsedEtopsInfo.data[parsedEtopsInfo.data.length - 1].airport;
   }, [takeoffTime, currentUtcMins, parsedEtopsInfo, calculatedData.latestAtoTimeDiff, calculatedData.flightData]);
 
+  // ★ 変更: 新しいPDFがロードされた際に、残っている手入力データ（ATOや変更値）を完全にリセットする
   useEffect(() => {
     if (navlogData && navlogData.newPlan && navlogData.newPlan.length > 0) {
         setFlightPlan(navlogData.newPlan);
@@ -736,7 +736,11 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
         hasAutoScrolled.current = false;
         
         if (navlogData.isNew) {
+            // ここで完全に状態をリセットする
             setActuals({});
+            setMemoModal({ isOpen: false, wp: '', text: '' });
+            setIsDistCheckOpen(false);
+            setIsGraphOpen(false);
             
             if (navlogData.stdH !== undefined && navlogData.stdM !== undefined) {
                 const taxiOut = navlogData.pTaxiOut !== undefined ? navlogData.pTaxiOut : 20;
