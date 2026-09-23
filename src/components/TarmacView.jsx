@@ -5,6 +5,13 @@ import {
   Coffee, Megaphone, ShieldAlert, XCircle, Settings2, Pause
 } from 'lucide-react';
 
+// 現在のZタイム（UTC）から30分前の時刻文字列（HH:MM）を取得するヘルパー関数
+const getDefaultZTime = () => {
+  const now = new Date();
+  now.setUTCMinutes(now.getUTCMinutes() - 30);
+  return `${now.getUTCHours().toString().padStart(2, '0')}:${now.getUTCMinutes().toString().padStart(2, '0')}`;
+};
+
 // タブ切り替え（アンマウント）時に状態を保持するためのモジュール変数
 let persistedState = {
   selectedCountry: '米国',
@@ -28,7 +35,9 @@ export const TarmacView = () => {
   const [elapsedMs, setElapsedMs] = useState(initialElapsed);
   const [isRunning, setIsRunning] = useState(persistedState.isRunning);
   const [baseTimestamp, setBaseTimestamp] = useState(persistedState.baseTimestamp);
-  const [inputTime, setInputTime] = useState(persistedState.inputTime);
+  
+  // ★ 修正：初期値を persistedState または 現在の30分前(Z) に設定
+  const [inputTime, setInputTime] = useState(persistedState.inputTime || getDefaultZTime());
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   
   const [checkedTasks, setCheckedTasks] = useState(persistedState.checkedTasks);
@@ -55,7 +64,7 @@ export const TarmacView = () => {
     setIsRunning(false);
     setElapsedMs(0);
     setBaseTimestamp(null);
-    setInputTime("");
+    setInputTime(getDefaultZTime()); // リセット時に30分前を再セット
     setCheckedTasks({});
     setShowResetConfirm(false);
   };
@@ -68,7 +77,7 @@ export const TarmacView = () => {
     setIsRunning(false);
     setElapsedMs(0);
     setBaseTimestamp(null);
-    setInputTime("");
+    setInputTime(getDefaultZTime()); // リセット時に30分前を再セット
     setCheckedTasks({});
     setShowResetConfirm(false);
   };
@@ -116,7 +125,7 @@ export const TarmacView = () => {
       setIsRunning(false);
       setElapsedMs(0);
       setBaseTimestamp(null);
-      setInputTime("");
+      setInputTime(getDefaultZTime()); // リセット時に30分前を再セット
       setCheckedTasks({});
       setShowResetConfirm(false);
     } else {
@@ -133,23 +142,30 @@ export const TarmacView = () => {
     }
   };
 
+  // 入力された時刻をZ(UTC)として解釈し、現在のZ時刻との差分をとる
   const applyInputTime = () => {
     if (!inputTime) return;
     const [hours, minutes] = inputTime.split(':').map(Number);
     const now = new Date();
-    const targetDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, 0, 0);
     
-    let diff = now.getTime() - targetDate.getTime();
+    // UTCでの「今日の指定時刻」を作成
+    let targetDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), hours, minutes, 0, 0));
     
-    // もし未来の時間が入力されたら（前日の時間を入れたと解釈）
-    if (diff < 0) {
-       targetDate.setDate(targetDate.getDate() - 1);
-       diff = now.getTime() - targetDate.getTime();
+    // 入力時刻が現在(UTC)より未来の場合（例：現在01:00Zで、入力が23:00の場合など）、前日とみなす
+    if (targetDate.getTime() > now.getTime()) {
+       targetDate.setUTCDate(targetDate.getUTCDate() - 1);
     }
     
+    const newElapsedMs = now.getTime() - targetDate.getTime();
+    
+    // 万が一経過時間がマイナスになった場合は0にする
+    const safeElapsedMs = Math.max(0, newElapsedMs);
+
     setBaseTimestamp(targetDate.getTime());
-    setElapsedMs(diff);
-    setIsRunning(true);
+    setElapsedMs(safeElapsedMs);
+    setIsRunning(true); // SETボタン押下と同時にスタート
+    
+    window.dispatchEvent(new CustomEvent('show-toast', { detail: `基準時刻を ${inputTime}(Z) にセットして開始しました` }));
   };
 
   const formatTime = (ms) => {
@@ -431,7 +447,7 @@ export const TarmacView = () => {
           </div>
 
           <div className="flex w-full items-center gap-2 mt-3 pt-3 border-t border-slate-700/50">
-            <span className="text-[10px] text-slate-400 font-bold shrink-0">基準時刻設定:</span>
+            <span className="text-[10px] text-slate-400 font-bold shrink-0">基準時刻(Z)設定:</span>
             <input 
               type="time" 
               value={inputTime}
