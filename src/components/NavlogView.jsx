@@ -513,7 +513,6 @@ const MemoModal = ({ isOpen, initialMemo, wpName, onClose, onSave }) => {
     );
 };
 
-// ★ 追加: アラート用ポップアップモーダルコンポーネント
 const WpAlertModal = ({ wpName, onClose }) => {
     if (!wpName) return null;
     return (
@@ -535,6 +534,41 @@ const WpAlertModal = ({ wpName, onClose }) => {
     );
 };
 
+// ★ 追加: タイマーを促す提案モーダル
+const TimerSuggestModal = ({ data, onClose }) => {
+    if (!data) return null;
+    return (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+            <div className="bg-slate-800 border-2 border-slate-600 rounded-2xl p-6 sm:p-8 max-w-sm w-full shadow-2xl flex flex-col items-center text-center animate-in zoom-in duration-300">
+                <div className="bg-sky-500/20 p-4 rounded-full mb-4 border border-sky-500/50">
+                    <SafeIcon name="Timer" className="w-10 h-10 text-sky-400" />
+                </div>
+                <h2 className="text-2xl font-black text-white mb-2 tracking-widest">{data.wpName} ETO</h2>
+                <div className="text-slate-300 font-bold mb-6 text-sm">
+                    通過予定まで残り <span className="text-amber-400 text-3xl mx-1 font-black">{data.remainMins}</span> 分です。<br/>
+                    <span className="text-xs opacity-80 mt-2 block">iPadのタイマーをセットしますか？</span>
+                </div>
+                <div className="flex flex-col gap-3 w-full">
+                    <a 
+                        href="clock-timer://"
+                        onClick={onClose}
+                        className="w-full py-3 bg-sky-600 hover:bg-sky-500 text-white rounded-xl font-black shadow-lg transition-colors flex items-center justify-center gap-2"
+                    >
+                        時計アプリを開く ({data.remainMins}分)
+                    </a>
+                    <button onClick={onClose} className="w-full py-3 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-xl font-bold transition-colors">
+                        閉じる
+                    </button>
+                </div>
+                <p className="text-[9px] text-slate-500 mt-4 leading-tight">
+                    ※iPadの設定やOSバージョンにより時計アプリが開かない場合は、手動で起動して {data.remainMins} 分をセットしてください。
+                </p>
+            </div>
+        </div>
+    );
+};
+
+
 export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, navlogData }) => {
   const [takeoffTime, setTakeoffTime] = useState('');
   const [actuals, setActuals] = useState({});
@@ -545,12 +579,14 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
   const [isDistCheckOpen, setIsDistCheckOpen] = useState(false);
   const [memoModal, setMemoModal] = useState({ isOpen: false, wp: '', text: '' });
 
-  // ★ 追加: 長押し通知ステート
   const [activeAlerts, setActiveAlerts] = useState({});
   const [triggeredAlerts, setTriggeredAlerts] = useState({});
   const [popupWp, setPopupWp] = useState(null);
+  
+  // ★ 追加: タイマー提案モーダル用の状態
+  const [timerPopupData, setTimerPopupData] = useState(null);
+  
   const holdTimeout = useRef(null);
-
   const rowRefs = useRef([]);
   const hasAutoScrolled = useRef(false);
   const lastLoadId = useRef(null);
@@ -735,7 +771,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
       return parsedEtopsInfo.data[parsedEtopsInfo.data.length - 1].airport;
   }, [takeoffTime, currentUtcMins, parsedEtopsInfo, calculatedData.latestAtoTimeDiff, calculatedData.flightData]);
 
-  // ★ 変更: 新しいPDFがロードされた際に、残っている手入力データ（ATOや変更値）を完全にリセットする
   useEffect(() => {
     if (navlogData && navlogData.newPlan && navlogData.newPlan.length > 0) {
         setFlightPlan(navlogData.newPlan);
@@ -764,7 +799,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
         hasAutoScrolled.current = false;
         
         if (navlogData.isNew) {
-            // ここで完全に状態をリセットする
             setActuals({});
             setMemoModal({ isOpen: false, wp: '', text: '' });
             setIsDistCheckOpen(false);
@@ -772,6 +806,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
             setActiveAlerts({});
             setTriggeredAlerts({});
             setPopupWp(null);
+            setTimerPopupData(null);
             
             if (navlogData.stdH !== undefined && navlogData.stdM !== undefined) {
                 const taxiOut = navlogData.pTaxiOut !== undefined ? navlogData.pTaxiOut : 20;
@@ -824,17 +859,42 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
     } catch (e) {}
   }, [flightPlan, actuals, flightNo, routeInfo, parsedDepIcao, parsedReg, parsedPzfw, parsedTaxiOut, parsedTaxiIn, parsedDate, parsedSta, parsedDestIcao, takeoffTime, parsedEtopsInfo, activeAlerts, triggeredAlerts]);
 
-  // ★ 追加: 長押しアラートのセット・解除処理
+  // ★ 変更: 長押しによる通知セット/解除と、残り時間の計算・タイマー提案
   const toggleAlert = (wp) => {
       if (window.navigator && window.navigator.vibrate) window.navigator.vibrate(50);
+      
+      let remainMins = null;
+      const rowData = calculatedData.flightData.find(r => r.wp === wp);
+      if (rowData && rowData.revisedEtoStr && rowData.revisedEtoStr !== "----") {
+          const etoMins = timeToMinutes(rowData.revisedEtoStr);
+          if (etoMins !== null) {
+              const now = new Date();
+              const currentMins = now.getUTCHours() * 60 + now.getUTCMinutes();
+              let diff = etoMins - currentMins;
+              if (diff < -720) diff += 1440;
+              if (diff > 720) diff -= 1440;
+              
+              if (diff > 0) {
+                  remainMins = diff;
+              }
+          }
+      }
+
       setActiveAlerts(prev => {
           const next = { ...prev };
           if (next[wp]) {
+              // OFFにする
               delete next[wp];
               window.dispatchEvent(new CustomEvent('show-toast', { detail: `${wp} の通過通知を解除しました` }));
           } else {
+              // ONにする
               next[wp] = true;
               window.dispatchEvent(new CustomEvent('show-toast', { detail: `${wp} の通過通知をセットしました` }));
+              
+              if (remainMins !== null) {
+                  // 少し遅らせてポップアップを出す（UIブロッキング回避のため）
+                  setTimeout(() => setTimerPopupData({ wpName: wp, remainMins }), 50);
+              }
           }
           return next;
       });
@@ -854,7 +914,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
       }
   };
 
-  // ★ 追加: ETO到達の監視ロジック
   useEffect(() => {
       if (!calculatedData || !calculatedData.flightData || calculatedData.flightData.length === 0) return;
       
@@ -872,7 +931,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                   if (diff < -720) diff += 1440;
                   if (diff > 720) diff -= 1440;
                   
-                  // ETOに到達した(0) もしくは 最大5分遅れまでならトリガー(スリープ復帰対策)
                   if (diff >= 0 && diff <= 5 && !triggeredAlerts[row.wp]) {
                       setTriggeredAlerts(prev => ({...prev, [row.wp]: true}));
                       newPopupWp = row.wp;
@@ -892,7 +950,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
 
   const handleUpdateActual = (wp, field, value) => {
     setActuals(prev => ({ ...prev, [wp]: { ...prev[wp], [field]: value } }));
-    // ★ 追加: ATOが入力されたら通知ステータスをクリア
     if (field === 'ato' && value !== "") {
         setActiveAlerts(prev => { 
             if(!prev[wp]) return prev;
@@ -917,7 +974,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
             if (importedData[wp].actWind) merged[wp].actWind = importedData[wp].actWind;
             if (importedData[wp].memo) merged[wp].memo = importedData[wp].memo;
 
-            // ★ 追加: 同期でATOが入った場合も通知クリア
             if (importedData[wp].ato) {
                 setActiveAlerts(a => { const n = {...a}; delete n[wp]; return n; });
                 setTriggeredAlerts(t => { const n = {...t}; delete n[wp]; return n; });
@@ -1259,10 +1315,15 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
         flightData={calculatedData.flightData}
       />
 
-      {/* ★ 追加: 通過時間のアラートモーダル表示 */}
       <WpAlertModal 
         wpName={popupWp} 
         onClose={() => setPopupWp(null)} 
+      />
+
+      {/* ★ 追加: タイマー提案モーダル表示 */}
+      <TimerSuggestModal
+        data={timerPopupData}
+        onClose={() => setTimerPopupData(null)}
       />
 
       <header className="shrink-0 bg-gradient-to-r from-slate-900 via-[#131c2f] to-slate-900 border-b border-slate-700/80 px-2 py-2 shadow-lg z-20">
@@ -1483,17 +1544,14 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
               
               <div className="divide-y divide-slate-800/80 bg-slate-900/60 rounded-b-lg border-x border-b border-slate-700/80">
                 {calculatedData.flightData.map((row, idx) => {
-                  // ★ 追加: 通知状態によるクラスの切り替え
                   const isTriggered = triggeredAlerts[row.wp] && !row.ato;
                   const isAlertActive = activeAlerts[row.wp];
                   const baseRowClass = "grid py-1.5 px-1 items-center hover:bg-slate-800/60 transition-colors group text-center gap-x-1 box-border";
-                  // ハイライトする場合は左に赤いインセットボーダーを入れる（レイアウト崩れを防ぐため）
                   const finalRowClass = isTriggered ? `${baseRowClass} bg-rose-900/30 shadow-[inset_4px_0_0_rgba(244,63,94,1)]` : baseRowClass;
 
                   return (
                   <div key={idx} ref={el => rowRefs.current[idx] = el} className={finalRowClass} style={gridColumnsStyle}>
                     
-                    {/* ★ 変更: 長押しによる通知セット/解除機能の追加 */}
                     <div 
                         className="font-mono text-sm sm:text-[15px] font-black text-left pl-1 text-slate-200 truncate flex items-center gap-1 select-none cursor-pointer"
                         onPointerDown={(e) => handlePointerDown(e, row.wp)}
