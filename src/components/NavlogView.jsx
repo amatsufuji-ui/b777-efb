@@ -534,7 +534,7 @@ const WpAlertModal = ({ wpName, onClose }) => {
     );
 };
 
-// ★ 追加: タイマーを促す提案モーダル
+// ★ 変更: 無効なリンクを削除し、純粋な確認画面へ修正
 const TimerSuggestModal = ({ data, onClose }) => {
     if (!data) return null;
     return (
@@ -546,23 +546,13 @@ const TimerSuggestModal = ({ data, onClose }) => {
                 <h2 className="text-2xl font-black text-white mb-2 tracking-widest">{data.wpName} ETO</h2>
                 <div className="text-slate-300 font-bold mb-6 text-sm">
                     通過予定まで残り <span className="text-amber-400 text-3xl mx-1 font-black">{data.remainMins}</span> 分です。<br/>
-                    <span className="text-xs opacity-80 mt-2 block">iPadのタイマーをセットしますか？</span>
+                    <span className="text-xs opacity-80 mt-2 block">iPadの時計アプリでタイマーをセットしてください。</span>
                 </div>
                 <div className="flex flex-col gap-3 w-full">
-                    <a 
-                        href="clock-timer://"
-                        onClick={onClose}
-                        className="w-full py-3 bg-sky-600 hover:bg-sky-500 text-white rounded-xl font-black shadow-lg transition-colors flex items-center justify-center gap-2"
-                    >
-                        時計アプリを開く ({data.remainMins}分)
-                    </a>
-                    <button onClick={onClose} className="w-full py-3 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-xl font-bold transition-colors">
-                        閉じる
+                    <button onClick={onClose} className="w-full py-3 bg-sky-600 hover:bg-sky-500 text-white rounded-xl font-bold transition-colors">
+                        確認して閉じる
                     </button>
                 </div>
-                <p className="text-[9px] text-slate-500 mt-4 leading-tight">
-                    ※iPadの設定やOSバージョンにより時計アプリが開かない場合は、手動で起動して {data.remainMins} 分をセットしてください。
-                </p>
             </div>
         </div>
     );
@@ -583,7 +573,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
   const [triggeredAlerts, setTriggeredAlerts] = useState({});
   const [popupWp, setPopupWp] = useState(null);
   
-  // ★ 追加: タイマー提案モーダル用の状態
   const [timerPopupData, setTimerPopupData] = useState(null);
   
   const holdTimeout = useRef(null);
@@ -859,7 +848,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
     } catch (e) {}
   }, [flightPlan, actuals, flightNo, routeInfo, parsedDepIcao, parsedReg, parsedPzfw, parsedTaxiOut, parsedTaxiIn, parsedDate, parsedSta, parsedDestIcao, takeoffTime, parsedEtopsInfo, activeAlerts, triggeredAlerts]);
 
-  // ★ 変更: 長押しによる通知セット/解除と、残り時間の計算・タイマー提案
   const toggleAlert = (wp) => {
       if (window.navigator && window.navigator.vibrate) window.navigator.vibrate(50);
       
@@ -883,16 +871,13 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
       setActiveAlerts(prev => {
           const next = { ...prev };
           if (next[wp]) {
-              // OFFにする
               delete next[wp];
               window.dispatchEvent(new CustomEvent('show-toast', { detail: `${wp} の通過通知を解除しました` }));
           } else {
-              // ONにする
               next[wp] = true;
               window.dispatchEvent(new CustomEvent('show-toast', { detail: `${wp} の通過通知をセットしました` }));
               
               if (remainMins !== null) {
-                  // 少し遅らせてポップアップを出す（UIブロッキング回避のため）
                   setTimeout(() => setTimerPopupData({ wpName: wp, remainMins }), 50);
               }
           }
@@ -1320,7 +1305,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
         onClose={() => setPopupWp(null)} 
       />
 
-      {/* ★ 追加: タイマー提案モーダル表示 */}
       <TimerSuggestModal
         data={timerPopupData}
         onClose={() => setTimerPopupData(null)}
