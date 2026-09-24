@@ -534,7 +534,7 @@ const WpAlertModal = ({ wpName, onClose }) => {
     );
 };
 
-// ★ 変更: 無効なリンクを削除し、純粋な確認画面へ修正
+// ★ 修正: 画面表示とiPadタイマー併用の違いを明確にするテキストに変更
 const TimerSuggestModal = ({ data, onClose }) => {
     if (!data) return null;
     return (
@@ -544,9 +544,16 @@ const TimerSuggestModal = ({ data, onClose }) => {
                     <SafeIcon name="Timer" className="w-10 h-10 text-sky-400" />
                 </div>
                 <h2 className="text-2xl font-black text-white mb-2 tracking-widest">{data.wpName} ETO</h2>
-                <div className="text-slate-300 font-bold mb-6 text-sm">
+                <div className="text-slate-300 font-bold mb-6 text-sm w-full">
                     通過予定まで残り <span className="text-amber-400 text-3xl mx-1 font-black">{data.remainMins}</span> 分です。<br/>
-                    <span className="text-xs opacity-80 mt-2 block">iPadの時計アプリでタイマーをセットしてください。</span>
+                    
+                    <div className="mt-4 p-3 bg-slate-900/50 border border-slate-700 rounded-lg text-left">
+                        <span className="text-xs text-sky-300 block mb-1">■ 画面を開いたままにする場合</span>
+                        <span className="text-[10px] text-slate-300 block mb-3">時間到達時にこのアプリが自動でお知らせします。</span>
+                        
+                        <span className="text-xs text-amber-300 block mb-1">■ 他のアプリを開く・スリープする場合</span>
+                        <span className="text-[10px] text-slate-300 block">通知が鳴らないため、iPadの時計アプリ等でタイマーを併用してください。</span>
+                    </div>
                 </div>
                 <div className="flex flex-col gap-3 w-full">
                     <button onClick={onClose} className="w-full py-3 bg-sky-600 hover:bg-sky-500 text-white rounded-xl font-bold transition-colors">
