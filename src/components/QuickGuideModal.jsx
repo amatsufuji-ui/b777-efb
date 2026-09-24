@@ -92,7 +92,6 @@ export const QuickGuideModal = ({ isOpen, onClose }) => {
             </div>
           )}
           
-          {}
           <section>
             <h3 className="text-emerald-400 font-bold mb-2 border-l-4 border-emerald-400 pl-2">1. データの読み込み (LOAD)</h3>
             <p className="text-xs leading-relaxed ml-1">
@@ -100,7 +99,6 @@ export const QuickGuideModal = ({ isOpen, onClose }) => {
             </p>
           </section>
 
-          {}
           <section>
             <h3 className="text-sky-400 font-bold mb-2 border-l-4 border-sky-400 pl-2">2. ヘッダーボタンの機能</h3>
             <ul className="text-xs leading-relaxed space-y-2 pl-1">
@@ -114,7 +112,6 @@ export const QuickGuideModal = ({ isOpen, onClose }) => {
             </ul>
           </section>
 
-          {}
           <section>
             <h3 className="text-amber-400 font-bold mb-3 border-l-4 border-amber-400 pl-2">3. 各機能・タブの説明</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pl-1 text-xs">
@@ -139,19 +136,19 @@ export const QuickGuideModal = ({ isOpen, onClose }) => {
                 <div className="text-amber-300 font-bold mb-1">WX/MNM</div>
                 <p className="leading-relaxed">WX悪化時のフローやFPL記号の説明を確認できます。</p>
               </div>
+              
+              <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700 md:col-span-2">
+                <div className="text-amber-300 font-bold mb-1">RDR</div>
+                <p className="leading-relaxed">気象レーダー、各種衛星画像、およびルート断面図(CROSS SECTION)など各種情報を確認できます。</p>
+              </div>
 
-              <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
+              <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700 md:col-span-2">
                 <div className="text-amber-300 font-bold mb-1">ETOPS</div>
                 <ul className="leading-relaxed list-disc pl-4 space-y-1">
                   <li>欧州線のみADDITIONAL FUEL要否の判断ツール</li>
                   <li>HF周波数の取得</li>
                   <li>ETOPS関連情報を確認できます。</li>
                 </ul>
-              </div>
-
-              <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
-                <div className="text-amber-300 font-bold mb-1">DOCS</div>
-                <p className="leading-relaxed">危険品の混載確認や、配慮を要する旅客情報の確認、Tarmac Delay時の対応タイムラインおよびチェックリストの利用ができます。</p>
               </div>
               
               <div className="bg-slate-900/50 p-3 rounded border border-slate-700 md:col-span-2">
@@ -165,7 +162,13 @@ export const QuickGuideModal = ({ isOpen, onClose }) => {
                   <li>ETOはATOを入力することで変化しますが、TIME DIFFはTAKEOFF TIMEからの誤差を表示します。</li>
                   <li>TIME DIFFとFUEL DIFFを上部ヘッダーに固定してグラフ表示できます。</li>
                   <li>最寄りのETOPS ALTNをハイライト表示します。</li>
+                  <li><span className="text-sky-300 font-bold">POINTを長押しすると通過時に通知します (SLEEP時や他のアプリを使用する場合はタイマー推奨)。</span></li>
                 </ul>
+              </div>
+              
+              <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700 md:col-span-2">
+                <div className="text-amber-300 font-bold mb-1">DOCS</div>
+                <p className="leading-relaxed">危険品の混載確認や、配慮を要する旅客情報の確認ができます。</p>
               </div>
 
               <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
@@ -192,7 +195,7 @@ export const QuickGuideModal = ({ isOpen, onClose }) => {
               
               <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
                 <div className="text-amber-300 font-bold mb-1">TARMAC</div>
-                <p className="leading-relaxed">各国のルールを適用したフローチャートを表示します。</p>
+                <p className="leading-relaxed">各国のルールを適用したフローチャートやタイマーを表示します。</p>
               </div>
 
               <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
