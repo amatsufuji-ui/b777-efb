@@ -513,6 +513,28 @@ const MemoModal = ({ isOpen, initialMemo, wpName, onClose, onSave }) => {
     );
 };
 
+// ★ 追加: アラート用ポップアップモーダルコンポーネント
+const WpAlertModal = ({ wpName, onClose }) => {
+    if (!wpName) return null;
+    return (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+            <div className="bg-rose-950 border-2 border-rose-500 rounded-2xl p-6 sm:p-8 max-w-sm w-full shadow-[0_0_40px_rgba(244,63,94,0.4)] flex flex-col items-center text-center animate-in zoom-in duration-300">
+                <div className="bg-rose-500 p-4 rounded-full mb-4 animate-pulse shadow-lg">
+                    <SafeIcon name="BellRing" className="w-10 h-10 text-white" />
+                </div>
+                <h2 className="text-3xl sm:text-4xl font-black text-white mb-2 tracking-widest">{wpName}</h2>
+                <div className="w-16 h-1 bg-rose-500 rounded-full mb-4"></div>
+                <p className="text-rose-200 font-bold mb-8 text-sm sm:text-base leading-relaxed">
+                    通過予定時刻になりました。<br/>位置通報(POS REP)等を確認してください。
+                </p>
+                <button onClick={onClose} className="w-full py-4 bg-white hover:bg-slate-200 text-rose-950 rounded-xl font-black text-xl shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2">
+                    <SafeIcon name="CheckCircle2" className="w-6 h-6" /> 確認 (ACK)
+                </button>
+            </div>
+        </div>
+    );
+};
+
 export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, navlogData }) => {
   const [takeoffTime, setTakeoffTime] = useState('');
   const [actuals, setActuals] = useState({});
@@ -522,6 +544,12 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const [isDistCheckOpen, setIsDistCheckOpen] = useState(false);
   const [memoModal, setMemoModal] = useState({ isOpen: false, wp: '', text: '' });
+
+  // ★ 追加: 長押し通知ステート
+  const [activeAlerts, setActiveAlerts] = useState({});
+  const [triggeredAlerts, setTriggeredAlerts] = useState({});
+  const [popupWp, setPopupWp] = useState(null);
+  const holdTimeout = useRef(null);
 
   const rowRefs = useRef([]);
   const hasAutoScrolled = useRef(false);
@@ -741,6 +769,9 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
             setMemoModal({ isOpen: false, wp: '', text: '' });
             setIsDistCheckOpen(false);
             setIsGraphOpen(false);
+            setActiveAlerts({});
+            setTriggeredAlerts({});
+            setPopupWp(null);
             
             if (navlogData.stdH !== undefined && navlogData.stdM !== undefined) {
                 const taxiOut = navlogData.pTaxiOut !== undefined ? navlogData.pTaxiOut : 20;
@@ -764,6 +795,8 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
             const parsed = JSON.parse(saved);
             if (parsed.actuals) setActuals(parsed.actuals);
             if (parsed.takeoffTime) setTakeoffTime(parsed.takeoffTime);
+            if (parsed.activeAlerts) setActiveAlerts(parsed.activeAlerts);
+            if (parsed.triggeredAlerts) setTriggeredAlerts(parsed.triggeredAlerts);
             if (!navlogData) {
                 if (parsed.flightPlan) setFlightPlan(parsed.flightPlan);
                 if (parsed.flightNo) setFlightNo(parsed.flightNo);
@@ -786,13 +819,90 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
 
   useEffect(() => {
     try {
-        const backup = { flightPlan, actuals, flightNo, routeInfo, parsedDepIcao, parsedReg, parsedPzfw, parsedTaxiOut, parsedTaxiIn, parsedDate, parsedSta, parsedDestIcao, takeoffTime, parsedEtopsInfo };
+        const backup = { flightPlan, actuals, flightNo, routeInfo, parsedDepIcao, parsedReg, parsedPzfw, parsedTaxiOut, parsedTaxiIn, parsedDate, parsedSta, parsedDestIcao, takeoffTime, parsedEtopsInfo, activeAlerts, triggeredAlerts };
         localStorage.setItem('navlogFlightDataBackup', JSON.stringify(backup));
     } catch (e) {}
-  }, [flightPlan, actuals, flightNo, routeInfo, parsedDepIcao, parsedReg, parsedPzfw, parsedTaxiOut, parsedTaxiIn, parsedDate, parsedSta, parsedDestIcao, takeoffTime, parsedEtopsInfo]);
+  }, [flightPlan, actuals, flightNo, routeInfo, parsedDepIcao, parsedReg, parsedPzfw, parsedTaxiOut, parsedTaxiIn, parsedDate, parsedSta, parsedDestIcao, takeoffTime, parsedEtopsInfo, activeAlerts, triggeredAlerts]);
+
+  // ★ 追加: 長押しアラートのセット・解除処理
+  const toggleAlert = (wp) => {
+      if (window.navigator && window.navigator.vibrate) window.navigator.vibrate(50);
+      setActiveAlerts(prev => {
+          const next = { ...prev };
+          if (next[wp]) {
+              delete next[wp];
+              window.dispatchEvent(new CustomEvent('show-toast', { detail: `${wp} の通過通知を解除しました` }));
+          } else {
+              next[wp] = true;
+              window.dispatchEvent(new CustomEvent('show-toast', { detail: `${wp} の通過通知をセットしました` }));
+          }
+          return next;
+      });
+  };
+
+  const handlePointerDown = (e, wp) => {
+      holdTimeout.current = setTimeout(() => {
+          toggleAlert(wp);
+          holdTimeout.current = null;
+      }, 600);
+  };
+
+  const handlePointerUpOrLeave = () => {
+      if (holdTimeout.current) {
+          clearTimeout(holdTimeout.current);
+          holdTimeout.current = null;
+      }
+  };
+
+  // ★ 追加: ETO到達の監視ロジック
+  useEffect(() => {
+      if (!calculatedData || !calculatedData.flightData || calculatedData.flightData.length === 0) return;
+      
+      const now = new Date();
+      const currentMins = now.getUTCHours() * 60 + now.getUTCMinutes();
+      
+      let shouldVibrate = false;
+      let newPopupWp = popupWp;
+
+      calculatedData.flightData.forEach(row => {
+          if (activeAlerts[row.wp] && !row.ato && row.revisedEtoStr && row.revisedEtoStr !== "----") {
+              const etoMins = timeToMinutes(row.revisedEtoStr);
+              if (etoMins !== null) {
+                  let diff = currentMins - etoMins;
+                  if (diff < -720) diff += 1440;
+                  if (diff > 720) diff -= 1440;
+                  
+                  // ETOに到達した(0) もしくは 最大5分遅れまでならトリガー(スリープ復帰対策)
+                  if (diff >= 0 && diff <= 5 && !triggeredAlerts[row.wp]) {
+                      setTriggeredAlerts(prev => ({...prev, [row.wp]: true}));
+                      newPopupWp = row.wp;
+                      shouldVibrate = true;
+                  }
+              }
+          }
+      });
+      
+      if (newPopupWp !== popupWp) {
+          setPopupWp(newPopupWp);
+      }
+      if (shouldVibrate && window.navigator && window.navigator.vibrate) {
+          window.navigator.vibrate([200, 100, 200, 100, 200]);
+      }
+  }, [currentUtcMins, calculatedData, activeAlerts, triggeredAlerts, popupWp]);
 
   const handleUpdateActual = (wp, field, value) => {
     setActuals(prev => ({ ...prev, [wp]: { ...prev[wp], [field]: value } }));
+    // ★ 追加: ATOが入力されたら通知ステータスをクリア
+    if (field === 'ato' && value !== "") {
+        setActiveAlerts(prev => { 
+            if(!prev[wp]) return prev;
+            const n = {...prev}; delete n[wp]; return n; 
+        });
+        setTriggeredAlerts(prev => { 
+            if(!prev[wp]) return prev;
+            const n = {...prev}; delete n[wp]; return n; 
+        });
+    }
   };
 
   const handleSyncData = (importedData) => {
@@ -806,6 +916,12 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
             if (importedData[wp].actTmp) merged[wp].actTmp = importedData[wp].actTmp;
             if (importedData[wp].actWind) merged[wp].actWind = importedData[wp].actWind;
             if (importedData[wp].memo) merged[wp].memo = importedData[wp].memo;
+
+            // ★ 追加: 同期でATOが入った場合も通知クリア
+            if (importedData[wp].ato) {
+                setActiveAlerts(a => { const n = {...a}; delete n[wp]; return n; });
+                setTriggeredAlerts(t => { const n = {...t}; delete n[wp]; return n; });
+            }
         }
         return merged;
     });
@@ -1143,6 +1259,12 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
         flightData={calculatedData.flightData}
       />
 
+      {/* ★ 追加: 通過時間のアラートモーダル表示 */}
+      <WpAlertModal 
+        wpName={popupWp} 
+        onClose={() => setPopupWp(null)} 
+      />
+
       <header className="shrink-0 bg-gradient-to-r from-slate-900 via-[#131c2f] to-slate-900 border-b border-slate-700/80 px-2 py-2 shadow-lg z-20">
         <div className="max-w-[1400px] mx-auto flex flex-wrap justify-between items-center gap-2">
           
@@ -1360,9 +1482,32 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
               </div>
               
               <div className="divide-y divide-slate-800/80 bg-slate-900/60 rounded-b-lg border-x border-b border-slate-700/80">
-                {calculatedData.flightData.map((row, idx) => (
-                  <div key={idx} ref={el => rowRefs.current[idx] = el} className="grid py-1.5 px-1 items-center hover:bg-slate-800/60 transition-colors group text-center gap-x-1 box-border" style={gridColumnsStyle}>
-                    <div className="font-mono text-sm sm:text-[15px] font-black text-left pl-1 text-slate-200 truncate">{row.wp}</div>
+                {calculatedData.flightData.map((row, idx) => {
+                  // ★ 追加: 通知状態によるクラスの切り替え
+                  const isTriggered = triggeredAlerts[row.wp] && !row.ato;
+                  const isAlertActive = activeAlerts[row.wp];
+                  const baseRowClass = "grid py-1.5 px-1 items-center hover:bg-slate-800/60 transition-colors group text-center gap-x-1 box-border";
+                  // ハイライトする場合は左に赤いインセットボーダーを入れる（レイアウト崩れを防ぐため）
+                  const finalRowClass = isTriggered ? `${baseRowClass} bg-rose-900/30 shadow-[inset_4px_0_0_rgba(244,63,94,1)]` : baseRowClass;
+
+                  return (
+                  <div key={idx} ref={el => rowRefs.current[idx] = el} className={finalRowClass} style={gridColumnsStyle}>
+                    
+                    {/* ★ 変更: 長押しによる通知セット/解除機能の追加 */}
+                    <div 
+                        className="font-mono text-sm sm:text-[15px] font-black text-left pl-1 text-slate-200 truncate flex items-center gap-1 select-none cursor-pointer"
+                        onPointerDown={(e) => handlePointerDown(e, row.wp)}
+                        onPointerUp={handlePointerUpOrLeave}
+                        onPointerLeave={handlePointerUpOrLeave}
+                        onPointerCancel={handlePointerUpOrLeave}
+                        onContextMenu={(e) => e.preventDefault()}
+                        title="長押しで通過通知をセット/解除"
+                    >
+                        {row.wp}
+                        {isAlertActive && (
+                            <SafeIcon name="BellRing" className={`w-3.5 h-3.5 ${isTriggered ? 'text-rose-400 animate-bounce' : 'text-sky-400'}`} />
+                        )}
+                    </div>
                     
                     <div className="flex flex-col items-center justify-center leading-none py-0.5 font-mono">
                         <span className="text-[13px] text-cyan-300 font-bold">{row.gs || '-'}</span>
@@ -1479,7 +1624,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                     </div>
 
                   </div>
-                ))}
+                )})}
               </div>
             </div>
         </div>
