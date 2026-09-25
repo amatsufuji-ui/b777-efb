@@ -534,9 +534,34 @@ const WpAlertModal = ({ wpName, onClose }) => {
     );
 };
 
-// ★ 修正: 画面表示とiPadタイマー併用の違いを明確にするテキストに変更
+// ★ 修正: 秒単位でカウントダウンするタイマー提案モーダル
 const TimerSuggestModal = ({ data, onClose }) => {
+    const [timeLeft, setTimeLeft] = useState(null);
+
+    useEffect(() => {
+        if (!data || !data.targetEtoMs) return;
+        const tick = () => {
+            let diff = data.targetEtoMs - Date.now();
+            if (diff <= 0) {
+                setTimeLeft({ h: 0, m: 0, s: 0, text: "00:00:00" });
+                return;
+            }
+            const totalSec = Math.floor(diff / 1000);
+            const h = Math.floor(totalSec / 3600);
+            const m = Math.floor((totalSec % 3600) / 60);
+            const s = totalSec % 60;
+            const hh = h.toString().padStart(2, '0');
+            const mm = m.toString().padStart(2, '0');
+            const ss = s.toString().padStart(2, '0');
+            setTimeLeft({ h, m, s, text: h > 0 ? `${hh}:${mm}:${ss}` : `${mm}:${ss}` });
+        };
+        tick();
+        const timerId = setInterval(tick, 1000);
+        return () => clearInterval(timerId);
+    }, [data]);
+
     if (!data) return null;
+    
     return (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
             <div className="bg-slate-800 border-2 border-slate-600 rounded-2xl p-6 sm:p-8 max-w-sm w-full shadow-2xl flex flex-col items-center text-center animate-in zoom-in duration-300">
@@ -545,7 +570,16 @@ const TimerSuggestModal = ({ data, onClose }) => {
                 </div>
                 <h2 className="text-2xl font-black text-white mb-2 tracking-widest">{data.wpName} ETO</h2>
                 <div className="text-slate-300 font-bold mb-6 text-sm w-full">
-                    通過予定まで残り <span className="text-amber-400 text-3xl mx-1 font-black">{data.remainMins}</span> 分です。<br/>
+                    通過予定まで残り
+                    <div className="text-amber-400 text-4xl sm:text-5xl font-mono font-black my-3 tracking-widest drop-shadow-md">
+                        {timeLeft ? timeLeft.text : "--:--"}
+                    </div>
+                    {timeLeft && (
+                        <div className="text-amber-300 text-xs font-bold mb-3 opacity-80">
+                            ({timeLeft.h}時間 {timeLeft.m}分 {timeLeft.s}秒)
+                        </div>
+                    )}
+                    <span className="text-xs opacity-80 block mt-2">iPadの時計アプリでタイマーをセットしてください。</span>
                     
                     <div className="mt-4 p-3 bg-slate-900/50 border border-slate-700 rounded-lg text-left">
                         <span className="text-xs text-sky-300 block mb-1">■ 画面を開いたままにする場合</span>
@@ -556,7 +590,7 @@ const TimerSuggestModal = ({ data, onClose }) => {
                     </div>
                 </div>
                 <div className="flex flex-col gap-3 w-full">
-                    <button onClick={onClose} className="w-full py-3 bg-sky-600 hover:bg-sky-500 text-white rounded-xl font-bold transition-colors">
+                    <button onClick={onClose} className="w-full py-3 bg-sky-600 hover:bg-sky-500 text-white rounded-xl font-bold transition-colors shadow-lg">
                         確認して閉じる
                     </button>
                 </div>
@@ -855,10 +889,11 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
     } catch (e) {}
   }, [flightPlan, actuals, flightNo, routeInfo, parsedDepIcao, parsedReg, parsedPzfw, parsedTaxiOut, parsedTaxiIn, parsedDate, parsedSta, parsedDestIcao, takeoffTime, parsedEtopsInfo, activeAlerts, triggeredAlerts]);
 
+  // ★ 変更: 残り秒数を計算するための targetEtoMs を算出
   const toggleAlert = (wp) => {
       if (window.navigator && window.navigator.vibrate) window.navigator.vibrate(50);
       
-      let remainMins = null;
+      let targetEtoMs = null;
       const rowData = calculatedData.flightData.find(r => r.wp === wp);
       if (rowData && rowData.revisedEtoStr && rowData.revisedEtoStr !== "----") {
           const etoMins = timeToMinutes(rowData.revisedEtoStr);
@@ -870,7 +905,23 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
               if (diff > 720) diff -= 1440;
               
               if (diff > 0) {
-                  remainMins = diff;
+                  const targetDate = new Date(Date.UTC(
+                      now.getUTCFullYear(),
+                      now.getUTCMonth(),
+                      now.getUTCDate(),
+                      Math.floor(etoMins / 60),
+                      etoMins % 60,
+                      0, 0
+                  ));
+                  
+                  const rawDiff = etoMins - currentMins;
+                  if (rawDiff < -720) {
+                      targetDate.setUTCDate(targetDate.getUTCDate() + 1);
+                  } else if (rawDiff > 720) {
+                      targetDate.setUTCDate(targetDate.getUTCDate() - 1);
+                  }
+                  
+                  targetEtoMs = targetDate.getTime();
               }
           }
       }
@@ -884,8 +935,8 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
               next[wp] = true;
               window.dispatchEvent(new CustomEvent('show-toast', { detail: `${wp} の通過通知をセットしました` }));
               
-              if (remainMins !== null) {
-                  setTimeout(() => setTimerPopupData({ wpName: wp, remainMins }), 50);
+              if (targetEtoMs !== null) {
+                  setTimeout(() => setTimerPopupData({ wpName: wp, targetEtoMs }), 50);
               }
           }
           return next;
