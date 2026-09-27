@@ -89,7 +89,7 @@ export const SidView = ({ state }) => {
         }
     }, [selectedWaypoint, manualAircraftType]);
 
-    // Helper for 2D interpolation (Weightのバグを修正)
+    // Helper for 2D interpolation
     const interpolate2D = (t, o, data) => {
         const oats = Object.keys(data).map(Number).sort((a, b) => a - b);
         let oatL = oats[0], oatH = oats[oats.length - 1];
@@ -148,6 +148,9 @@ export const SidView = ({ state }) => {
         
         let alt1500 = "N/A";
         let alt3000 = "N/A";
+        let alt1500_wind = "N/A";
+        let alt3000_wind = "N/A";
+
         let restriction = "";
         let isCleared1500 = false;
         let isCleared3000 = false;
@@ -279,8 +282,27 @@ export const SidView = ({ state }) => {
                     32: [{w:535000,a:8302},{w:505000,a:9103},{w:495000,a:9396},{w:485000,a:9723},{w:447400,a:9982}],
                     30: [{w:535000,a:8538},{w:505000,a:9356},{w:495000,a:9656},{w:447400,a:10123}]
                  };
+
+                 const data1500_wind = {
+                     38: [{w:535000,a:7813},{w:505000,a:8667},{w:495000,a:8964},{w:485000,a:9266},{w:475000,a:9608},{w:465000,a:9931},{w:447400,a:9769},{w:440000,a:9915}],
+                     36: [{w:535000,a:8099},{w:505000,a:8974},{w:495000,a:9272},{w:485000,a:9579},{w:475000,a:9928},{w:465000,a:10116},{w:447400,a:9942}],
+                     34: [{w:535000,a:8379},{w:505000,a:9245},{w:495000,a:9574},{w:485000,a:9891},{w:475000,a:10094},{w:447400,a:10093}],
+                     32: [{w:535000,a:8682},{w:505000,a:9559},{w:495000,a:9895},{w:485000,a:10097},{w:447400,a:10277}],
+                     30: [{w:535000,a:8967},{w:505000,a:9862},{w:495000,a:10089},{w:447400,a:10432}]
+                 };
+
+                 const data3000_wind = {
+                     38: [{w:535000,a:8131},{w:505000,a:8978},{w:495000,a:9266},{w:485000,a:9569},{w:475000,a:9902},{w:465000,a:10098},{w:447400,a:9901},{w:440000,a:10049}],
+                     36: [{w:535000,a:8414},{w:505000,a:9248},{w:495000,a:9546},{w:485000,a:9875},{w:475000,a:10081},{w:465000,a:10254},{w:447400,a:10067}],
+                     34: [{w:535000,a:8684},{w:505000,a:9534},{w:495000,a:9837},{w:485000,a:10074},{w:475000,a:10230},{w:447400,a:10233}],
+                     32: [{w:535000,a:8940},{w:505000,a:9832},{w:495000,a:10058},{w:485000,a:10221},{w:447400,a:10388}],
+                     30: [{w:535000,a:9195},{w:505000,a:10041},{w:495000,a:10202},{w:447400,a:10547}]
+                 };
+
                  alt1500 = interpolate2D(wt, oat, data1500);
                  alt3000 = interpolate2D(wt, oat, data3000);
+                 alt1500_wind = interpolate2D(wt, oat, data1500_wind);
+                 alt3000_wind = interpolate2D(wt, oat, data3000_wind);
              } else if (type === '777-300') {
                  const data1500 = {
                     38: [{w:550000,a:8533},{w:540000,a:8792},{w:530000,a:9018},{w:520000,a:9158},{w:510000,a:9305},{w:500000,a:9456}],
@@ -296,8 +318,27 @@ export const SidView = ({ state }) => {
                     32: [{w:550000,a:9338},{w:540000,a:9473}],
                     30: [{w:550000,a:9478},{w:540000,a:9621}]
                  };
+
+                 const data1500_wind = {
+                     38: [{w:550000,a:9087},{w:540000,a:9231},{w:530000,a:9392},{w:520000,a:9684},{w:510000,a:9834}],
+                     36: [{w:550000,a:9231},{w:540000,a:9382},{w:530000,a:9533},{w:520000,a:9675},{w:510000,a:9841}],
+                     34: [{w:550000,a:9376},{w:540000,a:9523},{w:530000,a:9694},{w:520000,a:9844}],
+                     32: [{w:550000,a:9544},{w:540000,a:9711}],
+                     30: [{w:550000,a:9697},{w:540000,a:9838}]
+                 };
+
+                 const data3000_wind = {
+                     38: [{w:550000,a:9257},{w:540000,a:9372},{w:530000,a:9537},{w:520000,a:9855},{w:510000,a:10004}],
+                     36: [{w:550000,a:9408},{w:540000,a:9551},{w:530000,a:9705},{w:520000,a:9847},{w:510000,a:10012}],
+                     34: [{w:550000,a:9561},{w:540000,a:9681},{w:530000,a:9850},{w:520000,a:10012}],
+                     32: [{w:550000,a:9681},{w:540000,a:9849}],
+                     30: [{w:550000,a:9856},{w:540000,a:9996}]
+                 };
+
                  alt1500 = interpolate2D(wt, oat, data1500);
                  alt3000 = interpolate2D(wt, oat, data3000);
+                 alt1500_wind = interpolate2D(wt, oat, data1500_wind);
+                 alt3000_wind = interpolate2D(wt, oat, data3000_wind);
              } else if (type === '787-8') {
                  const data1500 = {
                      38: [{w:490000,a:7317},{w:480000,a:7616},{w:470000,a:7928},{w:460000,a:8254},{w:450000,a:8589},{w:440000,a:8936}],
@@ -313,25 +354,62 @@ export const SidView = ({ state }) => {
                      32: [{w:502500,a:8349},{w:490000,a:8629},{w:480000,a:8945},{w:470000,a:9109},{w:460000,a:9286},{w:450000,a:9455}],
                      30: [{w:502500,a:8653},{w:490000,a:8960},{w:480000,a:9114},{w:470000,a:9272},{w:460000,a:9442}]
                  };
+
+                 const data1500_wind = {
+                     38: [{w:490000,a:7948},{w:480000,a:8263},{w:470000,a:8908},{w:460000,a:8920},{w:450000,a:9121},{w:440000,a:9312}],
+                     36: [{w:490000,a:8687},{w:480000,a:8986},{w:470000,a:8983},{w:460000,a:9153},{w:450000,a:9482},{w:440000,a:9670}],
+                     34: [{w:502500,a:8412},{w:490000,a:9017},{w:480000,a:9015},{w:470000,a:9169},{w:460000,a:9491},{w:450000,a:9673},{w:440000,a:9869}],
+                     32: [{w:502500,a:8986},{w:490000,a:9146},{w:480000,a:9162},{w:470000,a:9329},{w:460000,a:9639},{w:450000,a:9829}],
+                     30: [{w:502500,a:9144},{w:490000,a:9315},{w:480000,a:9466},{w:470000,a:9501},{w:460000,a:9688}]
+                 };
+
+                 const data3000_wind = {
+                     38: [{w:490000,a:8316},{w:480000,a:8621},{w:470000,a:8582},{w:460000,a:9118},{w:450000,a:9283},{w:440000,a:9458}],
+                     36: [{w:490000,a:8340},{w:480000,a:8660},{w:470000,a:9146},{w:460000,a:9310},{w:450000,a:9343},{w:440000,a:9527}],
+                     34: [{w:502500,a:8749},{w:490000,a:8733},{w:480000,a:9163},{w:470000,a:9320},{w:460000,a:9357},{w:450000,a:9537},{w:440000,a:9732}],
+                     32: [{w:502500,a:8689},{w:490000,a:8995},{w:480000,a:9304},{w:470000,a:9474},{w:460000,a:9509},{w:450000,a:9676}],
+                     30: [{w:502500,a:9004},{w:490000,a:9162},{w:480000,a:9326},{w:470000,a:9641},{w:460000,a:9818}]
+                 };
+
                  alt1500 = interpolate2D(wt, oat, data1500);
                  alt3000 = interpolate2D(wt, oat, data3000);
+                 alt1500_wind = interpolate2D(wt, oat, data1500_wind);
+                 alt3000_wind = interpolate2D(wt, oat, data3000_wind);
              } else if (type === '787-9') {
-                 const data1500 = {
-                     38: [{w:490000,a:7416},{w:480000,a:7717},{w:470000,a:8006},{w:460000,a:8335},{w:450000,a:8698},{w:440000,a:9012},{w:430000,a:9176}],
-                     36: [{w:490000,a:7775},{w:480000,a:8090},{w:470000,a:8410},{w:460000,a:8744},{w:450000,a:9031},{w:440000,a:9210},{w:430000,a:9389}],
-                     34: [{w:490000,a:8109},{w:480000,a:8431},{w:470000,a:8757},{w:460000,a:9036},{w:450000,a:9197},{w:440000,a:9389},{w:430000,a:9561}],
-                     32: [{w:490000,a:8386},{w:480000,a:8710},{w:470000,a:9011},{w:460000,a:9186},{w:450000,a:9356}],
-                     30: [{w:490000,a:8688},{w:480000,a:8994},{w:470000,a:9155},{w:460000,a:9340}]
-                 };
-                 const data3000 = {
-                     38: [{w:490000,a:7831},{w:480000,a:8131},{w:470000,a:8440},{w:460000,a:8753},{w:450000,a:9027},{w:440000,a:9199},{w:430000,a:9368}],
-                     36: [{w:490000,a:8193},{w:480000,a:8499},{w:470000,a:8814},{w:460000,a:9056},{w:450000,a:9215},{w:440000,a:9379},{w:430000,a:9559}],
-                     34: [{w:490000,a:8494},{w:480000,a:8807},{w:470000,a:9052},{w:460000,a:9205},{w:450000,a:9385},{w:440000,a:9547},{w:430000,a:9741}],
-                     32: [{w:490000,a:8733},{w:480000,a:9015},{w:470000,a:9181},{w:460000,a:9343},{w:450000,a:9515}],
-                     30: [{w:490000,a:8990},{w:480000,a:9151},{w:470000,a:9313},{w:460000,a:9483}]
-                 };
-                 alt1500 = interpolate2D(wt, oat, data1500);
-                 alt3000 = interpolate2D(wt, oat, data3000);
+                 if (selectedFlap === '18') {
+                     const data1500 = {
+                         38: [{w:490000,a:7416},{w:480000,a:7717},{w:470000,a:8006},{w:460000,a:8335},{w:450000,a:8698},{w:440000,a:9012},{w:430000,a:9176}],
+                         36: [{w:490000,a:7775},{w:480000,a:8090},{w:470000,a:8410},{w:460000,a:8744},{w:450000,a:9031},{w:440000,a:9210},{w:430000,a:9389}],
+                         34: [{w:490000,a:8109},{w:480000,a:8431},{w:470000,a:8757},{w:460000,a:9036},{w:450000,a:9197},{w:440000,a:9389},{w:430000,a:9561}],
+                         32: [{w:490000,a:8386},{w:480000,a:8710},{w:470000,a:9011},{w:460000,a:9186},{w:450000,a:9356}],
+                         30: [{w:490000,a:8688},{w:480000,a:8994},{w:470000,a:9155},{w:460000,a:9340}]
+                     };
+                     const data3000 = {
+                         38: [{w:490000,a:7831},{w:480000,a:8131},{w:470000,a:8440},{w:460000,a:8753},{w:450000,a:9027},{w:440000,a:9199},{w:430000,a:9368}],
+                         36: [{w:490000,a:8193},{w:480000,a:8499},{w:470000,a:8814},{w:460000,a:9056},{w:450000,a:9215},{w:440000,a:9379},{w:430000,a:9559}],
+                         34: [{w:490000,a:8494},{w:480000,a:8807},{w:470000,a:9052},{w:460000,a:9205},{w:450000,a:9385},{w:440000,a:9547},{w:430000,a:9741}],
+                         32: [{w:490000,a:8733},{w:480000,a:9015},{w:470000,a:9181},{w:460000,a:9343},{w:450000,a:9515}],
+                         30: [{w:490000,a:8990},{w:480000,a:9151},{w:470000,a:9313},{w:460000,a:9483}]
+                     };
+                     const data1500_wind = {
+                         38: [{w:490000,a:8008},{w:480000,a:8352},{w:470000,a:8680},{w:460000,a:8999},{w:450000,a:9172},{w:440000,a:9350},{w:430000,a:9538}],
+                         36: [{w:490000,a:8421},{w:480000,a:8747},{w:470000,a:9027},{w:460000,a:9202},{w:450000,a:9375},{w:440000,a:9564},{w:430000,a:9767}],
+                         34: [{w:490000,a:8776},{w:480000,a:9042},{w:470000,a:9211},{w:460000,a:9389},{w:450000,a:9570},{w:440000,a:9754},{w:430000,a:9947}],
+                         32: [{w:490000,a:9025},{w:480000,a:9194},{w:470000,a:9365},{w:460000,a:9543},{w:450000,a:9740}],
+                         30: [{w:490000,a:9172},{w:480000,a:9356},{w:470000,a:9503},{w:460000,a:9711}]
+                     };
+                     const data3000_wind = {
+                         38: [{w:490000,a:8442},{w:480000,a:8753},{w:470000,a:9024},{w:460000,a:9190},{w:450000,a:9357},{w:440000,a:9533},{w:430000,a:9728}],
+                         36: [{w:490000,a:8802},{w:480000,a:9045},{w:470000,a:9213},{w:460000,a:9392},{w:450000,a:9551},{w:440000,a:9743},{w:430000,a:9929}],
+                         34: [{w:490000,a:9050},{w:480000,a:9214},{w:470000,a:9379},{w:460000,a:9550},{w:450000,a:9738},{w:440000,a:9920},{w:430000,a:10112}],
+                         32: [{w:490000,a:9195},{w:480000,a:9358},{w:470000,a:9528},{w:460000,a:9702},{w:450000,a:9889}],
+                         30: [{w:490000,a:9319},{w:480000,a:9534},{w:470000,a:9666},{w:460000,a:9859}]
+                     };
+                     alt1500 = interpolate2D(wt, oat, data1500);
+                     alt3000 = interpolate2D(wt, oat, data3000);
+                     alt1500_wind = interpolate2D(wt, oat, data1500_wind);
+                     alt3000_wind = interpolate2D(wt, oat, data3000_wind);
+                 }
              } else if (type === '787-10') {
                  const data1500 = {
                      38: [{w:535000,a:6976},{w:520000,a:7373},{w:491600,a:8183},{w:480000,a:8553},{w:470000,a:8855},{w:460000,a:9071},{w:450000,a:9234}],
@@ -347,10 +425,29 @@ export const SidView = ({ state }) => {
                      32: [{w:535000,a:8386},{w:520000,a:8811},{w:491600,a:9306},{w:480000,a:9482},{w:470000,a:9641}],
                      30: [{w:535000,a:8672},{w:520000,a:9041},{w:491600,a:9480}]
                  };
+
+                 const data1500_wind = {
+                     38: [{w:535000,a:7547},{w:520000,a:7990},{w:491600,a:8840},{w:480000,a:9100},{w:470000,a:9260},{w:460000,a:9425},{w:450000,a:9592}],
+                     36: [{w:535000,a:7942},{w:520000,a:8367},{w:491600,a:9110},{w:480000,a:9297},{w:470000,a:9456},{w:460000,a:9625},{w:450000,a:9810}],
+                     34: [{w:535000,a:8328},{w:520000,a:8767},{w:491600,a:9313},{w:480000,a:9499},{w:470000,a:9667}],
+                     32: [{w:535000,a:8726},{w:520000,a:9076},{w:491600,a:9518},{w:480000,a:9715},{w:470000,a:9898}],
+                     30: [{w:535000,a:9032},{w:520000,a:9266},{w:491600,a:9725}]
+                 };
+
+                 const data3000_wind = {
+                     38: [{w:535000,a:7935},{w:520000,a:8340},{w:491600,a:9086},{w:480000,a:9264},{w:470000,a:9417},{w:460000,a:9577},{w:450000,a:9752}],
+                     36: [{w:535000,a:8278},{w:520000,a:8726},{w:491600,a:9269},{w:480000,a:9462},{w:470000,a:9622},{w:460000,a:9777},{w:450000,a:9962}],
+                     34: [{w:535000,a:8672},{w:520000,a:9040},{w:491600,a:9471},{w:480000,a:9657},{w:470000,a:9829}],
+                     32: [{w:535000,a:8996},{w:520000,a:9228},{w:491600,a:9661},{w:480000,a:9864},{w:470000,a:10026}],
+                     30: [{w:535000,a:9161},{w:520000,a:9387},{w:491600,a:9847}]
+                 };
+
                  alt1500 = interpolate2D(wt, oat, data1500);
                  alt3000 = interpolate2D(wt, oat, data3000);
+                 alt1500_wind = interpolate2D(wt, oat, data1500_wind);
+                 alt3000_wind = interpolate2D(wt, oat, data3000_wind);
              } else {
-                 noDataMsg = `No Data Available for ${type} at TAURA`;
+                 noDataMsg = `TAURA の ${type} データはありません`;
              }
         } else if (selectedWaypoint === 'ROVER') {
              restriction = "12000 ft or Above (RWY34R)";
@@ -389,24 +486,26 @@ export const SidView = ({ state }) => {
                  alt1500 = interpolate2D(wt, oat, data1500);
                  alt3000 = interpolate2D(wt, oat, data3000);
              } else if (type === '787-9') {
-                 const data1500 = {
-                     38: [{w:553000,a:10932},{w:550000,a:11031},{w:540000,a:11315},{w:530000,a:11624},{w:520000,a:11926},{w:510000,a:12134},{w:500000,a:12307}],
-                     36: [{w:553000,a:11423},{w:550000,a:11521},{w:540000,a:11809},{w:530000,a:12052},{w:520000,a:12208},{w:510000,a:12392},{w:500000,a:12559}],
-                     34: [{w:553000,a:11921},{w:550000,a:12010},{w:540000,a:12160},{w:530000,a:12318},{w:520000,a:12474},{w:510000,a:12652}],
-                     32: [{w:553000,a:12233},{w:550000,a:12288},{w:540000,a:12437},{w:530000,a:12591},{w:520000,a:12753}],
-                     30: [{w:553000,a:12503},{w:550000,a:12548},{w:540000,a:12701}]
-                 };
-                 const data3000 = {
-                     38: [{w:553000,a:11290},{w:550000,a:11354},{w:540000,a:11622},{w:530000,a:11922},{w:520000,a:12107},{w:510000,a:12264},{w:500000,a:12447}],
-                     36: [{w:553000,a:11756},{w:550000,a:11820},{w:540000,a:12029},{w:530000,a:12191},{w:520000,a:12343},{w:510000,a:12508},{w:500000,a:12682}],
-                     34: [{w:553000,a:12122},{w:550000,a:12145},{w:540000,a:12288},{w:530000,a:12440},{w:520000,a:12596},{w:510000,a:12763}],
-                     32: [{w:553000,a:12375},{w:550000,a:12409},{w:540000,a:12551},{w:530000,a:12707},{w:520000,a:12865}],
-                     30: [{w:553000,a:12635},{w:550000,a:12660},{w:540000,a:12805}]
-                 };
-                 alt1500 = interpolate2D(wt, oat, data1500);
-                 alt3000 = interpolate2D(wt, oat, data3000);
+                 if (selectedFlap === '5') {
+                     const data1500 = {
+                         38: [{w:553000,a:10932},{w:550000,a:11031},{w:540000,a:11315},{w:530000,a:11624},{w:520000,a:11926},{w:510000,a:12134},{w:500000,a:12307}],
+                         36: [{w:553000,a:11423},{w:550000,a:11521},{w:540000,a:11809},{w:530000,a:12052},{w:520000,a:12208},{w:510000,a:12392},{w:500000,a:12559}],
+                         34: [{w:553000,a:11921},{w:550000,a:12010},{w:540000,a:12160},{w:530000,a:12318},{w:520000,a:12474},{w:510000,a:12652}],
+                         32: [{w:553000,a:12233},{w:550000,a:12288},{w:540000,a:12437},{w:530000,a:12591},{w:520000,a:12753}],
+                         30: [{w:553000,a:12503},{w:550000,a:12548},{w:540000,a:12701}]
+                     };
+                     const data3000 = {
+                         38: [{w:553000,a:11290},{w:550000,a:11354},{w:540000,a:11622},{w:530000,a:11922},{w:520000,a:12107},{w:510000,a:12264},{w:500000,a:12447}],
+                         36: [{w:553000,a:11756},{w:550000,a:11820},{w:540000,a:12029},{w:530000,a:12191},{w:520000,a:12343},{w:510000,a:12508},{w:500000,a:12682}],
+                         34: [{w:553000,a:12122},{w:550000,a:12145},{w:540000,a:12288},{w:530000,a:12440},{w:520000,a:12596},{w:510000,a:12763}],
+                         32: [{w:553000,a:12375},{w:550000,a:12409},{w:540000,a:12551},{w:530000,a:12707},{w:520000,a:12865}],
+                         30: [{w:553000,a:12635},{w:550000,a:12660},{w:540000,a:12805}]
+                     };
+                     alt1500 = interpolate2D(wt, oat, data1500);
+                     alt3000 = interpolate2D(wt, oat, data3000);
+                 }
              } else {
-                 noDataMsg = `No Data Available for ${type} at ROVER`;
+                 noDataMsg = `ROVER の ${type} データはありません`;
              }
         }
 
@@ -422,6 +521,8 @@ export const SidView = ({ state }) => {
         return { 
             alt1500, 
             alt3000, 
+            alt1500_wind,
+            alt3000_wind,
             restriction, 
             isCleared1500, 
             isCleared3000,
@@ -537,47 +638,86 @@ export const SidView = ({ state }) => {
                 {/* Results */}
                 <div className="bg-slate-800 p-3 rounded-lg border border-slate-700 flex flex-col justify-center">
                     <div className="text-center space-y-2">
-                        <div className="text-sm font-bold text-slate-400">{selectedWaypoint} Restriction</div>
+                        <div className="text-sm font-bold text-slate-400">{selectedWaypoint} 制限高度</div>
                         <div className="text-xl font-bold text-rose-400">{result.restriction}</div>
                         
                         <div className="mt-4 mb-2 h-px bg-slate-700 w-full"></div>
-                        
-                        {result.noDataMsg ? (
+                          {result.noDataMsg ? (
                             <div className="text-amber-500 font-bold p-4 bg-amber-900/20 rounded-lg border border-amber-500/30">
                                 {result.noDataMsg}
                             </div>
                         ) : (
                             <>
-                                <div className="text-sm font-bold text-slate-400">Estimated Passing Altitude</div>
+                                <div className="text-sm font-bold text-slate-400">推定通過高度</div>
                                 
-                                <div className="flex justify-around items-center mt-2">
-                                    <div className="flex flex-col items-center">
-                                        <span className="text-xs text-slate-500 mb-1">Ctbk 1500ft</span>
-                                        <span className={`text-4xl font-mono font-black ${typeof result.alt1500 === 'number' ? (result.isCleared1500 ? 'text-emerald-400' : 'text-amber-500') : 'text-slate-500'}`}>
-                                            {formatAltitude(result.alt1500, result.isCleared1500)}
-                                        </span>
+                                {selectedWaypoint === 'TAURA' ? (
+                                    <div className="grid grid-cols-2 gap-x-2 gap-y-4 mt-2">
+                                        <div className="flex flex-col items-center">
+                                            <span className="text-xs text-slate-500 mb-1">Ctbk 1500ft (無風)</span>
+                                            <span className={`text-3xl font-mono font-black ${typeof result.alt1500 === 'number' ? (result.isCleared1500 ? 'text-emerald-400' : 'text-amber-500') : 'text-slate-500'}`}>
+                                                {formatAltitude(result.alt1500, result.isCleared1500)}
+                                            </span>
+                                        </div>
+                                        <div className="flex flex-col items-center">
+                                            <span className="text-xs text-slate-500 mb-1">Ctbk 3000ft (無風)</span>
+                                            <span className={`text-3xl font-mono font-black ${typeof result.alt3000 === 'number' ? (result.isCleared3000 ? 'text-emerald-400' : 'text-amber-500') : 'text-slate-500'}`}>
+                                                {formatAltitude(result.alt3000, result.isCleared3000)}
+                                            </span>
+                                        </div>
+                                        <div className="flex flex-col items-center">
+                                            <span className="text-xs text-slate-500 mb-1">Ctbk 1500ft (Wind 200/20)</span>
+                                            <span className={`text-3xl font-mono font-black ${typeof result.alt1500_wind === 'number' ? (result.alt1500_wind >= parseInt(result.restriction.split(' ')[0]) ? 'text-emerald-400' : 'text-amber-500') : 'text-slate-500'}`}>
+                                                {formatAltitude(result.alt1500_wind, result.alt1500_wind >= parseInt(result.restriction.split(' ')[0]))}
+                                            </span>
+                                        </div>
+                                        <div className="flex flex-col items-center">
+                                            <span className="text-xs text-slate-500 mb-1">Ctbk 3000ft (Wind 200/20)</span>
+                                            <span className={`text-3xl font-mono font-black ${typeof result.alt3000_wind === 'number' ? (result.alt3000_wind >= parseInt(result.restriction.split(' ')[0]) ? 'text-emerald-400' : 'text-amber-500') : 'text-slate-500'}`}>
+                                                {formatAltitude(result.alt3000_wind, result.alt3000_wind >= parseInt(result.restriction.split(' ')[0]))}
+                                            </span>
+                                        </div>
                                     </div>
-                                    <div className="flex flex-col items-center">
-                                        <span className="text-xs text-slate-500 mb-1">Ctbk 3000ft</span>
-                                        <span className={`text-4xl font-mono font-black ${typeof result.alt3000 === 'number' ? (result.isCleared3000 ? 'text-emerald-400' : 'text-amber-500') : 'text-slate-500'}`}>
-                                            {formatAltitude(result.alt3000, result.isCleared3000)}
-                                        </span>
+                                ) : (
+                                    <div className="flex justify-around items-center mt-2">
+                                        <div className="flex flex-col items-center">
+                                            <span className="text-xs text-slate-500 mb-1">Ctbk 1500ft</span>
+                                            <span className={`text-4xl font-mono font-black ${typeof result.alt1500 === 'number' ? (result.isCleared1500 ? 'text-emerald-400' : 'text-amber-500') : 'text-slate-500'}`}>
+                                                {formatAltitude(result.alt1500, result.isCleared1500)}
+                                            </span>
+                                        </div>
+                                        <div className="flex flex-col items-center">
+                                            <span className="text-xs text-slate-500 mb-1">Ctbk 3000ft</span>
+                                            <span className={`text-4xl font-mono font-black ${typeof result.alt3000 === 'number' ? (result.isCleared3000 ? 'text-emerald-400' : 'text-amber-500') : 'text-slate-500'}`}>
+                                                {formatAltitude(result.alt3000, result.isCleared3000)}
+                                            </span>
+                                        </div>
                                     </div>
-                                </div>
+                                )}
                             </>
                         )}
                     </div>
                 </div>
             </div>
 
-             <div className="bg-slate-800 p-3 rounded-lg border border-slate-700 mt-2 text-xs text-slate-400 space-y-1">
-                <p><strong className="text-slate-300">Calculation Conditions:</strong></p>
-                <ul className="list-disc list-inside space-y-1 ml-2">
-                    <li>Aircraft: <span className="text-amber-400 font-mono">{manualAircraftType}</span></li>
-                    <li>Configuration: {result.flap || "N/A"} / No Wind, QNH 29.92</li>
-                    <li className="text-amber-600/80">* Values are estimates based on standard profiles and may differ from actual performance.</li>
+             <div className="bg-slate-800 p-4 rounded-lg border border-slate-700 mt-2 text-xs text-slate-300 space-y-2">
+                <p><strong className="text-white text-sm">＜計算条件＞</strong></p>
+                <ul className="space-y-1.5 ml-1">
+                    <li><span className="text-white font-bold">● WX :</span> 地上および上層No Wind{selectedWaypoint === 'TAURA' ? '、Wind 200deg/20kt(※)' : ''}、QNH 29.92 in Hg</li>
+                    <li><span className="text-white font-bold">● Climb Thrust :</span> CLM</li>
+                    <li><span className="text-white font-bold">● Climb Profile :</span> {selectedWaypoint}での高度獲得に有効なProfileを設定。</li>
                 </ul>
+                <div className="text-rose-500 font-bold ml-6 my-2 text-sm tracking-wide">
+                    {selectedWaypoint === 'WELDA' && '離陸後6,000ftまでTakeoff FlapのままV2+15で上昇'}
+                    {selectedWaypoint === 'TAURA' && '1,000ftで加速を開始し、Flap5までRetractし、9,000ftまでFlap5 Spdを維持'}
+                    {selectedWaypoint === 'ROVER' && '1,000ftで加速を開始し、Flap5までRetractし、12,000ftまでFlap5 Spdを維持'}
+                </div>
+                {selectedWaypoint === 'TAURA' && (
+                    <div className="ml-5 text-[10px] text-slate-400 mt-1">
+                        (※)地上から上空まで一定、発現頻度の高い地上風を参考に設定
+                    </div>
+                )}
             </div>
         </div>
     );
 };
+                       
