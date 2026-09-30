@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import * as LucideIcons from 'lucide-react';
 
-const APP_VERSION = "10.8"; 
+const APP_VERSION = "10.9"; 
 
 import { RAW_CSV_DATA, aircraftRegistrationList, BUDDYCOM_LINKS } from './data/flightData';
 import { aircraftPerformanceData, defaultCruiseWeights, defaultLandingWeights, modelKeyMap, AIRCRAFT_DIMENSIONS, SEAT_DATA, CRUISE_PERF_DATA, VREF_DATA, HOLD_SPD_DATA_RAW, MANEUVER_1_3G_MACH_DATA, TARGET_PITCH_N1_DATA_RAW, LANDING_DIST_DATA_RAW, B777_WIND_LIMITS, MAX_MAN_DATA } from './data/perfData';
@@ -395,15 +395,12 @@ export default function App() {
       staM = parseInt(staMatch[2], 10);
     }
 
-    // ★ 修正: TAXI OUT/IN の抽出ロジック（CONXパターンに完全対応）
     const taxiRegex = /(?:AVG|TAXI|OUT|CONX)[\s\S]*?(\d+)\/(\d+)MIN\s*AVG:\s*(\d+)\/(\d+)MIN/i;
     const matchFull = text.match(taxiRegex);
     if (matchFull) {
-        // "TAXI OUT/IN CONX: 27/8MIN AVG: 23/6MIN" の場合、AVG側（後ろの2つ）を取得
         pTaxiOut = parseInt(matchFull[3], 10) || 20;
         pTaxiIn = parseInt(matchFull[4], 10) || 5;
     } else {
-        // 通常の "AVG: 16/9MIN" のパターンの場合
         const taxiMatch = text.match(/AVG:\s*(\d+)\/(\d+)MIN/i) || text.match(/(?:AVG|TAXI|OUT)[^\d]*(\d+)\/(\d+)MIN/i);
         if (taxiMatch) {
             pTaxiOut = parseInt(taxiMatch[1], 10) || 20;
@@ -1165,7 +1162,7 @@ export default function App() {
             if (tab === 'スマカタ') {
               return (
                 <button key={tab} onClick={() => setIsSmartCatModalOpen(true)} className="px-2 py-1.5 text-[10px] sm:text-[11px] font-bold rounded-md transition-all shadow-sm bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700/50 flex items-center justify-center gap-1 flex-grow sm:flex-grow-0 min-w-[22%] sm:min-w-0">
-                  <SafeIcon name="BookOpen" className="w-3 h-3" /> <span className="leading-none">スマカタ</span>
+                  <span className="leading-none">スマカタ</span>
                 </button>
               );
             }
