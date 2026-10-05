@@ -1,3 +1,4 @@
+// NavlogView.jsx
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { SafeIcon } from './SharedComponents';
 
@@ -534,7 +535,6 @@ const WpAlertModal = ({ wpName, onClose }) => {
     );
 };
 
-// ★ 修正: 秒単位でカウントダウンするタイマー提案モーダル
 const TimerSuggestModal = ({ data, onClose }) => {
     const [timeLeft, setTimeLeft] = useState(null);
 
@@ -889,7 +889,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
     } catch (e) {}
   }, [flightPlan, actuals, flightNo, routeInfo, parsedDepIcao, parsedReg, parsedPzfw, parsedTaxiOut, parsedTaxiIn, parsedDate, parsedSta, parsedDestIcao, takeoffTime, parsedEtopsInfo, activeAlerts, triggeredAlerts]);
 
-  // ★ 変更: 残り秒数を計算するための targetEtoMs を算出
   const toggleAlert = (wp) => {
       if (window.navigator && window.navigator.vibrate) window.navigator.vibrate(50);
       
@@ -1323,9 +1322,9 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
       }, 150);
       return () => clearTimeout(timer);
     }
-  }, [calculatedData.flightData.length]);
+  }, [navlogData?.loadId]);
 
-  const gridColumnsStyle = { gridTemplateColumns: 'minmax(85px, 1.5fr) 40px 45px 55px 35px 45px 55px minmax(180px, 2.8fr) 55px 35px' };
+  const gridColumnsStyle = { gridTemplateColumns: 'minmax(75px, 1.5fr) 40px 40px 50px 40px 45px minmax(180px, 2.5fr) 50px 32px' };
 
   return (
     <div className="flex flex-col h-full w-full absolute inset-0 bg-[#05070a] text-[#cbd5e1] font-sans overflow-hidden rounded-xl border border-slate-700/50">
@@ -1529,6 +1528,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
           </div>
         </div>
 
+        {/* ETOPS Info Row */}
         <div className="max-w-[1400px] mx-auto mt-2 flex flex-wrap items-center gap-1.5 text-[11px] font-mono font-bold bg-slate-800/50 px-2 py-1 rounded border border-slate-700/50">
             <span className="text-slate-400">ETOPS:</span>
             {parsedEtopsInfo && parsedEtopsInfo.data ? (
@@ -1541,18 +1541,39 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                         
                         const isActive = activeEtopsAirport === data.airport;
 
+                        let etpStr = "----";
+                        if (data.endCtme !== Infinity && takeoffTime) {
+                            const toMins = timeToMinutes(takeoffTime);
+                            if (toMins !== null) {
+                                const etpMins = toMins + data.endCtme + (calculatedData.latestAtoTimeDiff || 0);
+                                etpStr = minutesToTime((etpMins + 1440 * 10) % 1440);
+                            }
+                        }
+
                         return (
-                            <div key={idx} className={`flex items-center gap-1.5 border px-2 py-0.5 rounded shadow-inner transition-colors duration-300 ${isActive ? 'bg-sky-800 border-sky-500 text-white' : 'bg-slate-900/90 border-slate-700 text-slate-300'}`}>
-                                <span className={`${isActive ? 'text-white' : 'text-sky-300'} font-extrabold text-xs`}>{data.airport}</span>
-                                <div className="flex items-center gap-0.5">
-                                    <span className={`${isActive ? 'text-sky-200' : 'text-slate-500'} text-[9px] font-semibold`}>ET</span>
-                                    <span className={`${isActive ? 'text-white' : 'text-slate-200'} font-bold text-[11px]`}>{revisedEt}</span>
+                            <React.Fragment key={idx}>
+                                <div className={`flex items-center gap-1.5 border px-2 py-0.5 rounded shadow-inner transition-colors duration-300 ${isActive ? 'bg-sky-800 border-sky-500 text-white' : 'bg-slate-900/90 border-slate-700 text-slate-300'}`}>
+                                    <span className={`${isActive ? 'text-white' : 'text-sky-300'} font-extrabold text-xs`}>{data.airport}</span>
+                                    <div className="flex items-center gap-0.5">
+                                        <span className={`${isActive ? 'text-sky-200' : 'text-slate-500'} text-[9px] font-semibold`}>ET</span>
+                                        <span className={`${isActive ? 'text-white' : 'text-slate-200'} font-bold text-[11px]`}>{revisedEt}</span>
+                                    </div>
+                                    <div className="flex items-center gap-0.5">
+                                        <span className={`${isActive ? 'text-sky-200' : 'text-slate-500'} text-[9px] font-semibold`}>LT</span>
+                                        <span className={`${isActive ? 'text-white' : 'text-slate-200'} font-bold text-[11px]`}>{revisedLt}</span>
+                                    </div>
                                 </div>
-                                <div className="flex items-center gap-0.5">
-                                    <span className={`${isActive ? 'text-sky-200' : 'text-slate-500'} text-[9px] font-semibold`}>LT</span>
-                                    <span className={`${isActive ? 'text-white' : 'text-slate-200'} font-bold text-[11px]`}>{revisedLt}</span>
-                                </div>
-                            </div>
+                                {idx < parsedEtopsInfo.data.length - 1 && (
+                                    <div className="flex items-center gap-1 px-0.5">
+                                        <SafeIcon name="ChevronRight" className="w-3 h-3 text-slate-600" />
+                                        <div className="flex bg-slate-900/80 border border-slate-700 rounded px-1.5 py-0.5 items-center gap-1">
+                                            <span className="text-[8px] text-amber-500/80 font-bold">ETP</span>
+                                            <span className="text-[10px] text-amber-400 font-mono font-bold leading-none">{etpStr}</span>
+                                        </div>
+                                        <SafeIcon name="ChevronRight" className="w-3 h-3 text-slate-600" />
+                                    </div>
+                                )}
+                            </React.Fragment>
                         );
                     })}
                 </div>
@@ -1563,8 +1584,8 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
       </header>
 
       <div className="flex-1 w-full relative overflow-hidden bg-slate-900/40">
-        <div className="absolute inset-0 overflow-auto custom-scrollbar p-1">
-            <div className="min-w-[700px] max-w-[1000px] mx-auto pb-16">
+        <div className="absolute inset-0 overflow-auto custom-scrollbar p-1 flex justify-center">
+            <div className="w-max pb-16">
               
               <div className="sticky top-0 z-30 bg-[#0f172a] border-b border-slate-700 shadow-md rounded-t-lg">
                 <div className="grid p-1 font-black text-slate-400 text-[9px] sm:text-[10px] text-center items-center leading-tight" style={gridColumnsStyle}>
@@ -1633,7 +1654,11 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                           maxLength={4} 
                           value={row.ato} 
                           onChange={(e) => handleUpdateActual(row.wp, 'ato', e.target.value.replace(/[^0-9]/g, ''))} 
-                          onBlur={() => scrollToCurrentFix()}
+                          onBlur={() => {
+                              if (row.ato) {
+                                  setTimeout(() => scrollToCurrentFix(), 300);
+                              }
+                          }}
                           className={`w-full max-w-[65px] mx-auto bg-[#05070a] border rounded py-1 text-center font-mono text-xs font-bold focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors ${row.ato ? 'border-blue-500/50 text-white' : 'border-slate-700 text-slate-400'}`} 
                       />
                     </div>
