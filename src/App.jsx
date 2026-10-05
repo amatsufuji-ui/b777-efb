@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import * as LucideIcons from 'lucide-react';
 
-const APP_VERSION = "11.0"; 
+const APP_VERSION = "11.1"; 
 
 import { RAW_CSV_DATA, aircraftRegistrationList, BUDDYCOM_LINKS } from './data/flightData';
 import { aircraftPerformanceData, defaultCruiseWeights, defaultLandingWeights, modelKeyMap, AIRCRAFT_DIMENSIONS, SEAT_DATA, CRUISE_PERF_DATA, VREF_DATA, HOLD_SPD_DATA_RAW, MANEUVER_1_3G_MACH_DATA, TARGET_PITCH_N1_DATA_RAW, LANDING_DIST_DATA_RAW, B777_WIND_LIMITS, MAX_MAN_DATA } from './data/perfData';
@@ -21,6 +21,9 @@ import { NavlogView } from './components/NavlogView';
 import { TarmacView } from './components/TarmacView'; 
 import { SidView } from './components/SidView'; 
 import { WeatherRadarView } from './components/WeatherRadarView';
+
+// IMPORTANT: TOLView MUST be exported as 'export default TOLView;' from './components/TOLView'
+import TOLView from './components/TOLView';
 
 const LoadDataModal = ({ isOpen, onClose, onFileClick, onPaste, isParsing }) => {
     const [text, setText] = useState("");
@@ -68,7 +71,7 @@ const LoadDataModal = ({ isOpen, onClose, onFileClick, onPaste, isParsing }) => 
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('DASHBOARD');
-  const tabs = ['DASHBOARD', 'TFC INFO', 'WX/MNM', 'RDR',  'ETOPS', 'NAVLOG', 'DOCS', 'スマカタ', 'REST CALC', 'APP CALC', 'TARMAC', 'XWIND', 'SID'];
+  const tabs = ['DASHBOARD', 'TFC INFO', 'WX/MNM', 'RDR',  'ETOPS', 'NAVLOG', 'DOCS', 'スマカタ', 'REST CALC', 'APP CALC', 'TARMAC', 'XWIND', 'SID', 'TO LIMIT'];
 
   const [flightId, setFlightId] = useState(""); 
   const [isWifiModalOpen, setIsWifiModalOpen] = useState(false); 
@@ -415,6 +418,13 @@ export default function App() {
     const dateMatch = text.match(/\b(\d{2}[A-Z]{3}\d{2})\b/);
     const pDate = dateMatch ? dateMatch[1] : "";
 
+    // Extract Crew Count for TOLView
+    let pCrewCount = 2;
+    const crewMatch = text.match(/CREW\s+(\d{2})\//);
+    if (crewMatch) {
+      pCrewCount = parseInt(crewMatch[1], 10);
+    }
+
     const etopsSectionIndex = text.indexOf('-ETP/EEP/EXP/ET.LT');
     let etopsData = null;
     let eepCtme = null;
@@ -722,7 +732,7 @@ export default function App() {
 
     return { 
         newPlan, fNo, flightIdRaw, flightId: flightIdRaw, rInfo, depIcao, destIcao, dest: destIcao, pReg, pPzfw, pTaxiOut, pTaxiIn, pDate, 
-        ptow, pldw, alt, isa, toElev, ldElev, fltTimeH, fltTimeM, stdH, stdM, staH, staM,
+        ptow, pldw, alt, isa, toElev, ldElev, fltTimeH, fltTimeM, stdH, stdM, staH, staM, pCrewCount,
         fullRouteStr, route: fullRouteStr, etopsAltns: extractedEtopsAltns, isEtops207, loadId: Date.now(), parsedEtopsInfo,
         isTaxiFallback 
     };
@@ -1198,6 +1208,7 @@ export default function App() {
         {activeTab === 'XWIND' && (<div className="flex flex-col gap-1 w-full h-full mt-0.5"><XwindView /></div>)}
         {activeTab === 'SID' && (<div className="flex flex-col gap-1 w-full h-full"><SidView state={state} /></div>)}
         {activeTab === 'RDR' && (<div className="flex flex-col gap-1 w-full h-full"><WeatherRadarView navlogData={navlogData} /></div>)}
+        {activeTab === 'TO LIMIT' && (<div className="flex flex-col gap-1 w-full h-full"><TOLView navlogData={navlogData} /></div>)}
        </div>
     </div>
   );
