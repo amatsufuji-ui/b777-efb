@@ -5396,7 +5396,7 @@ export const etopsData = {
       { altn: "CYFB-BIKF", dest: "Europe other than ESSA" },
       { altn: "CYFB-ENBO", dest: "Europe other than ESSA", etops: "180/207" },
       { altn: "PAFA-BIKF", dest: "Europe other than ESSA" , etops: "207" },
-      { altn: "CYXF-BIKF", dest: "Europe other than ESSA", etops: "207"  },
+      { altn: "CYXY-BIKF", dest: "Europe other than ESSA", etops: "207"  },
       { altn: "CYZF-BIKF", dest: "Europe other than ESSA", etops: "207"  },
       { altn: "CYZF-ENBO", dest: "Europe other than ESSA", etops: "207" }
     ],
