@@ -1324,8 +1324,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
     }
   }, [navlogData?.loadId]);
 
-  const gridColumnsStyle = { gridTemplateColumns: 'minmax(75px, 1.5fr) 40px 40px 50px 40px 45px minmax(180px, 2.5fr) 50px 32px' };
-
   return (
     <div className="flex flex-col h-full w-full absolute inset-0 bg-[#05070a] text-[#cbd5e1] font-sans overflow-hidden rounded-xl border border-slate-700/50">
       
@@ -1585,23 +1583,23 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
 
       <div className="flex-1 w-full relative overflow-hidden bg-slate-900/40">
         <div className="absolute inset-0 overflow-auto custom-scrollbar p-1 flex justify-center">
-            <div className="w-max pb-16">
+            <div className="w-full max-w-[1400px] min-w-[800px] pb-16 px-1">
               
               <div className="sticky top-0 z-30 bg-[#0f172a] border-b border-slate-700 shadow-md rounded-t-lg">
-                <div className="grid p-1 font-black text-slate-400 text-[9px] sm:text-[10px] text-center items-center leading-tight" style={gridColumnsStyle}>
-                  <div className="text-left pl-1">WAYPOINT</div>
-                  <div className="text-cyan-400">GS<br/><span className="text-[8px] text-cyan-500">TAS</span></div>
-                  <div className="text-slate-400 flex flex-col items-center justify-center">
+                <div className="flex p-1 font-black text-slate-400 text-[10px] text-center items-center leading-tight">
+                  <div className="w-[90px] text-left pl-1 shrink-0">WAYPOINT</div>
+                  <div className="w-[45px] text-cyan-400 shrink-0">GS<br/><span className="text-[8px] text-cyan-500">TAS</span></div>
+                  <div className="w-[50px] text-slate-400 flex flex-col items-center justify-center shrink-0">
                     <span>CTME</span>
                     <span className="text-[8px] text-slate-500">RTME</span>
                   </div>
-                  <div className="text-blue-300">ETO(Rev)<br/>ATO</div>
-                  <div>DIFF</div>
-                  <div className="text-slate-500">PLN FOB</div>
-                  <div className="text-green-300">RMG<br/><span className="text-[7.5px]">DIFF</span></div>
-                  <div>ACT (ALT / TMP / WIND)</div>
-                  <div className="text-purple-300">MAX ALT<br/><span className="text-[7.5px] text-slate-500">WT</span></div>
-                  <div>MEMO</div>
+                  <div className="w-[65px] text-blue-300 shrink-0">ETO(Rev)<br/>ATO</div>
+                  <div className="w-[40px] shrink-0">DIFF</div>
+                  <div className="w-[50px] text-slate-500 shrink-0">PLN FOB</div>
+                  <div className="w-[60px] text-green-300 shrink-0">RMG<br/><span className="text-[7.5px]">DIFF</span></div>
+                  <div className="flex-1">ACT (ALT / TMP / WIND)</div>
+                  <div className="w-[65px] text-purple-300 shrink-0">MAX ALT<br/><span className="text-[7.5px] text-slate-500">WT</span></div>
+                  <div className="w-[40px] shrink-0">MEMO</div>
                 </div>
               </div>
               
@@ -1609,14 +1607,14 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                 {calculatedData.flightData.map((row, idx) => {
                   const isTriggered = triggeredAlerts[row.wp] && !row.ato;
                   const isAlertActive = activeAlerts[row.wp];
-                  const baseRowClass = "grid py-1.5 px-1 items-center hover:bg-slate-800/60 transition-colors group text-center gap-x-1 box-border";
+                  const baseRowClass = "flex py-1.5 px-1 items-center hover:bg-slate-800/60 transition-colors group text-center gap-x-1 box-border";
                   const finalRowClass = isTriggered ? `${baseRowClass} bg-rose-900/30 shadow-[inset_4px_0_0_rgba(244,63,94,1)]` : baseRowClass;
 
                   return (
-                  <div key={idx} ref={el => rowRefs.current[idx] = el} className={finalRowClass} style={gridColumnsStyle}>
+                  <div key={idx} ref={el => rowRefs.current[idx] = el} className={finalRowClass}>
                     
                     <div 
-                        className="font-mono text-sm sm:text-[15px] font-black text-left pl-1 text-slate-200 truncate flex items-center gap-1 select-none cursor-pointer"
+                        className="w-[90px] shrink-0 font-mono text-sm sm:text-[15px] font-black text-left pl-1 text-slate-200 truncate flex items-center gap-1 select-none cursor-pointer"
                         onPointerDown={(e) => handlePointerDown(e, row.wp)}
                         onPointerUp={handlePointerUpOrLeave}
                         onPointerLeave={handlePointerUpOrLeave}
@@ -1630,17 +1628,17 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                         )}
                     </div>
                     
-                    <div className="flex flex-col items-center justify-center leading-none py-0.5 font-mono">
+                    <div className="w-[45px] shrink-0 flex flex-col items-center justify-center leading-none py-0.5 font-mono">
                         <span className="text-[13px] text-cyan-300 font-bold">{row.gs || '-'}</span>
                         <span className="text-[11px] text-cyan-500/80 font-medium mt-0.5">{row.tas || '-'}</span>
                     </div>
 
-                    <div className="flex flex-col items-center justify-center leading-none py-0.5 font-mono">
+                    <div className="w-[50px] shrink-0 flex flex-col items-center justify-center leading-none py-0.5 font-mono">
                         <span className="text-xs text-slate-300 font-bold">{formatTimePlus(row.ctme)}</span>
                         <span className="text-[10px] text-slate-500 font-medium mt-0.5">{formatTimePlus(row.rtme)}</span>
                     </div>
                     
-                    <div className="flex flex-col px-0.5 gap-1 items-center w-full">
+                    <div className="w-[65px] shrink-0 flex flex-col px-0.5 gap-1 items-center">
                       <span className="text-blue-400 font-mono text-[14px] font-extrabold leading-none">{row.revisedEtoStr || "----"}</span>
                       <input 
                           type="text" 
@@ -1663,11 +1661,11 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                       />
                     </div>
                     
-                    <div className={`font-mono text-[11px] font-bold ${parseInt(row.timeDiffStr) > 0 ? 'text-red-400' : parseInt(row.timeDiffStr) < 0 ? 'text-green-400' : 'text-slate-400'}`}>{row.timeDiffStr}</div>
+                    <div className={`w-[40px] shrink-0 font-mono text-[11px] font-bold ${parseInt(row.timeDiffStr) > 0 ? 'text-red-400' : parseInt(row.timeDiffStr) < 0 ? 'text-green-400' : 'text-slate-400'}`}>{row.timeDiffStr}</div>
 
-                    <div className="font-mono text-[13px] text-slate-400 font-bold">{row.fob ? row.fob.toFixed(1) : ''}</div>
+                    <div className="w-[50px] shrink-0 font-mono text-[13px] text-slate-400 font-bold">{row.fob ? row.fob.toFixed(1) : ''}</div>
 
-                    <div className="flex flex-col px-0.5 gap-1 items-center w-full">
+                    <div className="w-[60px] shrink-0 flex flex-col px-0.5 gap-1 items-center">
                       <input 
                           type="text" 
                           inputMode="decimal" 
@@ -1678,16 +1676,16 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                           placeholder="RMG" 
                           value={row.afob} 
                           onChange={(e) => handleUpdateActual(row.wp, 'afob', e.target.value.replace(/[^0-9.]/g, ''))} 
-                          className={`w-full max-w-[55px] mx-auto bg-[#05070a] border rounded py-1 text-center font-mono text-xs font-bold focus:outline-none focus:ring-1 focus:ring-green-500 transition-colors ${row.afob ? 'border-green-500/50 text-white' : 'border-slate-700 text-slate-400'}`} 
+                          className={`w-full bg-[#05070a] border rounded py-1 text-center font-mono text-xs font-bold focus:outline-none focus:ring-1 focus:ring-green-500 transition-colors ${row.afob ? 'border-green-500/50 text-white' : 'border-slate-700 text-slate-400'}`} 
                       />
                       <span className={`font-mono text-[9px] leading-none ${row.fuelDiff > 0 ? 'text-green-400 font-bold' : row.fuelDiff < 0 ? 'text-red-400 font-bold' : 'text-transparent'}`}>
                           {row.fuelDiff !== null ? (`${row.fuelDiff > 0 ? '+' : ''}${row.fuelDiff.toFixed(1)}`) : '-'}
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-[0.8fr_0.8fr_1.4fr] gap-1 px-1 w-full mx-auto">
+                    <div className="flex-1 grid grid-cols-3 gap-2 px-2">
                         <div className="flex flex-col items-center justify-center w-full relative">
-                            <span className="absolute -top-3 text-[7.5px] text-slate-500 font-mono leading-none">{row.plnAlt || ""}</span>
+                            <span className="absolute -top-3 text-[9px] text-slate-500 font-mono leading-none">{row.plnAlt || ""}</span>
                             <input 
                               type="text" 
                               lang="en"
@@ -1697,11 +1695,11 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                               placeholder="ACT" 
                               value={row.actAlt} 
                               onChange={(e) => handleUpdateActual(row.wp, 'actAlt', e.target.value.toUpperCase())} 
-                              className="w-full max-w-[45px] bg-[#05070a] border border-slate-700 rounded text-center text-[10px] font-mono font-bold py-1 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-inner mx-auto" 
+                              className="w-full bg-[#05070a] border border-slate-700 rounded text-center text-xs font-mono font-bold py-1 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-inner" 
                             />
                         </div>
                         <div className="flex flex-col items-center justify-center w-full relative">
-                            <span className="absolute -top-3 text-[7.5px] text-slate-500 font-mono leading-none">{row.plnTmp || ""}</span>
+                            <span className="absolute -top-3 text-[9px] text-slate-500 font-mono leading-none">{row.plnTmp || ""}</span>
                             <input 
                               type="text" 
                               lang="en"
@@ -1711,11 +1709,11 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                               placeholder="ACT" 
                               value={row.actTmp} 
                               onChange={(e) => handleUpdateActual(row.wp, 'actTmp', e.target.value)} 
-                              className="w-full max-w-[45px] bg-[#05070a] border border-slate-700 rounded text-center text-[10px] font-mono font-bold py-1 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-inner mx-auto" 
+                              className="w-full bg-[#05070a] border border-slate-700 rounded text-center text-xs font-mono font-bold py-1 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-inner" 
                             />
                         </div>
                         <div className="flex flex-col items-center justify-center w-full relative">
-                            <span className="absolute -top-3 text-[7.5px] text-slate-500 font-mono leading-none">{row.plnWind || ""}</span>
+                            <span className="absolute -top-3 text-[9px] text-slate-500 font-mono leading-none">{row.plnWind || ""}</span>
                             <input 
                               type="text" 
                               lang="en"
@@ -1725,12 +1723,12 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                               placeholder="ACT" 
                               value={row.actWind} 
                               onChange={(e) => handleUpdateActual(row.wp, 'actWind', e.target.value)} 
-                              className="w-full max-w-[65px] bg-[#05070a] border border-slate-700 rounded text-center text-[10px] font-mono font-bold py-1 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-inner mx-auto" 
+                              className="w-full bg-[#05070a] border border-slate-700 rounded text-center text-xs font-mono font-bold py-1 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-inner" 
                             />
                         </div>
                     </div>
 
-                    <div className="flex flex-col items-center justify-center leading-none">
+                    <div className="w-[65px] shrink-0 flex flex-col items-center justify-center leading-none">
                         <span className="text-[7px] text-purple-400 font-mono font-bold leading-none mb-0.5 whitespace-nowrap">
                               {row.isaDev !== undefined && !isNaN(row.isaDev) ? `ISA${row.isaDev >= 0 ? '+' : ''}${row.isaDev}` : ""}
                         </span>
@@ -1738,7 +1736,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                         <span className="text-[9px] text-slate-500 font-mono mt-1">W:{row.currentWeight}</span>
                     </div>
 
-                    <div className="flex justify-center items-center">
+                    <div className="w-[40px] shrink-0 flex justify-center items-center">
                         <button 
                             onClick={() => setMemoModal({ isOpen: true, wp: row.wp, text: row.memo })}
                             className={`p-1.5 rounded transition-colors border shadow-sm flex items-center justify-center ${row.memo ? 'bg-amber-600 border-amber-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white hover:bg-slate-700'}`}
