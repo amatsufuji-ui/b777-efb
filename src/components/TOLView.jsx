@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import * as LucideIcons from 'lucide-react';
 
 const TOLView = ({ navlogData }) => {
@@ -76,10 +76,11 @@ const TOLView = ({ navlogData }) => {
   const [unforeseen, setUnforeseen] = useState(false);
   const [calcResults, setCalcResults] = useState(null);
   
-  // Timer State
   const [isTimerActive, setIsTimerActive] = useState(false);
   const [timeRemainingMins, setTimeRemainingMins] = useState(null);
   const [showAlertModal, setShowAlertModal] = useState(false);
+  
+  const notifiedStagesRef = useRef({ thirty: false, fifteen: false, zero: false });
 
   const currentAirport = airportData.find(a => a.code === airportCode) || airportData[0];
   const airportTz = currentAirport.tz;
@@ -140,6 +141,7 @@ const TOLView = ({ navlogData }) => {
   const handleBoTimeChange = (newBoTime) => {
     setBoTime(newBoTime);
     setSuTime(calculateDefaultSuTime(newBoTime, airportTz));
+    notifiedStagesRef.current = { thirty: false, fifteen: false, zero: false };
   };
 
   const handleAirportChange = (newCode) => {
@@ -148,6 +150,7 @@ const TOLView = ({ navlogData }) => {
       if(matched) {
          setSuTime(calculateDefaultSuTime(boTime, matched.tz));
       }
+      notifiedStagesRef.current = { thirty: false, fifteen: false, zero: false };
   };
 
   const playAlertSound = useCallback(() => {
@@ -174,6 +177,7 @@ const TOLView = ({ navlogData }) => {
   useEffect(() => {
     if (navlogData) {
       let newCode = airportCode;
+      let shouldEnableTimer = false;
       
       if (navlogData.depIcao) {
         if (tzMap[navlogData.depIcao]) {
@@ -194,6 +198,7 @@ const TOLView = ({ navlogData }) => {
         const stdStr = `${String(navlogData.stdH).padStart(2, '0')}:${String(navlogData.stdM).padStart(2, '0')}`;
         setBoTime(stdStr);
         setSuTime(calculateDefaultSuTime(stdStr, matchedTz));
+        shouldEnableTimer = true; 
       }
       if (navlogData.fltTimeH !== undefined && navlogData.fltTimeM !== undefined) {
         setEteTime(`${String(navlogData.fltTimeH).padStart(2, '0')}:${String(navlogData.fltTimeM).padStart(2, '0')}`);
@@ -203,6 +208,15 @@ const TOLView = ({ navlogData }) => {
       }
       if (navlogData.pCrewCount !== undefined) {
         setCrewCount(navlogData.pCrewCount);
+      }
+      
+      notifiedStagesRef.current = { thirty: false, fifteen: false, zero: false };
+      
+      if (shouldEnableTimer) {
+          if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
+            Notification.requestPermission();
+          }
+          setIsTimerActive(true);
       }
     }
   }, [navlogData, calculateDefaultSuTime]);
@@ -272,19 +286,27 @@ const TOLView = ({ navlogData }) => {
          if (diff > 720) diff -= 1440;  
 
          setTimeRemainingMins(diff);
+         
+         const sendNotification = (title, body) => {
+             if ("Notification" in window && Notification.permission === "granted") {
+                 new Notification(title, { body: body, icon: '/favicon.ico' });
+             }
+             playAlertSound();
+         };
 
-         if (diff <= 0 && diff > -60) {
+         if (diff <= 0 && diff > -60 && !notifiedStagesRef.current.zero) {
+           notifiedStagesRef.current.zero = true;
            setShowAlertModal(true);
-           playAlertSound();
+           sendNotification("T/O Limit 警告", "計算上の離陸制限時刻を過ぎました。運航の可否を確認してください。");
            setIsTimerActive(false); 
-           
-           if ("Notification" in window && Notification.permission === "granted") {
-              new Notification("T/O Limit 警告", {
-                  body: "計算上の離陸制限時刻を過ぎました。運航の可否を確認してください。",
-              });
-           }
-         } else if (diff === 30 || diff === 15) {
-           window.dispatchEvent(new CustomEvent('show-toast', { detail: `T/O Limit まで残り ${diff} 分です` }));
+         } else if (diff === 15 && !notifiedStagesRef.current.fifteen) {
+           notifiedStagesRef.current.fifteen = true;
+           sendNotification("T/O Limit まで残り15分", "出発準備を急いでください。");
+           window.dispatchEvent(new CustomEvent('show-toast', { detail: `T/O Limit まで残り 15 分です` }));
+         } else if (diff === 30 && !notifiedStagesRef.current.thirty) {
+           notifiedStagesRef.current.thirty = true;
+           sendNotification("T/O Limit まで残り30分", "状況の再確認をおすすめします。");
+           window.dispatchEvent(new CustomEvent('show-toast', { detail: `T/O Limit まで残り 30 分です` }));
          }
       };
       
@@ -308,10 +330,16 @@ const TOLView = ({ navlogData }) => {
       if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
         Notification.requestPermission();
       }
+      notifiedStagesRef.current = { thirty: false, fifteen: false, zero: false };
       setIsTimerActive(true);
       window.dispatchEvent(new CustomEvent('show-toast', { detail: 'T/O Limit アラームをセットしました' }));
     }
   };
+
+  const handleUnforeseenToggle = () => {
+      setUnforeseen(!unforeseen);
+      notifiedStagesRef.current = { thirty: false, fifteen: false, zero: false };
+  }
 
   if (!calcResults) return <div className="p-8 text-center text-slate-500">Loading...</div>;
 
@@ -428,7 +456,7 @@ const TOLView = ({ navlogData }) => {
               </div>
             </div>
 
-            <div className={`rounded-3xl shadow-lg border p-5 transition-all duration-300 flex items-center justify-between cursor-pointer select-none ${unforeseen ? 'bg-[#331b0b] border-amber-500/50' : 'bg-[#1e293b] border-slate-600 hover:border-slate-500'}`} onClick={() => setUnforeseen(!unforeseen)}>
+            <div className={`rounded-3xl shadow-lg border p-5 transition-all duration-300 flex items-center justify-between cursor-pointer select-none ${unforeseen ? 'bg-[#331b0b] border-amber-500/50' : 'bg-[#1e293b] border-slate-600 hover:border-slate-500'}`} onClick={handleUnforeseenToggle}>
               <div className="flex items-center gap-4">
                 <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl transition-colors ${unforeseen ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-700 text-slate-400'}`}>
                   <AlertTriangle />
