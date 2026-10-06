@@ -54,6 +54,7 @@ const TOLView = ({ navlogData }) => {
     { region: "Oceania", code: "PER", name: "パース", tz: "Australia/Perth" }
   ];
 
+  // VABB(Mumbai) -> BOM, VIDP(Delhi) -> DEL mapping is explicitly fixed
   const tzMap = {
     "RJAA": "HND/NRT", "RJTT": "HND/NRT", "RJBB": "KIX/ITM", "RJGG": "NGO", "RJOO": "KIX/ITM", "RJCC": "CTS", "RJFF": "FUK", "ROAH": "OKA",
     "KLAX": "LAX", "KSFO": "SFO", "KSJC": "SJC", "KSEA": "SEA", "KORD": "ORD", "KIAH": "IAH", "KJFK": "JFK/EWR", "KEWR": "JFK/EWR", "KIAD": "IAD",
@@ -80,7 +81,7 @@ const TOLView = ({ navlogData }) => {
   const [timeRemainingMins, setTimeRemainingMins] = useState(null);
   const [showAlertModal, setShowAlertModal] = useState(false);
   
-  const notifiedStagesRef = useRef({ thirty: false, fifteen: false, zero: false });
+  const notifiedStagesRef = useRef({ three: false, zero: false });
 
   const currentAirport = airportData.find(a => a.code === airportCode) || airportData[0];
   const airportTz = currentAirport.tz;
@@ -127,10 +128,11 @@ const TOLView = ({ navlogData }) => {
     return `${h}H${m > 0 ? `${m}M` : ''}`;
   };
 
+  // Japan: 1h40m(100m) before, Overseas: 1h30m(90m) before
   const calculateDefaultSuTime = useCallback((boTimeStr, currentTz) => {
       const boMins = timeToMins(boTimeStr);
       const isJapan = currentTz === "Asia/Tokyo";
-      const offsetMins = isJapan ? 100 : 90; // 日本: 1時間40分(100分), 海外: 1時間30分(90分)
+      const offsetMins = isJapan ? 100 : 90; 
       let suMins = boMins - offsetMins;
       if (suMins < 0) suMins += 1440;
       const h = Math.floor(suMins / 60).toString().padStart(2, '0');
@@ -141,7 +143,7 @@ const TOLView = ({ navlogData }) => {
   const handleBoTimeChange = (newBoTime) => {
     setBoTime(newBoTime);
     setSuTime(calculateDefaultSuTime(newBoTime, airportTz));
-    notifiedStagesRef.current = { thirty: false, fifteen: false, zero: false };
+    notifiedStagesRef.current = { three: false, zero: false };
   };
 
   const handleAirportChange = (newCode) => {
@@ -150,7 +152,12 @@ const TOLView = ({ navlogData }) => {
       if(matched) {
          setSuTime(calculateDefaultSuTime(boTime, matched.tz));
       }
-      notifiedStagesRef.current = { thirty: false, fifteen: false, zero: false };
+      notifiedStagesRef.current = { three: false, zero: false };
+  };
+
+  const toggleUnforeseen = () => {
+      setUnforeseen(!unforeseen);
+      notifiedStagesRef.current = { three: false, zero: false };
   };
 
   const playAlertSound = useCallback(() => {
@@ -177,7 +184,6 @@ const TOLView = ({ navlogData }) => {
   useEffect(() => {
     if (navlogData) {
       let newCode = airportCode;
-      let shouldEnableTimer = false;
       
       if (navlogData.depIcao) {
         if (tzMap[navlogData.depIcao]) {
@@ -198,8 +204,8 @@ const TOLView = ({ navlogData }) => {
         const stdStr = `${String(navlogData.stdH).padStart(2, '0')}:${String(navlogData.stdM).padStart(2, '0')}`;
         setBoTime(stdStr);
         setSuTime(calculateDefaultSuTime(stdStr, matchedTz));
-        shouldEnableTimer = true; 
       }
+      
       if (navlogData.fltTimeH !== undefined && navlogData.fltTimeM !== undefined) {
         setEteTime(`${String(navlogData.fltTimeH).padStart(2, '0')}:${String(navlogData.fltTimeM).padStart(2, '0')}`);
       }
@@ -210,14 +216,8 @@ const TOLView = ({ navlogData }) => {
         setCrewCount(navlogData.pCrewCount);
       }
       
-      notifiedStagesRef.current = { thirty: false, fifteen: false, zero: false };
-      
-      if (shouldEnableTimer) {
-          if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
-            Notification.requestPermission();
-          }
-          setIsTimerActive(true);
-      }
+      notifiedStagesRef.current = { three: false, zero: false };
+      setIsTimerActive(false); 
     }
   }, [navlogData, calculateDefaultSuTime]);
 
@@ -289,28 +289,26 @@ const TOLView = ({ navlogData }) => {
          
          const sendNotification = (title, body) => {
              if ("Notification" in window && Notification.permission === "granted") {
-                 new Notification(title, { body: body, icon: '/favicon.ico' });
+                 new Notification(title, { body: body, icon: '/favicon.ico', requireInteraction: true });
              }
              playAlertSound();
          };
 
+         // Trigger at exactly 0 mins (Limit Reached)
          if (diff <= 0 && diff > -60 && !notifiedStagesRef.current.zero) {
            notifiedStagesRef.current.zero = true;
            setShowAlertModal(true);
-           sendNotification("T/O Limit 警告", "計算上の離陸制限時刻を過ぎました。運航の可否を確認してください。");
+           sendNotification("T/O Limit 到達", "計算上の離陸制限時刻を過ぎました。運航の可否を確認してください。");
            setIsTimerActive(false); 
-         } else if (diff === 15 && !notifiedStagesRef.current.fifteen) {
-           notifiedStagesRef.current.fifteen = true;
-           sendNotification("T/O Limit まで残り15分", "出発準備を急いでください。");
-           window.dispatchEvent(new CustomEvent('show-toast', { detail: `T/O Limit まで残り 15 分です` }));
-         } else if (diff === 30 && !notifiedStagesRef.current.thirty) {
-           notifiedStagesRef.current.thirty = true;
-           sendNotification("T/O Limit まで残り30分", "状況の再確認をおすすめします。");
-           window.dispatchEvent(new CustomEvent('show-toast', { detail: `T/O Limit まで残り 30 分です` }));
+         // Trigger at exactly 3 mins
+         } else if (diff === 3 && !notifiedStagesRef.current.three) {
+           notifiedStagesRef.current.three = true;
+           sendNotification("T/O Limit まで残り3分", "出発準備を急いでください。");
+           window.dispatchEvent(new CustomEvent('show-toast', { detail: `T/O Limit まで残り 3 分です` }));
          }
       };
       
-      checkTime();
+      checkTime(); 
       interval = setInterval(checkTime, 10000); 
     } else {
       setTimeRemainingMins(null);
@@ -328,18 +326,19 @@ const TOLView = ({ navlogData }) => {
          return;
       }
       if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
-        Notification.requestPermission();
+        Notification.requestPermission().then(permission => {
+             if(permission !== "granted") {
+                  window.dispatchEvent(new CustomEvent('show-toast', { detail: 'ブラウザの通知が許可されていないため、バックグラウンドでのアラームは機能しません' }));
+             }
+        });
+      } else if ("Notification" in window && Notification.permission === "denied") {
+          window.dispatchEvent(new CustomEvent('show-toast', { detail: '通知が拒否されています。設定から許可してください' }));
       }
-      notifiedStagesRef.current = { thirty: false, fifteen: false, zero: false };
+      notifiedStagesRef.current = { three: false, zero: false }; 
       setIsTimerActive(true);
-      window.dispatchEvent(new CustomEvent('show-toast', { detail: 'T/O Limit アラームをセットしました' }));
+      window.dispatchEvent(new CustomEvent('show-toast', { detail: 'T/O Limit アラームを手動でセットしました' }));
     }
   };
-
-  const handleUnforeseenToggle = () => {
-      setUnforeseen(!unforeseen);
-      notifiedStagesRef.current = { thirty: false, fifteen: false, zero: false };
-  }
 
   if (!calcResults) return <div className="p-8 text-center text-slate-500">Loading...</div>;
 
@@ -456,7 +455,7 @@ const TOLView = ({ navlogData }) => {
               </div>
             </div>
 
-            <div className={`rounded-3xl shadow-lg border p-5 transition-all duration-300 flex items-center justify-between cursor-pointer select-none ${unforeseen ? 'bg-[#331b0b] border-amber-500/50' : 'bg-[#1e293b] border-slate-600 hover:border-slate-500'}`} onClick={handleUnforeseenToggle}>
+            <div className={`rounded-3xl shadow-lg border p-5 transition-all duration-300 flex items-center justify-between cursor-pointer select-none ${unforeseen ? 'bg-[#331b0b] border-amber-500/50' : 'bg-[#1e293b] border-slate-600 hover:border-slate-500'}`} onClick={toggleUnforeseen}>
               <div className="flex items-center gap-4">
                 <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl transition-colors ${unforeseen ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-700 text-slate-400'}`}>
                   <AlertTriangle />
