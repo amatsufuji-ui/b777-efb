@@ -135,12 +135,46 @@ export default function App() {
   const [globalEtops207, setGlobalEtops207] = useState(() => getSavedState('globalEtops207', false));
 
   useEffect(() => {
+    // Only attempt update if the browser is online and service workers are supported
     if (navigator.onLine && 'serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(registrations => {
-        for (let registration of registrations) {
-          registration.update().catch(err => console.log('SW update check failed:', err));
-        }
-      });
+        navigator.serviceWorker.getRegistrations().then(registrations => {
+            for (let registration of registrations) {
+                // 1. Force an update check
+                registration.update().then(() => {
+                    // 2. Check if there's already a waiting worker (an update was downloaded previously)
+                    if (registration.waiting) {
+                        // Tell the waiting worker to activate immediately
+                        registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+                    }
+                }).catch(err => console.log('SW update check failed:', err));
+
+                // 3. Listen for new workers being installed
+                registration.onupdatefound = () => {
+                    const installingWorker = registration.installing;
+                    if (installingWorker) {
+                        installingWorker.onstatechange = () => {
+                            if (installingWorker.state === 'installed') {
+                                // A new service worker is installed and waiting
+                                if (navigator.serviceWorker.controller) {
+                                    // There is an existing controller, meaning this is an update
+                                    // Automatically force the new worker to activate
+                                    installingWorker.postMessage({ type: 'SKIP_WAITING' });
+                                }
+                            }
+                        };
+                    }
+                };
+            }
+        });
+
+        // 4. Listen for the controllerchange event to reload the page once the new worker takes over
+        let refreshing = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (!refreshing) {
+                refreshing = true;
+                window.location.reload();
+            }
+        });
     }
   }, []);
 
