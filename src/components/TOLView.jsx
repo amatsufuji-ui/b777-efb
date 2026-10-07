@@ -2,8 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import * as LucideIcons from 'lucide-react';
 
 const TOLView = ({ navlogData }) => {
-  // 追加: CalendarPlus アイコンを読み込み
-  const { PlaneTakeoff, Globe, Clock, AlertTriangle, CheckCircle2, ChevronRight, CalendarPlus, AlertOctagon, Info } = LucideIcons;
+  const { PlaneTakeoff, Globe, Clock, AlertTriangle, CheckCircle2, ChevronRight, Bell, BellOff, AlertOctagon, Info, CalendarPlus } = LucideIcons;
 
   const airportData = [
     { region: "Japan", code: "HND/NRT", name: "東京", tz: "Asia/Tokyo" },
@@ -77,16 +76,19 @@ const TOLView = ({ navlogData }) => {
   const [unforeseen, setUnforeseen] = useState(false);
   const [calcResults, setCalcResults] = useState(null);
   
-  // タイマー関連ステート
+  // Notification State
+  const [isTimerActive, setIsTimerActive] = useState(false);
   const [timeRemainingMins, setTimeRemainingMins] = useState(null);
   const [showAlertModal, setShowAlertModal] = useState(false);
-  
-  // 再通知防止用フラグ（条件が変わればリセットする）
+  // カレンダー登録待ちダイアログ用
+  const [showCalendarWaitModal, setShowCalendarWaitModal] = useState(false);
+
   const notifiedStagesRef = useRef({ three: false, zero: false });
 
   const currentAirport = airportData.find(a => a.code === airportCode) || airportData[0];
   const airportTz = currentAirport.tz;
 
+  /* STREAMING_CHUNK:Time Calculation Helpers... */
   const getTzOffsetMins = useCallback((timeZone) => {
     try {
       const date = new Date();
@@ -129,7 +131,6 @@ const TOLView = ({ navlogData }) => {
     return `${h}H${m > 0 ? `${m}M` : ''}`;
   };
 
-  // 日本は1時間40分(100分)前、それ以外は1時間30分(90分)前に設定
   const calculateDefaultSuTime = useCallback((boTimeStr, currentTz) => {
       const boMins = timeToMins(boTimeStr);
       const isJapan = currentTz === "Asia/Tokyo";
@@ -141,10 +142,12 @@ const TOLView = ({ navlogData }) => {
       return `${h}:${m}`;
   }, []);
 
+  /* STREAMING_CHUNK:Event Handlers... */
   const handleBoTimeChange = (newBoTime) => {
     setBoTime(newBoTime);
     setSuTime(calculateDefaultSuTime(newBoTime, airportTz));
     notifiedStagesRef.current = { three: false, zero: false };
+    setIsTimerActive(false); 
   };
 
   const handleAirportChange = (newCode) => {
@@ -154,13 +157,37 @@ const TOLView = ({ navlogData }) => {
          setSuTime(calculateDefaultSuTime(boTime, matched.tz));
       }
       notifiedStagesRef.current = { three: false, zero: false };
+      setIsTimerActive(false);
   };
 
   const toggleUnforeseen = () => {
       setUnforeseen(!unforeseen);
       notifiedStagesRef.current = { three: false, zero: false };
+      setIsTimerActive(false);
   };
 
+  const playAlertSound = useCallback(() => {
+    try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const ctx = new AudioContext();
+        const osc = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(880, ctx.currentTime);
+        osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.1);
+        osc.frequency.setValueAtTime(880, ctx.currentTime + 0.2);
+        osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.3);
+        
+        gainNode.gain.setValueAtTime(0.1, ctx.currentTime); 
+        osc.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        
+        osc.start();
+        osc.stop(ctx.currentTime + 0.6);
+    } catch(e) { console.error("Audio playback failed", e); }
+  }, []);
+
+  /* STREAMING_CHUNK:Effect Hooks... */
   useEffect(() => {
     if (navlogData) {
       let newCode = airportCode;
@@ -196,6 +223,7 @@ const TOLView = ({ navlogData }) => {
         setCrewCount(navlogData.pCrewCount);
       }
       
+      setIsTimerActive(false);
       notifiedStagesRef.current = { three: false, zero: false };
     }
   }, [navlogData, calculateDefaultSuTime]);
@@ -253,102 +281,11 @@ const TOLView = ({ navlogData }) => {
     });
   }, [airportTz, suTime, boTime, crewCount, sectors, restClass, eteTime, taxiIn, unforeseen, getTzOffsetMins]);
 
-  const playAlertSound = useCallback(() => {
-    try {
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        const ctx = new AudioContext();
-        const osc = ctx.createOscillator();
-        const gainNode = ctx.createGain();
-        osc.type = 'square';
-        osc.frequency.setValueAtTime(880, ctx.currentTime);
-        osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.1);
-        osc.frequency.setValueAtTime(880, ctx.currentTime + 0.2);
-        osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.3);
-        
-        gainNode.gain.setValueAtTime(0.1, ctx.currentTime); 
-        osc.connect(gainNode);
-        gainNode.connect(ctx.destination);
-        
-        osc.start();
-        osc.stop(ctx.currentTime + 0.6);
-    } catch(e) { console.error("Audio playback failed", e); }
-  }, []);
-
-  // カレンダー用のICSファイルを生成してダウンロードさせる
-  const handleAddToCalendar = () => {
-    if (!calcResults || calcResults.isImpossible) {
-         window.dispatchEvent(new CustomEvent('show-toast', { detail: '離陸不可能なためカレンダーに登録できません' }));
-         return;
-    }
-
-    const now = new Date();
-    const nowUtcMins = now.getUTCHours() * 60 + now.getUTCMinutes();
-    let diff = calcResults.finalToLimitMins - nowUtcMins;
-    
-    // 日付またぎの処理
-    if (diff < -720) diff += 1440; 
-    if (diff > 720) diff -= 1440; 
-    
-    // 過去の時間の場合はセット不可
-    if (diff <= 0) {
-        window.dispatchEvent(new CustomEvent('show-toast', { detail: '既に制限時刻を過ぎています' }));
-        return;
-    }
-
-    // カレンダーイベントの時刻（UTC）を計算
-    const limitDate = new Date(now.getTime() + diff * 60000);
-    
-    const formatDate = (d) => {
-        return d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-    };
-
-    const dtstamp = formatDate(now);
-    const dtstart = formatDate(limitDate);
-    const dtend = formatDate(new Date(limitDate.getTime() + 60000)); // 1分間のイベント
-
-    // ICS ファイルのコンテンツを作成（0分前と3分前に通知を設定）
-    const icsContent = `BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//ANA//7PT T/O Limit Calculator//JP
-CALSCALE:GREGORIAN
-BEGIN:VEVENT
-UID:tolimit-${Date.now()}@7pt.ana
-DTSTAMP:${dtstamp}
-DTSTART:${dtstart}
-DTEND:${dtend}
-SUMMARY:✈️ T/O Limit 到達！
-DESCRIPTION:計算上の離陸制限時刻を過ぎました。運航の可否を確認してください。
-BEGIN:VALARM
-TRIGGER:-PT0M
-ACTION:DISPLAY
-DESCRIPTION:T/O Limit 到達！
-END:VALARM
-BEGIN:VALARM
-TRIGGER:-PT3M
-ACTION:DISPLAY
-DESCRIPTION:T/O Limit まで残り3分です
-END:VALARM
-END:VEVENT
-END:VCALENDAR`;
-
-    // ダウンロードトリガー
-    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'TOLimit_Alarm.ics';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    
-    window.dispatchEvent(new CustomEvent('show-toast', { detail: 'カレンダーファイルを作成しました。予定に追加してください。' }));
-  };
-
-  // アプリを画面に開いている間のためのタイマー処理（常時監視）
+  /* STREAMING_CHUNK:App-level Timer Logic... */
+  // アプリ（フォアグラウンド時）用のタイマー監視処理
   useEffect(() => {
     let interval;
-    if (calcResults && !calcResults.isImpossible) {
+    if (isTimerActive && calcResults && !calcResults.isImpossible) {
       const checkTime = () => {
          const now = new Date();
          const nowUtcMins = now.getUTCHours() * 60 + now.getUTCMinutes();
@@ -359,12 +296,11 @@ END:VCALENDAR`;
 
          setTimeRemainingMins(diff);
 
-         // T/O Limit 到達時
          if (diff <= 0 && diff > -60 && !notifiedStagesRef.current.zero) {
            notifiedStagesRef.current.zero = true;
            setShowAlertModal(true);
            playAlertSound();
-         // T/O Limit 3分前
+           setIsTimerActive(false); 
          } else if (diff === 3 && !notifiedStagesRef.current.three) {
            notifiedStagesRef.current.three = true;
            window.dispatchEvent(new CustomEvent('show-toast', { detail: `T/O Limit まで残り 3 分です` }));
@@ -372,23 +308,94 @@ END:VCALENDAR`;
          }
       };
       
-      checkTime(); 
+      checkTime();
       interval = setInterval(checkTime, 10000); 
     } else {
       setTimeRemainingMins(null);
     }
     return () => clearInterval(interval);
-  }, [calcResults, playAlertSound]);
+  }, [isTimerActive, calcResults, playAlertSound]);
+
+  /* STREAMING_CHUNK:ICS Generation and Wait Logic... */
+  const generateICSFile = () => {
+    if (!calcResults || calcResults.isImpossible) return;
+
+    const now = new Date();
+    const nowUtcMins = now.getUTCHours() * 60 + now.getUTCMinutes();
+    let limitUtcMins = calcResults.finalToLimitMins;
+    
+    let addDays = 0;
+    let diffMins = limitUtcMins - nowUtcMins;
+    if (diffMins < -720) { addDays = 1; } 
+    else if (diffMins > 720) { addDays = -1; }
+    
+    const limitDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + addDays, Math.floor(limitUtcMins / 60), limitUtcMins % 60));
+    const limitDateStr = limitDate.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    
+    const icsContent = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//7PT//TOLimit Calculator//EN',
+      'CALSCALE:GREGORIAN',
+      'BEGIN:VEVENT',
+      `DTSTART:${limitDateStr}`,
+      `DTEND:${limitDateStr}`,
+      `DTSTAMP:${now.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z'}`,
+      'SUMMARY:✈️ T/O Limit 到達',
+      'DESCRIPTION:計算上の離陸制限時刻になりました。運航の可否を確認してください。\\n制限要因: ' + calcResults.limitingFactor,
+      'STATUS:CONFIRMED',
+      'SEQUENCE:0',
+      'BEGIN:VALARM',
+      'TRIGGER:-PT0M',
+      'ACTION:DISPLAY',
+      'DESCRIPTION:T/O Limit 到達！',
+      'END:VALARM',
+      'BEGIN:VALARM',
+      'TRIGGER:-PT3M',
+      'ACTION:DISPLAY',
+      'DESCRIPTION:T/O Limit 3分前',
+      'END:VALARM',
+      'END:VEVENT',
+      'END:VCALENDAR'
+    ].join('\r\n');
+
+    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `TOLimit_${limitDateStr}.ics`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    // カレンダー登録待ちダイアログを表示
+    setShowCalendarWaitModal(true);
+  };
+
+  const handleTimerToggle = () => {
+    if (isTimerActive) {
+      setIsTimerActive(false);
+      window.dispatchEvent(new CustomEvent('show-toast', { detail: 'アプリ上の監視を解除しました（カレンダーの予定は手動で削除してください）' }));
+    } else {
+      if (calcResults && calcResults.isImpossible) {
+         window.dispatchEvent(new CustomEvent('show-toast', { detail: '離陸不可能なため通知は登録できません' }));
+         return;
+      }
+      generateICSFile();
+    }
+  };
 
   if (!calcResults) return <div className="p-8 text-center text-slate-500">Loading...</div>;
 
+  /* STREAMING_CHUNK:Rendering TOLView UI... */
   return (
     <div className="w-full h-full overflow-y-auto bg-[#0a111f] p-2 sm:p-4 font-sans rounded-lg custom-scrollbar">
       
-      {/* 警告モーダル（アプリをフォアグラウンドで開いている時用） */}
+      {/* 警告モーダル（縦画面時は画面上部、横画面時は中央に表示） */}
       {showAlertModal && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-rose-900/90 backdrop-blur-sm animate-in fade-in duration-300">
-           <div className="bg-slate-900 border-2 border-rose-500 rounded-3xl p-8 max-w-lg w-full shadow-2xl flex flex-col items-center text-center animate-bounce-short">
+        <div className="fixed inset-x-0 inset-y-0 z-[9999] flex portrait:items-start landscape:items-center justify-center p-4 bg-rose-900/90 backdrop-blur-sm animate-in fade-in duration-300">
+           <div className="bg-slate-900 border-2 border-rose-500 rounded-3xl p-8 max-w-lg w-full shadow-2xl flex flex-col items-center text-center animate-bounce-short portrait:absolute portrait:top-4 landscape:relative">
               <AlertOctagon className="text-rose-500 w-24 h-24 mb-4 animate-pulse" />
               <h2 className="text-3xl font-black text-white mb-2">T/O Limit 到達！</h2>
               <p className="text-rose-200 font-bold mb-8">計算上の離陸制限時刻を過ぎました。</p>
@@ -402,7 +409,33 @@ END:VCALENDAR`;
         </div>
       )}
 
-      <div className="max-w-6xl mx-auto pb-20">
+      {/* カレンダー登録待ちモーダル - 縦画面時は画面上部、横画面時は画面中央 */}
+      {showCalendarWaitModal && (
+        <div className="fixed inset-x-0 inset-y-0 z-[9999] flex portrait:items-start landscape:items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+           <div className="bg-slate-900 border-2 border-blue-500 rounded-3xl p-6 shadow-2xl flex flex-col items-center text-center relative overflow-hidden pointer-events-auto w-full max-w-sm portrait:absolute portrait:top-4 landscape:relative">
+              <div className="absolute top-0 left-0 w-full h-1 bg-blue-500"></div>
+              <CalendarPlus className="text-blue-400 w-12 h-12 mb-3" />
+              <h2 className="text-lg font-bold text-white mb-2">カレンダーに登録</h2>
+              <p className="text-xs text-slate-300 mb-6 leading-relaxed">
+                表示されたダイアログで<br/>「<span className="text-emerald-400 font-bold">カレンダーに追加</span>」をタップした後、<br/>このボタンを押して監視を開始してください。
+              </p>
+              <button 
+                onClick={() => {
+                    setShowCalendarWaitModal(false);
+                    setIsTimerActive(true);
+                    window.dispatchEvent(new CustomEvent('show-toast', { detail: 'T/O Limitの監視を開始しました' }));
+                }}
+                className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black text-sm py-3 rounded-xl transition-colors shadow-lg flex items-center justify-center gap-2"
+              >
+                <CheckCircle2 className="w-5 h-5" />
+                登録完了（監視開始）
+              </button>
+           </div>
+        </div>
+      )}
+
+      <div className="max-w-6xl mx-auto pb-20 relative">
+        
         <header className="bg-[#1e293b] border border-slate-700 text-white rounded-2xl p-6 shadow-xl mb-6 relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="absolute -right-10 -bottom-10 opacity-5 pointer-events-none">
             <PlaneTakeoff size={180} />
@@ -418,19 +451,99 @@ END:VCALENDAR`;
           </div>
           
           <div className="flex w-full sm:w-auto gap-4 relative z-10">
-            {/* バックグラウンド対策用のカレンダー追加ボタン */}
             <button 
-              onClick={handleAddToCalendar} 
-              className="flex-1 sm:flex-none transition-all px-4 py-2.5 rounded-lg text-sm font-black flex items-center justify-center gap-2 border shadow-md bg-blue-600 hover:bg-blue-500 text-white border-blue-500"
+              onClick={handleTimerToggle} 
+              className={`flex-1 sm:flex-none transition-all px-4 py-2.5 rounded-lg text-sm font-black flex items-center justify-center gap-2 border shadow-md ${isTimerActive ? 'bg-rose-600 hover:bg-rose-500 text-white border-rose-500 animate-pulse' : 'bg-slate-700 hover:bg-slate-600 text-slate-200 border-slate-500'}`}
+              title="iPadのカレンダーアプリにアラームを登録します"
             >
-              <CalendarPlus size={16} /> 通知を登録
+              {isTimerActive ? <><Bell className="animate-wiggle" size={16} /> 監視中</> : <><CalendarPlus size={16} /> 通知を登録</>}
             </button>
           </div>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className={`grid grid-cols-1 lg:grid-cols-12 gap-6 transition-opacity duration-300 ${showCalendarWaitModal || showAlertModal ? 'opacity-20 pointer-events-none' : 'opacity-100'}`}>
           <div className="lg:col-span-7 space-y-6">
-            <div className="bg-[#1e293b] rounded-3xl shadow-lg border border-slate-700 p-6">
+            
+            {/* 縦画面時は上に配置、横画面時は左に配置される結果カード */}
+            <div className="flex flex-col gap-6 portrait:order-first landscape:order-none">
+                <div className="bg-indigo-900/30 border border-indigo-500/30 rounded-3xl p-5 flex items-center justify-between shadow-lg">
+                  <div className="flex items-center gap-3 text-indigo-400">
+                    <Clock className="w-6 h-6" />
+                    <span className="text-sm font-bold">順応地LCL S/U時刻</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-3xl font-black text-indigo-100 tracking-tight">{minsToTime(calcResults.suLocalMins).trim()}</span>
+                  </div>
+                </div>
+
+                <div className={`rounded-3xl shadow-2xl overflow-hidden relative transition-colors duration-500 border ${calcResults.isImpossible ? 'bg-rose-900/80 border-rose-500' : 'bg-[#1e40af] border-blue-500/50'}`}>
+                  <div className="p-6 relative z-10 text-white">
+                    <div className="flex justify-between items-start mb-2">
+                       <h3 className="text-xs font-bold tracking-widest text-blue-300 uppercase">Final T/O Limit Time</h3>
+                       {isTimerActive && timeRemainingMins !== null && !calcResults.isImpossible && (
+                         <div className={`px-2 py-1 rounded text-xs font-black border ${timeRemainingMins <= 60 ? 'bg-rose-500/20 text-rose-300 border-rose-500/50 animate-pulse' : 'bg-blue-500/20 text-blue-300 border-blue-500/50'}`}>
+                            残り {timeRemainingMins > 0 ? timeRemainingMins : 0} 分
+                         </div>
+                       )}
+                    </div>
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="text-6xl font-black tracking-tighter">{minsToTime(calcResults.finalToLimitMins)}</span>
+                      <span className="text-2xl font-bold text-blue-300">Z</span>
+                    </div>
+                    <div className="mt-6 pt-4 border-t border-white/20 flex items-center gap-3">
+                      {calcResults.isImpossible ? (
+                        <><AlertTriangle className="text-rose-400 w-5 h-5" /><span className="text-sm font-bold text-rose-100">B/O時刻での離陸は不可能</span></>
+                      ) : (
+                        <><CheckCircle2 className="text-emerald-400 w-5 h-5" /><span className="text-sm font-bold text-white">制限要因: <span className="font-black text-emerald-400 bg-black/20 px-1 rounded">{calcResults.limitingFactor}</span> 上限</span></>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2列レイアウトに変更したBreakdown */}
+                <div className="bg-[#1e293b] rounded-3xl shadow-lg border border-slate-700 p-6">
+                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-5 flex items-center gap-2">
+                    <Info size={14} /> 上限とリミット内訳 (ZULU)
+                  </h3>
+                  
+                  <div className="flex gap-4 mb-4">
+                    {/* FDP (Left Column) */}
+                    <div className={`flex-1 p-4 rounded-2xl border ${calcResults.limitingFactor === 'FDP' ? 'bg-[#0f172a]/80 border-blue-500/50' : 'bg-[#0f172a]/50 border-slate-700'} flex flex-col justify-between transition-colors`}>
+                      <div className="mb-3">
+                        <p className="text-[10px] font-bold text-slate-500 mb-1">FDP (飛行勤務時間)</p>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-xl font-black text-white">{formatDuration(calcResults.finalFdpLimit)}</span>
+                          {unforeseen && <span className="px-1.5 py-0.5 rounded text-[10px] font-black bg-amber-500/20 text-amber-400 border border-amber-500/30 animate-in zoom-in">+{formatDuration(calcResults.finalFdpLimit - calcResults.fdpLimit)}</span>}
+                        </div>
+                      </div>
+                      <div className="mt-auto">
+                        <p className="text-[10px] text-slate-500 font-bold uppercase mb-0.5">T/O Limit</p>
+                        <p className={`text-2xl font-black tracking-tight ${calcResults.limitingFactor === 'FDP' ? 'text-blue-400' : 'text-white'}`}>{minsToTime(calcResults.fdpToLimitMins)}</p>
+                      </div>
+                    </div>
+                    
+                    {/* F/T (Right Column) */}
+                    <div className={`flex-1 p-4 rounded-2xl border ${calcResults.limitingFactor === 'F/T' ? 'bg-[#0f172a]/80 border-blue-500/50' : 'bg-[#0f172a]/50 border-slate-700'} flex flex-col justify-between transition-colors`}>
+                      <div className="mb-3">
+                        <p className="text-[10px] font-bold text-slate-500 mb-1">F/T (乗務時間)</p>
+                        <p className="text-xl font-black text-white">{formatDuration(calcResults.finalFtLimit)}</p>
+                      </div>
+                      <div className="mt-auto">
+                        <p className="text-[10px] text-slate-500 font-bold uppercase mb-0.5">T/O Limit</p>
+                        <p className={`text-2xl font-black tracking-tight ${calcResults.limitingFactor === 'F/T' ? 'text-blue-400' : 'text-white'}`}>{minsToTime(calcResults.ftToLimitMins)}</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex justify-between items-center px-4 pt-4 border-t border-slate-700 mt-2">
+                    <span className="text-[10px] font-bold text-slate-400">フライト所要 (ETE + Taxi In)</span>
+                    <span className="text-sm font-black text-white bg-slate-900 px-2 py-1 rounded border border-slate-700">{formatDuration(calcResults.fltReqMins)}</span>
+                  </div>
+                </div>
+            </div>
+
+            {/* 入力フォーム (Portrait時は下になる) */}
+            <div className="bg-[#1e293b] rounded-3xl shadow-lg border border-slate-700 p-6 portrait:order-last landscape:order-none mt-6 landscape:mt-0">
               <h2 className="text-lg font-bold text-white mb-5 flex items-center gap-2 border-b border-slate-600 pb-3">
                 <PlaneTakeoff className="text-blue-400 w-5 h-5" /> フライト条件入力 (UTC)
               </h2>
@@ -499,7 +612,7 @@ END:VCALENDAR`;
               </div>
             </div>
 
-            <div className={`rounded-3xl shadow-lg border p-5 transition-all duration-300 flex items-center justify-between cursor-pointer select-none ${unforeseen ? 'bg-[#331b0b] border-amber-500/50' : 'bg-[#1e293b] border-slate-600 hover:border-slate-500'}`} onClick={toggleUnforeseen}>
+            <div className={`rounded-3xl shadow-lg border p-5 transition-all duration-300 flex items-center justify-between cursor-pointer select-none portrait:order-last landscape:order-none mt-6 ${unforeseen ? 'bg-[#331b0b] border-amber-500/50' : 'bg-[#1e293b] border-slate-600 hover:border-slate-500'}`} onClick={toggleUnforeseen}>
               <div className="flex items-center gap-4">
                 <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl transition-colors ${unforeseen ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-700 text-slate-400'}`}>
                   <AlertTriangle />
@@ -516,84 +629,90 @@ END:VCALENDAR`;
                 <div className={`absolute z-10 w-6 h-6 transform rounded-full bg-white shadow-md transition-transform duration-300 ease-in-out ${unforeseen ? 'translate-x-7' : 'translate-x-0.5'}`} />
               </div>
             </div>
+            
           </div>
 
           <div className="lg:col-span-5 space-y-6">
-            <div className="bg-indigo-900/30 border border-indigo-500/30 rounded-3xl p-5 flex items-center justify-between shadow-lg">
-              <div className="flex items-center gap-3 text-indigo-400">
-                <Clock className="w-6 h-6" />
-                <span className="text-sm font-bold">順応地LCL S/U時刻</span>
-              </div>
-              <div className="text-right">
-                <span className="text-3xl font-black text-indigo-100 tracking-tight">{minsToTime(calcResults.suLocalMins).trim()}</span>
-              </div>
-            </div>
+            
+            {/* 横画面時 (Landscape) はこちらのブロックに結果カードを表示 */}
+            <div className="hidden landscape:flex flex-col gap-6 h-full">
+                <div className="bg-indigo-900/30 border border-indigo-500/30 rounded-3xl p-5 flex items-center justify-between shadow-lg">
+                  <div className="flex items-center gap-3 text-indigo-400">
+                    <Clock className="w-6 h-6" />
+                    <span className="text-sm font-bold">順応地LCL S/U時刻</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-3xl font-black text-indigo-100 tracking-tight">{minsToTime(calcResults.suLocalMins).trim()}</span>
+                  </div>
+                </div>
 
-            <div className={`rounded-3xl shadow-2xl overflow-hidden relative transition-colors duration-500 border ${calcResults.isImpossible ? 'bg-rose-900/80 border-rose-500' : 'bg-[#1e40af] border-blue-500/50'}`}>
-              <div className="p-6 relative z-10 text-white">
-                <div className="flex justify-between items-start mb-2">
-                   <h3 className="text-xs font-bold tracking-widest text-blue-300 uppercase">Final T/O Limit Time</h3>
-                   {timeRemainingMins !== null && !calcResults.isImpossible && (
-                     <div className={`px-2 py-1 rounded text-xs font-black border ${timeRemainingMins <= 60 ? 'bg-rose-500/20 text-rose-300 border-rose-500/50 animate-pulse' : 'bg-blue-500/20 text-blue-300 border-blue-500/50'}`}>
-                        残り {timeRemainingMins > 0 ? timeRemainingMins : 0} 分
-                     </div>
-                   )}
+                <div className={`rounded-3xl shadow-2xl overflow-hidden relative transition-colors duration-500 border ${calcResults.isImpossible ? 'bg-rose-900/80 border-rose-500' : 'bg-[#1e40af] border-blue-500/50'}`}>
+                  <div className="p-6 relative z-10 text-white">
+                    <div className="flex justify-between items-start mb-2">
+                       <h3 className="text-xs font-bold tracking-widest text-blue-300 uppercase">Final T/O Limit Time</h3>
+                       {isTimerActive && timeRemainingMins !== null && !calcResults.isImpossible && (
+                         <div className={`px-2 py-1 rounded text-xs font-black border ${timeRemainingMins <= 60 ? 'bg-rose-500/20 text-rose-300 border-rose-500/50 animate-pulse' : 'bg-blue-500/20 text-blue-300 border-blue-500/50'}`}>
+                            残り {timeRemainingMins > 0 ? timeRemainingMins : 0} 分
+                         </div>
+                       )}
+                    </div>
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="text-6xl font-black tracking-tighter">{minsToTime(calcResults.finalToLimitMins)}</span>
+                      <span className="text-2xl font-bold text-blue-300">Z</span>
+                    </div>
+                    <div className="mt-6 pt-4 border-t border-white/20 flex items-center gap-3">
+                      {calcResults.isImpossible ? (
+                        <><AlertTriangle className="text-rose-400 w-5 h-5" /><span className="text-sm font-bold text-rose-100">B/O時刻での離陸は不可能</span></>
+                      ) : (
+                        <><CheckCircle2 className="text-emerald-400 w-5 h-5" /><span className="text-sm font-bold text-white">制限要因: <span className="font-black text-emerald-400 bg-black/20 px-1 rounded">{calcResults.limitingFactor}</span> 上限</span></>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-6xl font-black tracking-tighter">{minsToTime(calcResults.finalToLimitMins)}</span>
-                  <span className="text-2xl font-bold text-blue-300">Z</span>
-                </div>
-                <div className="mt-6 pt-4 border-t border-white/20 flex items-center gap-3">
-                  {calcResults.isImpossible ? (
-                    <><AlertTriangle className="text-rose-400 w-5 h-5" /><span className="text-sm font-bold text-rose-100">B/O時刻での離陸は不可能</span></>
-                  ) : (
-                    <><CheckCircle2 className="text-emerald-400 w-5 h-5" /><span className="text-sm font-bold text-white">制限要因: <span className="font-black text-emerald-400 bg-black/20 px-1 rounded">{calcResults.limitingFactor}</span> 上限</span></>
-                  )}
-                </div>
-              </div>
-            </div>
 
-            <div className="bg-[#1e293b] rounded-3xl shadow-lg border border-slate-700 p-6">
-              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-5 flex items-center gap-2">
-                <Info size={14} /> 上限とリミット内訳 (ZULU)
-              </h3>
-              <div className="space-y-4">
-                <div className={`p-4 rounded-2xl border ${calcResults.limitingFactor === 'FDP' ? 'bg-[#0f172a]/80 border-blue-500/50' : 'bg-[#0f172a]/50 border-slate-700'} flex justify-between items-center transition-colors`}>
-                  <div>
-                    <p className="text-[10px] font-bold text-slate-500 mb-1">FDP (飛行勤務時間)</p>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xl font-black text-white">{formatDuration(calcResults.finalFdpLimit)}</span>
-                      {unforeseen && <span className="px-1.5 py-0.5 rounded text-[10px] font-black bg-amber-500/20 text-amber-400 border border-amber-500/30 animate-in zoom-in">+{formatDuration(calcResults.finalFdpLimit - calcResults.fdpLimit)}</span>}
+                <div className="bg-[#1e293b] rounded-3xl shadow-lg border border-slate-700 p-6">
+                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-5 flex items-center gap-2">
+                    <Info size={14} /> 上限とリミット内訳 (ZULU)
+                  </h3>
+                  
+                  <div className="flex flex-col gap-4">
+                    <div className={`p-4 rounded-2xl border ${calcResults.limitingFactor === 'FDP' ? 'bg-[#0f172a]/80 border-blue-500/50' : 'bg-[#0f172a]/50 border-slate-700'} flex justify-between items-center transition-colors`}>
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-500 mb-1">FDP (飛行勤務時間)</p>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xl font-black text-white">{formatDuration(calcResults.finalFdpLimit)}</span>
+                          {unforeseen && <span className="px-1.5 py-0.5 rounded text-[10px] font-black bg-amber-500/20 text-amber-400 border border-amber-500/30 animate-in zoom-in">+{formatDuration(calcResults.finalFdpLimit - calcResults.fdpLimit)}</span>}
+                        </div>
+                      </div>
+                      <div className="text-right flex items-center gap-3">
+                        <ChevronRight className="text-slate-600 w-5 h-5" />
+                        <div>
+                          <p className="text-[10px] text-slate-500 font-bold uppercase mb-0.5">T/O Limit</p>
+                          <p className={`text-2xl font-black tracking-tight ${calcResults.limitingFactor === 'FDP' ? 'text-blue-400' : 'text-white'}`}>{minsToTime(calcResults.fdpToLimitMins)}</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className={`p-4 rounded-2xl border ${calcResults.limitingFactor === 'F/T' ? 'bg-[#0f172a]/80 border-blue-500/50' : 'bg-[#0f172a]/50 border-slate-700'} flex justify-between items-center transition-colors`}>
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-500 mb-1">F/T (乗務時間)</p>
+                        <p className="text-xl font-black text-white">{formatDuration(calcResults.finalFtLimit)}</p>
+                      </div>
+                      <div className="text-right flex items-center gap-3">
+                        <ChevronRight className="text-slate-600 w-5 h-5" />
+                        <div>
+                          <p className="text-[10px] text-slate-500 font-bold uppercase mb-0.5">T/O Limit</p>
+                          <p className={`text-2xl font-black tracking-tight ${calcResults.limitingFactor === 'F/T' ? 'text-blue-400' : 'text-white'}`}>{minsToTime(calcResults.ftToLimitMins)}</p>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  <div className="text-right flex items-center gap-3">
-                    <ChevronRight className="text-slate-600 w-5 h-5" />
-                    <div>
-                      <p className="text-[10px] text-slate-500 font-bold uppercase mb-0.5">T/O Limit</p>
-                      <p className={`text-2xl font-black tracking-tight ${calcResults.limitingFactor === 'FDP' ? 'text-blue-400' : 'text-white'}`}>{minsToTime(calcResults.fdpToLimitMins)}</p>
-                    </div>
+                  
+                  <div className="flex justify-between items-center px-4 pt-4 border-t border-slate-700 mt-4">
+                    <span className="text-[10px] font-bold text-slate-400">フライト所要 (ETE + Taxi In)</span>
+                    <span className="text-sm font-black text-white bg-slate-900 px-2 py-1 rounded border border-slate-700">{formatDuration(calcResults.fltReqMins)}</span>
                   </div>
                 </div>
-                
-                <div className={`p-4 rounded-2xl border ${calcResults.limitingFactor === 'F/T' ? 'bg-[#0f172a]/80 border-blue-500/50' : 'bg-[#0f172a]/50 border-slate-700'} flex justify-between items-center transition-colors`}>
-                  <div>
-                    <p className="text-[10px] font-bold text-slate-500 mb-1">F/T (乗務時間)</p>
-                    <p className="text-xl font-black text-white">{formatDuration(calcResults.finalFtLimit)}</p>
-                  </div>
-                  <div className="text-right flex items-center gap-3">
-                    <ChevronRight className="text-slate-600 w-5 h-5" />
-                    <div>
-                      <p className="text-[10px] text-slate-500 font-bold uppercase mb-0.5">T/O Limit</p>
-                      <p className={`text-2xl font-black tracking-tight ${calcResults.limitingFactor === 'F/T' ? 'text-blue-400' : 'text-white'}`}>{minsToTime(calcResults.ftToLimitMins)}</p>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="flex justify-between items-center px-4 pt-4 border-t border-slate-700 mt-2">
-                  <span className="text-[10px] font-bold text-slate-400">フライト所要 (ETE + Taxi In)</span>
-                  <span className="text-sm font-black text-white bg-slate-900 px-2 py-1 rounded border border-slate-700">{formatDuration(calcResults.fltReqMins)}</span>
-                </div>
-              </div>
             </div>
             
           </div>
