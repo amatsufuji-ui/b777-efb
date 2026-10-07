@@ -102,13 +102,13 @@ export const QuickGuideModal = ({ isOpen, onClose }) => {
           <section>
             <h3 className="text-sky-400 font-bold mb-2 border-l-4 border-sky-400 pl-2">2. ヘッダーボタンの機能</h3>
             <ul className="text-xs leading-relaxed space-y-2 pl-1">
-              <li><span className="bg-sky-600 px-1.5 py-0.5 rounded text-white font-mono font-bold">PANA</span> <span className="bg-indigo-600 px-1.5 py-0.5 rounded text-white font-mono font-bold">INMA</span> <span className="bg-emerald-600 px-1.5 py-0.5 rounded text-white font-mono font-bold">DOM</span> : 機内Wi-Fiポータルへ接続します。（PANAを長押しでパスワード登録。パスワードの入力時にペースト可能。）</li>
+              <li><span className="bg-sky-600 px-1.5 py-0.5 rounded text-white font-mono font-bold">PANA</span> / <span className="bg-indigo-600 px-1.5 py-0.5 rounded text-white font-mono font-bold">INMA</span> / <span className="bg-emerald-600 px-1.5 py-0.5 rounded text-white font-mono font-bold">DOM</span> : 機内Wi-Fiポータルへ接続します。（PANAを長押しでパスワード登録。パスワードの入力時にペースト可能。）</li>
               <li><span className="bg-purple-600 px-1.5 py-0.5 rounded text-white font-mono font-bold">DRM</span> : 欧州線でのDRM送信のため抽出した便名を件名に入れた状態でGmailを起動します。</li>
               <li><span className="bg-orange-600 px-1.5 py-0.5 rounded text-white font-mono font-bold">BDYC</span> : 当該機番のBuddycomを起動します。</li>
               <li><span className="bg-yellow-600 px-1.5 py-0.5 rounded text-white font-mono font-bold">FR24</span> : FlightRadar24が起動し、便名にペーストできます。</li>
-              <li><span className="bg-pink-600 px-1.5 py-0.5 rounded text-white font-mono font-bold">ALC</span> : リモートアルコール検査を起動します。</li>
-              <li><span className="bg-sky-600 px-1.5 py-0.5 rounded text-white font-mono font-bold">CKIN</span> : オンラインチェックイン画面を開きます。</li>
-              <li><span className="bg-emerald-600 px-1.5 py-0.5 rounded text-white font-mono font-bold">UPDT</span> : アプリ更新を行います。</li>
+              <li><span className="bg-pink-600 px-1.5 py-0.5 rounded text-white font-mono font-bold">ALC</span> : リモートアルコール検査</li>
+              <li><span className="bg-sky-600 px-1.5 py-0.5 rounded text-white font-mono font-bold">CKIN</span> : オンラインチェックイン</li>
+              <li><span className="bg-emerald-600 px-1.5 py-0.5 rounded text-white font-mono font-bold">UPDT</span> : アプリ更新</li>
             </ul>
           </section>
 
@@ -120,92 +120,97 @@ export const QuickGuideModal = ({ isOpen, onClose }) => {
                 <div className="text-amber-300 font-bold mb-1">DASHBOARD</div>
                 <p className="leading-relaxed">
                   PTOW/PLDWを読み込んでVREF、Flap Up Maneuver、Hold Speedや、着陸時のMAX AUTO / MAN 距離などをスライダーと連動してリアルタイムに計算します。<br/>
-                  <span className="text-rose-400 mt-1 inline-block font-bold">※ ENG INOPを選ぶとPTOWを着陸重量に反映するのでTAKEOFF RTNが可能かの判断に使用できます。</span>
+                  <span className="text-rose-400 mt-1 inline-block font-bold">ENG INOPを選ぶとPTOWを着陸重量に反映するのでTAKEOFF RTNが可能かの判断に使用できます。</span>
                 </p>
               </div>
 
               <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
                 <div className="text-amber-300 font-bold mb-1">TFC INFO</div>
                 <ul className="leading-relaxed list-disc pl-4 space-y-1">
-                  <li>読み込んだ便の前後の便を表示します。</li>
-                  <li>便名を入力することで関連機の情報を表示します。</li>
+                  <li>読み込んだ便の前後の便を表示</li>
+                  <li>便名を入力することで関連機の情報を表示</li>
                 </ul>
               </div>
 
               <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
                 <div className="text-amber-300 font-bold mb-1">WX/MNM</div>
-                <p className="leading-relaxed">WX悪化時のフローやFPL記号の説明を確認できます。</p>
+                <p className="leading-relaxed">WX悪化時のフローやFPL記号の説明</p>
               </div>
               
-              <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700 md:col-span-2">
+              <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
                 <div className="text-amber-300 font-bold mb-1">RDR</div>
-                <p className="leading-relaxed">気象レーダー、各種衛星画像、およびルート断面図(CROSS SECTION)など各種情報を確認できます。</p>
+                <p className="leading-relaxed">各種</p>
               </div>
 
-              <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700 md:col-span-2">
+              <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
                 <div className="text-amber-300 font-bold mb-1">ETOPS</div>
                 <ul className="leading-relaxed list-disc pl-4 space-y-1">
                   <li>欧州線のみADDITIONAL FUEL要否の判断ツール</li>
                   <li>HF周波数の取得</li>
-                  <li>ETOPS関連情報を確認できます。</li>
+                  <li>ETOPS関連情報</li>
                 </ul>
               </div>
               
               <div className="bg-slate-900/50 p-3 rounded border border-slate-700 md:col-span-2">
                 <div className="text-amber-300 font-bold mb-2">NAVLOG</div>
                 <ul className="leading-relaxed list-disc pl-4 space-y-1">
-                  <li>DIST CK機能あり。</li>
-                  <li>同じLOGをLOADしている状況で、SYNCボタンで記録したものの引き継ぎ機能が使えます。</li>
-                  <li>STDからAVG TAXI OUT/ INでETAを表示し、そのETAに基づき目的地の天気と予想気温を表示します。</li>
-                  <li>NOWボタンを押すと次のWPTに移動します。</li>
-                  <li>ET/LTは実飛行時間に合わせて変化します。</li>
-                  <li>ETOはATOを入力することで変化しますが、TIME DIFFはTAKEOFF TIMEからの誤差を表示します。</li>
-                  <li>TIME DIFFとFUEL DIFFを上部ヘッダーに固定してグラフ表示できます。</li>
-                  <li>最寄りのETOPS ALTNをハイライト表示します。</li>
-                  <li><span className="text-sky-300 font-bold">POINTを長押しすると通過時に通知します (SLEEP時や他のアプリを使用する場合はタイマー推奨)。</span></li>
+                  <li>DIST CK機能あり</li>
+                  <li>同じLOGをLOADしている状況でSYNCボタンで記録したものの引き継ぎ機能</li>
+                  <li>STDからAVG TAXI OUT/ INでETAを表示し、そのETAに基づき目的地の天気と予想気温を表示</li>
+                  <li>NOWボタンを押すと次のWPTに移動</li>
+                  <li>ET/LTは実飛行時間に合わせて変化</li>
+                  <li>ETOはATOを入力することで変化するがTIME DIFFはTAKEOFF TIMEからの誤差を表示する</li>
+                  <li>TIME DIFFとFUEL DIFFを上部ヘッダーに固定してグラフ表示</li>
+                  <li>最寄りのETOPS ALTNをハイライト表示</li>
+                  <li><span className="text-sky-300 font-bold">POINTを長押しすると通過時に教えてくれる(SLEEP時や他のアプリを使用する場合はタイマー推奨)</span></li>
                 </ul>
               </div>
               
               <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700 md:col-span-2">
                 <div className="text-amber-300 font-bold mb-1">DOCS</div>
-                <p className="leading-relaxed">危険品の混載確認や、配慮を要する旅客情報の確認ができます。</p>
+                <p className="leading-relaxed">危険品の混載確認や、配慮を要する旅客情報の確認、Tarmac Delay時の対応タイムラインおよびチェックリストの利用ができます。</p>
               </div>
 
               <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
                 <div className="text-amber-300 font-bold mb-1">スマカタ</div>
-                <p className="leading-relaxed">よく使うものの直リンクです。</p>
+                <p className="leading-relaxed">よく使うものの直リンク</p>
               </div>
 
               <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
                 <div className="text-amber-300 font-bold mb-1">REST CALC</div>
                 <ul className="leading-relaxed list-disc pl-4 space-y-1">
-                  <li>REST計算ツールです。</li>
-                  <li>T/O TIMEはSTD+AVG TAXI TIMEがDEFAULTになります。</li>
+                  <li>REST計算ツール</li>
+                  <li>T/O TIMEはSTD+AVG TAXI TIMEがDEFAULT</li>
                 </ul>
               </div>
 
               <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700 md:col-span-2">
                 <div className="text-amber-300 font-bold mb-1">APP CALC</div>
                 <ul className="leading-relaxed list-disc pl-4 space-y-1">
-                  <li>温度変化によるLDA時のFAFからMXまでのFPA計算を行います。</li>
-                  <li>ILSZ34Lでは高温時にFAF手前のどれくらいでGS CAPTUREするかを算出します。</li>
-                  <li>TRAFFIC PATTERNとMIN CIRCでは降下開始点を算出します。</li>
+                  <li>温度変化によるLDA時のFAFからMXまでのFPA計算</li>
+                  <li>ILSZ34Lでは高温時にFAF手前のどれくらいでGS CAPTUREするかを算出</li>
+                  <li>TRAFFIC PATTERNとMIN CIRCでは降下開始点を算出</li>
                 </ul>
               </div>
               
               <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
                 <div className="text-amber-300 font-bold mb-1">TARMAC</div>
-                <p className="leading-relaxed">各国のルールを適用したフローチャートやタイマーを表示します。</p>
+                <p className="leading-relaxed">各国のルールを適用したフローチャートを表示</p>
               </div>
 
               <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
                 <div className="text-amber-300 font-bold mb-1">XWIND</div>
-                <p className="leading-relaxed">TAIL LIMITを選択可能な横風計算ツールです。</p>
+                <p className="leading-relaxed">TAIL LIMITを選択可能</p>
+              </div>
+
+              <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
+                <div className="text-amber-300 font-bold mb-1">SID</div>
+                <p className="leading-relaxed">WELDA/TAURA/ROVERの通過高度</p>
               </div>
 
               <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700 md:col-span-2">
-                <div className="text-amber-300 font-bold mb-1">SID</div>
-                <p className="leading-relaxed">WELDA / TAURA / ROVER の通過高度確認ができます。</p>
+                <div className="text-amber-300 font-bold mb-1">TO LIMIT</div>
+                <p className="leading-relaxed">FRMを考慮しB/Oを入力することによりTAKEOFF LIMIT時間の3分前とLIMIT時間をカレンダーに登録して通知を受け取る</p>
               </div>
 
             </div>
