@@ -423,7 +423,7 @@ END:VCALENDAR`;
               onClick={handleAddToCalendar} 
               className="flex-1 sm:flex-none transition-all px-4 py-2.5 rounded-lg text-sm font-black flex items-center justify-center gap-2 border shadow-md bg-blue-600 hover:bg-blue-500 text-white border-blue-500"
             >
-              <CalendarPlus size={16} /> iPadカレンダーに登録 (確実)
+              <CalendarPlus size={16} /> 通知を登録
             </button>
           </div>
         </header>
