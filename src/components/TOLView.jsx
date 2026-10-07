@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import * as LucideIcons from 'lucide-react';
 
 const TOLView = ({ navlogData }) => {
-  const { PlaneTakeoff, Globe, Clock, AlertTriangle, CheckCircle2, ChevronRight, Bell, BellOff, AlertOctagon, Info } = LucideIcons;
+  // 追加: CalendarPlus アイコンを読み込み
+  const { PlaneTakeoff, Globe, Clock, AlertTriangle, CheckCircle2, ChevronRight, CalendarPlus, AlertOctagon, Info } = LucideIcons;
 
   const airportData = [
     { region: "Japan", code: "HND/NRT", name: "東京", tz: "Asia/Tokyo" },
@@ -54,7 +55,6 @@ const TOLView = ({ navlogData }) => {
     { region: "Oceania", code: "PER", name: "パース", tz: "Australia/Perth" }
   ];
 
-  // VABB(Mumbai) -> BOM, VIDP(Delhi) -> DEL mapping is explicitly fixed
   const tzMap = {
     "RJAA": "HND/NRT", "RJTT": "HND/NRT", "RJBB": "KIX/ITM", "RJGG": "NGO", "RJOO": "KIX/ITM", "RJCC": "CTS", "RJFF": "FUK", "ROAH": "OKA",
     "KLAX": "LAX", "KSFO": "SFO", "KSJC": "SJC", "KSEA": "SEA", "KORD": "ORD", "KIAH": "IAH", "KJFK": "JFK/EWR", "KEWR": "JFK/EWR", "KIAD": "IAD",
@@ -77,10 +77,11 @@ const TOLView = ({ navlogData }) => {
   const [unforeseen, setUnforeseen] = useState(false);
   const [calcResults, setCalcResults] = useState(null);
   
-  const [isTimerActive, setIsTimerActive] = useState(false);
+  // タイマー関連ステート
   const [timeRemainingMins, setTimeRemainingMins] = useState(null);
   const [showAlertModal, setShowAlertModal] = useState(false);
   
+  // 再通知防止用フラグ（条件が変わればリセットする）
   const notifiedStagesRef = useRef({ three: false, zero: false });
 
   const currentAirport = airportData.find(a => a.code === airportCode) || airportData[0];
@@ -128,7 +129,7 @@ const TOLView = ({ navlogData }) => {
     return `${h}H${m > 0 ? `${m}M` : ''}`;
   };
 
-  // Japan: 1h40m(100m) before, Overseas: 1h30m(90m) before
+  // 日本は1時間40分(100分)前、それ以外は1時間30分(90分)前に設定
   const calculateDefaultSuTime = useCallback((boTimeStr, currentTz) => {
       const boMins = timeToMins(boTimeStr);
       const isJapan = currentTz === "Asia/Tokyo";
@@ -159,27 +160,6 @@ const TOLView = ({ navlogData }) => {
       setUnforeseen(!unforeseen);
       notifiedStagesRef.current = { three: false, zero: false };
   };
-
-  const playAlertSound = useCallback(() => {
-    try {
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        const ctx = new AudioContext();
-        const osc = ctx.createOscillator();
-        const gainNode = ctx.createGain();
-        osc.type = 'square';
-        osc.frequency.setValueAtTime(880, ctx.currentTime);
-        osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.1);
-        osc.frequency.setValueAtTime(880, ctx.currentTime + 0.2);
-        osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.3);
-        
-        gainNode.gain.setValueAtTime(0.1, ctx.currentTime); 
-        osc.connect(gainNode);
-        gainNode.connect(ctx.destination);
-        
-        osc.start();
-        osc.stop(ctx.currentTime + 0.6);
-    } catch(e) { console.error("Audio playback failed", e); }
-  }, []);
 
   useEffect(() => {
     if (navlogData) {
@@ -217,7 +197,6 @@ const TOLView = ({ navlogData }) => {
       }
       
       notifiedStagesRef.current = { three: false, zero: false };
-      setIsTimerActive(false); 
     }
   }, [navlogData, calculateDefaultSuTime]);
 
@@ -274,9 +253,102 @@ const TOLView = ({ navlogData }) => {
     });
   }, [airportTz, suTime, boTime, crewCount, sectors, restClass, eteTime, taxiIn, unforeseen, getTzOffsetMins]);
 
+  const playAlertSound = useCallback(() => {
+    try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const ctx = new AudioContext();
+        const osc = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(880, ctx.currentTime);
+        osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.1);
+        osc.frequency.setValueAtTime(880, ctx.currentTime + 0.2);
+        osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.3);
+        
+        gainNode.gain.setValueAtTime(0.1, ctx.currentTime); 
+        osc.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        
+        osc.start();
+        osc.stop(ctx.currentTime + 0.6);
+    } catch(e) { console.error("Audio playback failed", e); }
+  }, []);
+
+  // カレンダー用のICSファイルを生成してダウンロードさせる
+  const handleAddToCalendar = () => {
+    if (!calcResults || calcResults.isImpossible) {
+         window.dispatchEvent(new CustomEvent('show-toast', { detail: '離陸不可能なためカレンダーに登録できません' }));
+         return;
+    }
+
+    const now = new Date();
+    const nowUtcMins = now.getUTCHours() * 60 + now.getUTCMinutes();
+    let diff = calcResults.finalToLimitMins - nowUtcMins;
+    
+    // 日付またぎの処理
+    if (diff < -720) diff += 1440; 
+    if (diff > 720) diff -= 1440; 
+    
+    // 過去の時間の場合はセット不可
+    if (diff <= 0) {
+        window.dispatchEvent(new CustomEvent('show-toast', { detail: '既に制限時刻を過ぎています' }));
+        return;
+    }
+
+    // カレンダーイベントの時刻（UTC）を計算
+    const limitDate = new Date(now.getTime() + diff * 60000);
+    
+    const formatDate = (d) => {
+        return d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    };
+
+    const dtstamp = formatDate(now);
+    const dtstart = formatDate(limitDate);
+    const dtend = formatDate(new Date(limitDate.getTime() + 60000)); // 1分間のイベント
+
+    // ICS ファイルのコンテンツを作成（0分前と3分前に通知を設定）
+    const icsContent = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//ANA//7PT T/O Limit Calculator//JP
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+UID:tolimit-${Date.now()}@7pt.ana
+DTSTAMP:${dtstamp}
+DTSTART:${dtstart}
+DTEND:${dtend}
+SUMMARY:✈️ T/O Limit 到達！
+DESCRIPTION:計算上の離陸制限時刻を過ぎました。運航の可否を確認してください。
+BEGIN:VALARM
+TRIGGER:-PT0M
+ACTION:DISPLAY
+DESCRIPTION:T/O Limit 到達！
+END:VALARM
+BEGIN:VALARM
+TRIGGER:-PT3M
+ACTION:DISPLAY
+DESCRIPTION:T/O Limit まで残り3分です
+END:VALARM
+END:VEVENT
+END:VCALENDAR`;
+
+    // ダウンロードトリガー
+    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'TOLimit_Alarm.ics';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    window.dispatchEvent(new CustomEvent('show-toast', { detail: 'カレンダーファイルを作成しました。予定に追加してください。' }));
+  };
+
+  // アプリを画面に開いている間のためのタイマー処理（常時監視）
   useEffect(() => {
     let interval;
-    if (isTimerActive && calcResults && !calcResults.isImpossible) {
+    if (calcResults && !calcResults.isImpossible) {
       const checkTime = () => {
          const now = new Date();
          const nowUtcMins = now.getUTCHours() * 60 + now.getUTCMinutes();
@@ -286,25 +358,17 @@ const TOLView = ({ navlogData }) => {
          if (diff > 720) diff -= 1440;  
 
          setTimeRemainingMins(diff);
-         
-         const sendNotification = (title, body) => {
-             if ("Notification" in window && Notification.permission === "granted") {
-                 new Notification(title, { body: body, icon: '/favicon.ico', requireInteraction: true });
-             }
-             playAlertSound();
-         };
 
-         // Trigger at exactly 0 mins (Limit Reached)
+         // T/O Limit 到達時
          if (diff <= 0 && diff > -60 && !notifiedStagesRef.current.zero) {
            notifiedStagesRef.current.zero = true;
            setShowAlertModal(true);
-           sendNotification("T/O Limit 到達", "計算上の離陸制限時刻を過ぎました。運航の可否を確認してください。");
-           setIsTimerActive(false); 
-         // Trigger at exactly 3 mins
+           playAlertSound();
+         // T/O Limit 3分前
          } else if (diff === 3 && !notifiedStagesRef.current.three) {
            notifiedStagesRef.current.three = true;
-           sendNotification("T/O Limit まで残り3分", "出発準備を急いでください。");
            window.dispatchEvent(new CustomEvent('show-toast', { detail: `T/O Limit まで残り 3 分です` }));
+           playAlertSound();
          }
       };
       
@@ -314,36 +378,14 @@ const TOLView = ({ navlogData }) => {
       setTimeRemainingMins(null);
     }
     return () => clearInterval(interval);
-  }, [isTimerActive, calcResults, playAlertSound]);
-
-  const toggleTimer = () => {
-    if (isTimerActive) {
-      setIsTimerActive(false);
-      window.dispatchEvent(new CustomEvent('show-toast', { detail: 'アラームを解除しました' }));
-    } else {
-      if (calcResults && calcResults.isImpossible) {
-         window.dispatchEvent(new CustomEvent('show-toast', { detail: '離陸不可能なためアラームはセットできません' }));
-         return;
-      }
-      if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
-        Notification.requestPermission().then(permission => {
-             if(permission !== "granted") {
-                  window.dispatchEvent(new CustomEvent('show-toast', { detail: 'ブラウザの通知が許可されていないため、バックグラウンドでのアラームは機能しません' }));
-             }
-        });
-      } else if ("Notification" in window && Notification.permission === "denied") {
-          window.dispatchEvent(new CustomEvent('show-toast', { detail: '通知が拒否されています。設定から許可してください' }));
-      }
-      notifiedStagesRef.current = { three: false, zero: false }; 
-      setIsTimerActive(true);
-      window.dispatchEvent(new CustomEvent('show-toast', { detail: 'T/O Limit アラームを手動でセットしました' }));
-    }
-  };
+  }, [calcResults, playAlertSound]);
 
   if (!calcResults) return <div className="p-8 text-center text-slate-500">Loading...</div>;
 
   return (
     <div className="w-full h-full overflow-y-auto bg-[#0a111f] p-2 sm:p-4 font-sans rounded-lg custom-scrollbar">
+      
+      {/* 警告モーダル（アプリをフォアグラウンドで開いている時用） */}
       {showAlertModal && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-rose-900/90 backdrop-blur-sm animate-in fade-in duration-300">
            <div className="bg-slate-900 border-2 border-rose-500 rounded-3xl p-8 max-w-lg w-full shadow-2xl flex flex-col items-center text-center animate-bounce-short">
@@ -374,12 +416,14 @@ const TOLView = ({ navlogData }) => {
               <p className="text-blue-300 text-xs sm:text-sm mt-1 font-medium">Global Edition (UTC Base) / OM 8-5 離陸制限時間 計算ツール</p>
             </div>
           </div>
+          
           <div className="flex w-full sm:w-auto gap-4 relative z-10">
+            {/* バックグラウンド対策用のカレンダー追加ボタン */}
             <button 
-              onClick={toggleTimer} 
-              className={`flex-1 sm:flex-none transition-all px-4 py-2.5 rounded-lg text-sm font-black flex items-center justify-center gap-2 border shadow-md ${isTimerActive ? 'bg-rose-600 hover:bg-rose-500 text-white border-rose-500 animate-pulse' : 'bg-slate-700 hover:bg-slate-600 text-slate-200 border-slate-500'}`}
+              onClick={handleAddToCalendar} 
+              className="flex-1 sm:flex-none transition-all px-4 py-2.5 rounded-lg text-sm font-black flex items-center justify-center gap-2 border shadow-md bg-blue-600 hover:bg-blue-500 text-white border-blue-500"
             >
-              {isTimerActive ? <><Bell className="animate-wiggle" size={16} /> アラーム稼働中</> : <><BellOff size={16} /> アラームセット</>}
+              <CalendarPlus size={16} /> iPadカレンダーに登録 (確実)
             </button>
           </div>
         </header>
@@ -489,7 +533,7 @@ const TOLView = ({ navlogData }) => {
               <div className="p-6 relative z-10 text-white">
                 <div className="flex justify-between items-start mb-2">
                    <h3 className="text-xs font-bold tracking-widest text-blue-300 uppercase">Final T/O Limit Time</h3>
-                   {isTimerActive && timeRemainingMins !== null && (
+                   {timeRemainingMins !== null && !calcResults.isImpossible && (
                      <div className={`px-2 py-1 rounded text-xs font-black border ${timeRemainingMins <= 60 ? 'bg-rose-500/20 text-rose-300 border-rose-500/50 animate-pulse' : 'bg-blue-500/20 text-blue-300 border-blue-500/50'}`}>
                         残り {timeRemainingMins > 0 ? timeRemainingMins : 0} 分
                      </div>
