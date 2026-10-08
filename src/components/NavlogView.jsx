@@ -2,72 +2,114 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { SafeIcon } from './SharedComponents';
 
+const WMO_CODES = {
+    0: { title: "快晴", icon: "☀️", color: "text-amber-400" },
+    1: { title: "ほぼ晴れ", icon: "🌤️", color: "text-amber-300" },
+    2: { title: "時々曇り", icon: "⛅", color: "text-sky-300" },
+    3: { title: "くもり", icon: "☁️", color: "text-slate-300" },
+    45: { title: "霧", icon: "🌫️", color: "text-slate-400" },
+    48: { title: "着氷性の霧", icon: "🌫️", color: "text-slate-400" },
+    51: { title: "霧雨(弱)", icon: "🌧️", color: "text-blue-300" },
+    53: { title: "霧雨(中)", icon: "🌧️", color: "text-blue-400" },
+    55: { title: "霧雨(強)", icon: "🌧️", color: "text-blue-500" },
+    61: { title: "小雨", icon: "☔", color: "text-blue-300" },
+    63: { title: "雨", icon: "☔", color: "text-blue-400" },
+    65: { title: "激しい雨", icon: "☔", color: "text-blue-500" },
+    71: { title: "粉雪", icon: "❄️", color: "text-indigo-200" },
+    73: { title: "降雪", icon: "❄️", color: "text-indigo-300" },
+    75: { title: "大雪", icon: "❄️", color: "text-indigo-400" },
+    80: { title: "にわか雨(弱)", icon: "🌦️", color: "text-sky-400" },
+    81: { title: "にわか雨(中)", icon: "🌦️", color: "text-blue-400" },
+    82: { title: "豪雨", icon: "⛈️", color: "text-blue-600" },
+    95: { title: "雷雨", icon: "⛈️", color: "text-yellow-400" },
+    96: { title: "雷・ひょう", icon: "⛈️", color: "text-amber-400" }
+};
+
 const ICAO_COORDS = {
-    "RJTT": { lat: 35.5494, lon: 139.7798 },
-    "RJAA": { lat: 35.7647, lon: 140.3863 },
-    "RJCC": { lat: 42.7752, lon: 141.6925 },
-    "RJBB": { lat: 34.4347, lon: 135.2442 },
-    "RJOO": { lat: 34.7855, lon: 135.4382 },
-    "ROAH": { lat: 26.1958, lon: 127.6458 },
-    "RJFF": { lat: 33.5859, lon: 130.4506 },
-    "KJFK": { lat: 40.6413, lon: -73.7781 },
-    "KIAD": { lat: 38.9445, lon: -77.4558 },
-    "KORD": { lat: 41.9742, lon: -87.9073 },
-    "KIAH": { lat: 29.9805, lon: -95.3397 },
-    "KLAX": { lat: 33.9416, lon: -118.4085 },
-    "KSFO": { lat: 37.6213, lon: -122.3790 },
-    "KSEA": { lat: 47.4489, lon: -122.3090 },
-    "PHNL": { lat: 21.3187, lon: -157.9225 },
-    "CYVR": { lat: 49.1967, lon: -123.1815 },
+    // 日本国内主要空港
+    "RJTT": { lat: 35.5494, lon: 139.7798 }, "RJAA": { lat: 35.7647, lon: 140.3863 },
+    "RJCC": { lat: 42.7752, lon: 141.6925 }, "RJBB": { lat: 34.4347, lon: 135.2442 },
+    "RJOO": { lat: 34.7855, lon: 135.4382 }, "RJGG": { lat: 34.8583, lon: 136.8053 },
+    "ROAH": { lat: 26.1958, lon: 127.6458 }, "RJFF": { lat: 33.5859, lon: 130.4506 },
+    "ROIG": { lat: 24.3964, lon: 124.2450 }, "ROMY": { lat: 24.7828, lon: 125.2950 },
+    "RJFT": { lat: 32.8378, lon: 130.8550 }, "RJFO": { lat: 33.4333, lon: 131.7333 },
+    "RJFM": { lat: 31.8772, lon: 131.4486 }, "RJFK": { lat: 31.8033, lon: 130.7194 },
+    "RJFU": { lat: 32.9169, lon: 129.9136 }, "RJSS": { lat: 38.1397, lon: 140.9169 },
+    "RJSA": { lat: 40.7350, lon: 140.6900 }, "RJSK": { lat: 39.6156, lon: 140.2186 },
+    "RJCH": { lat: 41.7700, lon: 140.8222 }, "RJNK": { lat: 36.3933, lon: 136.4072 },
+    "RJNT": { lat: 36.6486, lon: 137.1875 }, "RJOM": { lat: 33.8272, lon: 132.6997 },
+    "RJOT": { lat: 34.2142, lon: 134.0156 }, "RJOA": { lat: 34.4361, lon: 132.9194 },
+    "RJOC": { lat: 35.4136, lon: 132.8894 }, "RJCB": { lat: 42.7333, lon: 143.2167 },
+
+    // 北米・中南米
+    "KJFK": { lat: 40.6413, lon: -73.7781 }, "KEWR": { lat: 40.6895, lon: -74.1745 },
+    "KORD": { lat: 41.9742, lon: -87.9073 }, "KLAX": { lat: 33.9416, lon: -118.4085 },
+    "KSFO": { lat: 37.6213, lon: -122.3790 }, "KSJC": { lat: 37.3619, lon: -121.9290 },
+    "KSEA": { lat: 47.4502, lon: -122.3088 }, "KIAH": { lat: 29.9902, lon: -95.3368 },
+    "KIAD": { lat: 38.9445, lon: -77.4558 }, "PANC": { lat: 61.1744, lon: -149.9963 },
+    "PHNL": { lat: 21.3187, lon: -157.9225 }, "CYVR": { lat: 49.1967, lon: -123.1815 },
     "MMMX": { lat: 19.4361, lon: -99.0719 },
-    "LFPG": { lat: 49.0097, lon: 2.5479 },
-    "EGLL": { lat: 51.4700, lon: -0.4543 },
-    "EDDF": { lat: 50.0379, lon: 8.5622 },
-    "EDDM": { lat: 48.3538, lon: 11.7861 },
-    "LOWW": { lat: 48.1103, lon: 16.5697 },
-    "EBBR": { lat: 50.9014, lon: 4.4844 },
-    "ESSA": { lat: 59.6519, lon: 17.9186 },
-    "LIMC": { lat: 45.6301, lon: 8.7231 },
+
+    // ヨーロッパ
+    "EGLL": { lat: 51.4700, lon: -0.4543 }, "LFPG": { lat: 49.0097, lon: 2.5479 },
+    "EDDF": { lat: 50.0379, lon: 8.5622 }, "EDDM": { lat: 48.3538, lon: 11.7861 },
+    "EBBR": { lat: 50.9014, lon: 4.4844 }, "LOWW": { lat: 48.1103, lon: 16.5697 },
+    "LIMC": { lat: 45.6301, lon: 8.7231 }, "ESSA": { lat: 59.6519, lon: 17.9186 },
     "LTFM": { lat: 41.2753, lon: 28.7520 },
-    "YSSY": { lat: -33.9461, lon: 151.1772 },
-    "YPPH": { lat: -31.9403, lon: 115.9668 },
-    "VHHH": { lat: 22.3080, lon: 113.9185 },
-    "WSSS": { lat: 1.3644, lon: 103.9915 },
-    "VTBS": { lat: 13.6900, lon: 100.7501 },
-    "RCTP": { lat: 25.0777, lon: 121.2328 },
-    "RCSS": { lat: 25.0697, lon: 121.5520 },
-    "RKSI": { lat: 37.4602, lon: 126.4407 },
-    "RKSS": { lat: 37.5583, lon: 126.7906 },
-    "ZBAA": { lat: 40.0799, lon: 116.6031 },
-    "ZSPD": { lat: 31.1443, lon: 121.8083 },
-    "ZSSS": { lat: 31.1979, lon: 121.3363 },
-    "ZGGG": { lat: 23.3924, lon: 113.2988 },
-    "ZSAM": { lat: 24.5440, lon: 118.1277 },
-    "ZSHC": { lat: 30.2295, lon: 120.4345 },
-    "ZGSZ": { lat: 22.6393, lon: 113.8107 },
-    "ZYTL": { lat: 38.9657, lon: 121.5386 },
-    "WMKK": { lat: 2.7456, lon: 101.7099 },
-    "WIII": { lat: -6.1256, lon: 106.6559 },
-    "VVTS": { lat: 10.8188, lon: 106.6520 },
-    "VVNB": { lat: 21.2212, lon: 105.8072 },
-    "RPLL": { lat: 14.5086, lon: 121.0194 },
-    "VYYY": { lat: 16.9022, lon: 96.1332 },
-    "VDPP": { lat: 11.5466, lon: 104.8441 },
-    "VABB": { lat: 19.0896, lon: 72.8656 },
-    "VIDP": { lat: 28.5562, lon: 77.1000 },
-    "VOMM": { lat: 12.9941, lon: 80.1709 },
-    "PANC": { lat: 61.1744, lon: -149.9963 }
+
+    // アジア・オセアニア
+    "YSSY": { lat: -33.9461, lon: 151.1772 }, "YPPH": { lat: -31.9403, lon: 115.9668 },
+    "VHHH": { lat: 22.3080, lon: 113.9185 }, "WSSS": { lat: 1.3644, lon: 103.9915 },
+    "VTBS": { lat: 13.6900, lon: 100.7501 }, "RCTP": { lat: 25.0777, lon: 121.2328 },
+    "RCSS": { lat: 25.0697, lon: 121.5520 }, "RKSI": { lat: 37.4602, lon: 126.4407 },
+    "RKSS": { lat: 37.5583, lon: 126.7906 }, "ZBAA": { lat: 40.0799, lon: 116.6031 },
+    "ZBAD": { lat: 39.5097, lon: 116.4106 }, "ZSPD": { lat: 31.1443, lon: 121.8083 },
+    "ZSSS": { lat: 31.1979, lon: 121.3363 }, "ZGGG": { lat: 23.3924, lon: 113.2988 },
+    "ZBTJ": { lat: 39.1244, lon: 117.3462 }, "ZSQD": { lat: 36.2661, lon: 120.3744 },
+    "ZYTX": { lat: 41.6396, lon: 123.4833 }, "ZSQZ": { lat: 24.5440, lon: 118.1277 },
+    "WMKK": { lat: 2.7456, lon: 101.7099 }, "WIII": { lat: -6.1256, lon: 106.6558 },
+    "RPLL": { lat: 14.5090, lon: 121.0194 }, "VVTS": { lat: 10.8188, lon: 106.6623 },
+    "VVNB": { lat: 21.2212, lon: 105.8072 }, "VABB": { lat: 19.0896, lon: 72.8656 },
+    "VIDP": { lat: 28.5562, lon: 77.1000 }, "VOMM": { lat: 12.9941, lon: 80.1709 },
+    "YMML": { lat: -37.6690, lon: 144.8410 }, "NZAA": { lat: -37.0082, lon: 174.7850 },
+    "OMDB": { lat: 25.2532, lon: 55.3657 }, "OTHH": { lat: 25.2731, lon: 51.6081 }
+};
+
+const MAX_ALT_DATA = {
+  "772": [ [320, 43100, 43100, 43100, 43100, 43100, 43100], [340, 43100, 43100, 43100, 43100, 43100, 43100], [360, 42100, 43100, 43100, 43100, 43000, 42300], [380, 41000, 43100, 43100, 42900, 42200, 41400], [400, 40000, 43100, 42300, 42100, 41300, 40500], [420, 39000, 43100, 41400, 41200, 40500, 39600], [440, 38000, 42900, 40500, 40400, 39600, 38700], [460, 37100, 42100, 39600, 39600, 38800, 37900], [480, 36300, 41300, 38800, 38700, 37900, 37100], [500, 35500, 40500, 37900, 37900, 37100, 36100], [520, 34800, 39600, 37000, 37100, 36200, 35200], [540, 34000, 38800, 36100, 36200, 35400, 34300], [560, 33600, 38000, 35200, 35400, 34500, 33500] ],
+  "773": [ [340, 43100, 43100, 43100, 43100, 43100, 43100], [360, 42300, 43100, 43100, 43100, 43100, 43100], [380, 41200, 43100, 43100, 43100, 42900, 42200], [400, 40100, 43100, 42200, 42600, 42100, 41400], [420, 39000, 43100, 41400, 41800, 41300, 40600], [440, 38000, 43100, 40600, 41100, 40500, 39700], [460, 37200, 42500, 39800, 40300, 39700, 38900], [480, 36400, 41700, 39000, 39500, 39000, 38100], [500, 35700, 40900, 38200, 38800, 37400, 36400], [520, 35000, 40200, 37400, 38000, 37400, 36400], [540, 34200, 39400, 36600, 37200, 36600, 35600] ],
+  "77W": [ [380, 42800, 42500, 40400, 43100, 43100, 43000], [400, 41800, 41900, 39700, 43100, 43100, 42400], [420, 40700, 41300, 39000, 42700, 42600, 41700], [440, 39600, 40700, 38300, 42200, 42000, 41100], [460, 38800, 40100, 37600, 41700, 41400, 40400], [480, 38000, 39400, 36900, 41100, 40800, 39700], [500, 37400, 38800, 36200, 40600, 40200, 39100], [520, 36800, 38200, 35500, 40100, 39600, 38400], [540, 36200, 37600, 34800, 39500, 39000, 37700], [560, 35600, 37000, 34100, 39000, 38400, 37100], [580, 34800, 36400, 33400, 38500, 37800, 36400], [600, 34200, 35800, 32700, 37900, 37200, 35700], [620, 33500, 35200, 32000, 37400, 36600, 35100], [640, 32800, 34500, 31300, 36900, 36000, 34400], [660, 32100, 33900, 30600, 36300, 35400, 33700], [680, 31500, 33300, 29900, 35800, 34800, 33100], [700, 30800, 32700, 29200, 35300, 34200, 32400], [720, 30200, 32100, 28500, 34700, 33600, 31700], [740, 29800, 31500, 27800, 34200, 33000, 31100], [760, 29200, 30900, 27100, 33700, 32400, 30400], [780, 28800, 30200, 26400, 33100, 31800, 28000] ],
+  "77F": [ [380, 43100, 43100, 40800, 43100, 43100, 43100], [400, 41700, 42500, 39700, 43100, 43100, 43100], [420, 40600, 41600, 38800, 43100, 43100, 43100], [440, 39700, 40800, 37900, 43100, 43100, 43100], [460, 38700, 40000, 37100, 43100, 43100, 43100], [480, 37800, 39200, 36300, 43100, 43100, 42500], [500, 37000, 38500, 35600, 42800, 42300, 41700], [520, 36200, 37800, 34900, 42000, 41500, 40900], [540, 36000, 37200, 34200, 41300, 40800, 40200], [560, 35700, 36500, 33500, 40500, 40100, 39500], [580, 34900, 35900, 32900, 39800, 39400, 38800], [600, 34200, 35400, 32300, 39200, 38700, 38100], [620, 33500, 34800, 31800, 38500, 38000, 37400], [640, 32800, 34300, 31200, 37800, 37400, 36800], [660, 32100, 33700, 30700, 37200, 36700, 36100], [680, 31500, 33200, 30100, 36500, 36100, 35600], [700, 30800, 32700, 29600, 36000, 35600, 35000], [720, 30200, 32300, 29200, 35400, 35000, 34300], [740, 29600, 31800, 28700, 34800, 34300, 33600], [760, 29100, 31300, 28100, 34200, 33700, 32900], [780, 28500, 30700, 27600, 33600, 33100, 32300] ]
 };
 
 const ICAO_TZ = {
-    "KJFK": "America/New_York", "KIAD": "America/New_York",
-    "KORD": "America/Chicago", "KIAH": "America/Chicago",
-    "KLAX": "America/Los_Angeles", "KSFO": "America/Los_Angeles", "KSEA": "America/Los_Angeles",
-    "PHNL": "Pacific/Honolulu", 
-    "CYVR": "America/Vancouver", 
-    "MMMX": "America/Mexico_City",
-    "YSSY": "Australia/Sydney", "YPPH": "Australia/Perth",
-    "VHHH": "Asia/Hong_Kong", "WSSS": "Asia/Singapore"
+    // 日本
+    "RJTT": "Asia/Tokyo", "RJAA": "Asia/Tokyo", "RJCC": "Asia/Tokyo", "RJBB": "Asia/Tokyo", "RJOO": "Asia/Tokyo", "RJGG": "Asia/Tokyo",
+    "ROAH": "Asia/Tokyo", "RJFF": "Asia/Tokyo", "ROIG": "Asia/Tokyo", "ROMY": "Asia/Tokyo", "RJFT": "Asia/Tokyo", "RJFO": "Asia/Tokyo",
+    "RJFM": "Asia/Tokyo", "RJFK": "Asia/Tokyo", "RJFU": "Asia/Tokyo", "RJSS": "Asia/Tokyo", "RJSA": "Asia/Tokyo", "RJSK": "Asia/Tokyo",
+    "RJCH": "Asia/Tokyo", "RJNK": "Asia/Tokyo", "RJNT": "Asia/Tokyo", "RJOM": "Asia/Tokyo", "RJOT": "Asia/Tokyo", "RJOA": "Asia/Tokyo",
+    "RJOC": "Asia/Tokyo", "RJCB": "Asia/Tokyo",
+
+    // 北米・中南米
+    "KJFK": "America/New_York", "KEWR": "America/New_York", "KORD": "America/Chicago", 
+    "KLAX": "America/Los_Angeles", "KSFO": "America/Los_Angeles", "KSJC": "America/Los_Angeles",
+    "KSEA": "America/Los_Angeles", "KIAH": "America/Chicago", "KIAD": "America/New_York",
+    "PANC": "America/Anchorage", "PHNL": "Pacific/Honolulu", "CYVR": "America/Vancouver", "MMMX": "America/Mexico_City",
+    
+    // ヨーロッパ
+    "LFPG": "Europe/Paris", "EGLL": "Europe/London", "EDDF": "Europe/Berlin", "EDDM": "Europe/Berlin",
+    "EBBR": "Europe/Brussels", "LOWW": "Europe/Vienna", "LIMC": "Europe/Rome", "ESSA": "Europe/Stockholm", "LTFM": "Europe/Istanbul",
+
+    // アジア・オセアニア
+    "YSSY": "Australia/Sydney", "YPPH": "Australia/Perth", "VHHH": "Asia/Hong_Kong",
+    "WSSS": "Asia/Singapore", "VTBS": "Asia/Bangkok", "RCTP": "Asia/Taipei", "RCSS": "Asia/Taipei",
+    "RKSI": "Asia/Seoul", "RKSS": "Asia/Seoul",
+    "ZBAA": "Asia/Shanghai", "ZBAD": "Asia/Shanghai", "ZSPD": "Asia/Shanghai", "ZSSS": "Asia/Shanghai", "ZGGG": "Asia/Shanghai",
+    "ZBTJ": "Asia/Shanghai", "ZSQD": "Asia/Shanghai", "ZYTX": "Asia/Shanghai", "ZSQZ": "Asia/Shanghai",
+    "WMKK": "Asia/Kuala_Lumpur", "WIII": "Asia/Jakarta", "RPLL": "Asia/Manila",
+    "VVTS": "Asia/Ho_Chi_Minh", "VVNB": "Asia/Ho_Chi_Minh",
+    "VABB": "Asia/Kolkata", "VIDP": "Asia/Kolkata", "VOMM": "Asia/Kolkata",
+    "YMML": "Australia/Melbourne", "NZAA": "Pacific/Auckland", "OMDB": "Asia/Dubai", "OTHH": "Asia/Dubai"
 };
 
 const getLocalTimeZone = (icao) => {
@@ -94,20 +136,6 @@ const getLocalTimeZone = (icao) => {
     if (icao.startsWith("LT")) return "Europe/Istanbul";
     
     return ICAO_TZ[icao] || "UTC";
-};
-
-const MAX_ALT_DATA = {
-  "772": [ [320, 43100, 43100, 43100, 43100, 43100, 43100], [340, 43100, 43100, 43100, 43100, 43100, 43100], [360, 42100, 43100, 43100, 43100, 43000, 42300], [380, 41000, 43100, 43100, 42900, 42200, 41400], [400, 40000, 43100, 42300, 42100, 41300, 40500], [420, 39000, 43100, 41400, 41200, 40500, 39600], [440, 38000, 42900, 40500, 40400, 39600, 38700], [460, 37100, 42100, 39600, 39600, 38800, 37900], [480, 36300, 41300, 38800, 38700, 37900, 37100], [500, 35500, 40500, 37900, 37900, 37100, 36100], [520, 34800, 39600, 37000, 37100, 36200, 35200], [540, 34000, 38800, 36100, 36200, 35400, 34300], [560, 33600, 38000, 35200, 35400, 34500, 33500] ],
-  "773": [ [340, 43100, 43100, 43100, 43100, 43100, 43100], [360, 42300, 43100, 43100, 43100, 43100, 43100], [380, 41200, 43100, 43100, 43100, 42900, 42200], [400, 40100, 43100, 42200, 42600, 42100, 41400], [420, 39000, 43100, 41400, 41800, 41300, 40600], [440, 38000, 43100, 40600, 41100, 40500, 39700], [460, 37200, 42500, 39800, 40300, 39700, 38900], [480, 36400, 41700, 39000, 39500, 39000, 38100], [500, 35700, 40900, 38200, 38800, 37400, 36400], [520, 35000, 40200, 37400, 38000, 37400, 36400], [540, 34200, 39400, 36600, 37200, 36600, 35600] ],
-  "77W": [ [380, 42800, 42500, 40400, 43100, 43100, 43000], [400, 41800, 41900, 39700, 43100, 43100, 42400], [420, 40700, 41300, 39000, 42700, 42600, 41700], [440, 39600, 40700, 38300, 42200, 42000, 41100], [460, 38800, 40100, 37600, 41700, 41400, 40400], [480, 38000, 39400, 36900, 41100, 40800, 39700], [500, 37400, 38800, 36200, 40600, 40200, 39100], [520, 36800, 38200, 35500, 40100, 39600, 38400], [540, 36200, 37600, 34800, 39500, 39000, 37700], [560, 35600, 37000, 34100, 39000, 38400, 37100], [580, 34800, 36400, 33400, 38500, 37800, 36400], [600, 34200, 35800, 32700, 37900, 37200, 35700], [620, 33500, 35200, 32000, 37400, 36600, 35100], [640, 32800, 34500, 31300, 36900, 36000, 34400], [660, 32100, 33900, 30600, 36300, 35400, 33700], [680, 31500, 33300, 29900, 35800, 34800, 33100], [700, 30800, 32700, 29200, 35300, 34200, 32400], [720, 30200, 32100, 28500, 34700, 33600, 31700], [740, 29800, 31500, 27800, 34200, 33000, 31100], [760, 29200, 30900, 27100, 33700, 32400, 30400], [780, 28800, 30200, 26400, 33100, 31800, 28000] ],
-  "77F": [ [380, 43100, 43100, 40800, 43100, 43100, 43100], [400, 41700, 42500, 39700, 43100, 43100, 43100], [420, 40600, 41600, 38800, 43100, 43100, 43100], [440, 39700, 40800, 37900, 43100, 43100, 43100], [460, 38700, 40000, 37100, 43100, 43100, 43100], [480, 37800, 39200, 36300, 43100, 43100, 42500], [500, 37000, 38500, 35600, 42800, 42300, 41700], [520, 36200, 37800, 34900, 42000, 41500, 40900], [540, 36000, 37200, 34200, 41300, 40800, 40200], [560, 35700, 36500, 33500, 40500, 40100, 39500], [580, 34900, 35900, 32900, 39800, 39400, 38800], [600, 34200, 35400, 32300, 39200, 38700, 38100], [620, 33500, 34800, 31800, 38500, 38000, 37400], [640, 32800, 34300, 31200, 37800, 37400, 36800], [660, 32100, 33700, 30700, 37200, 36700, 36100], [680, 31500, 33200, 30100, 36500, 36100, 35600], [700, 30800, 32700, 29600, 36000, 35600, 35000], [720, 30200, 32300, 29200, 35400, 35000, 34300], [740, 29600, 31800, 28700, 34800, 34300, 33600], [760, 29100, 31300, 28100, 34200, 33700, 32900], [780, 28500, 30700, 27600, 33600, 33100, 32300] ]
-};
-
-const REG_MAP = {
-  "JA713A": "772", "JA714A": "772", "JA715A": "772", "JA716A": "772", "JA717A": "772", "JA741A": "772", "JA742A": "772", "JA743A": "772", "JA744A": "772", "JA745A": "772",
-  "JA751A": "773", "JA752A": "773", "JA753A": "773", "JA754A": "773", "JA755A": "773",
-  "JA784A": "77W", "JA785A": "77W", "JA787A": "77W", "JA788A": "77W", "JA790A": "77W", "JA791A": "77W", "JA792A": "77W", "JA793A": "77W", "JA794A": "77W", "JA795A": "77W", "JA796A": "77W", "JA797A": "77W", "JA798A": "77W", "JA799A": "77W",
-  "JA771F": "77F", "JA772F": "77F"
 };
 
 const DEFAULT_FLIGHT_PLAN_DATA = [
@@ -657,6 +685,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
       return () => clearInterval(timer);
   }, []);
 
+  // 1. calculatedData の定義 (API依存・計算の根幹)
   const calculatedData = useMemo(() => {
     const data = [];
     const takeoffMinutes = timeToMinutes(takeoffTime);
@@ -990,41 +1019,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
       }
   }, [currentUtcMins, calculatedData, activeAlerts, triggeredAlerts, popupWp]);
 
-  const handleUpdateActual = (wp, field, value) => {
-    setActuals(prev => ({ ...prev, [wp]: { ...prev[wp], [field]: value } }));
-    if (field === 'ato' && value !== "") {
-        setActiveAlerts(prev => { 
-            if(!prev[wp]) return prev;
-            const n = {...prev}; delete n[wp]; return n; 
-        });
-        setTriggeredAlerts(prev => { 
-            if(!prev[wp]) return prev;
-            const n = {...prev}; delete n[wp]; return n; 
-        });
-    }
-  };
-
-  const handleSyncData = (importedData) => {
-    setActuals(prev => {
-        const merged = { ...prev };
-        for (const wp in importedData) {
-            if (!merged[wp]) merged[wp] = {};
-            if (importedData[wp].ato) merged[wp].ato = importedData[wp].ato;
-            if (importedData[wp].afob) merged[wp].afob = importedData[wp].afob;
-            if (importedData[wp].actAlt) merged[wp].actAlt = importedData[wp].actAlt;
-            if (importedData[wp].actTmp) merged[wp].actTmp = importedData[wp].actTmp;
-            if (importedData[wp].actWind) merged[wp].actWind = importedData[wp].actWind;
-            if (importedData[wp].memo) merged[wp].memo = importedData[wp].memo;
-
-            if (importedData[wp].ato) {
-                setActiveAlerts(a => { const n = {...a}; delete n[wp]; return n; });
-                setTriggeredAlerts(t => { const n = {...t}; delete n[wp]; return n; });
-            }
-        }
-        return merged;
-    });
-  };
-
   useEffect(() => {
     if (parsedDepIcao && navlogData && navlogData.stdH !== undefined && navlogData.stdM !== undefined && parsedDate) {
         try {
@@ -1183,21 +1177,14 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                     const tempF = Math.round((tempC * 9 / 5) + 32);
                     const wcode = omData.hourly.weather_code[bestIdx];
                     
-                    let icon = "☁️";
-                    let text = "Cloudy";
-                    if (wcode === 0) { icon = "☀️"; text = "Clear"; }
-                    else if ([1,2].includes(wcode)) { icon = "⛅"; text = "Partly Cloudy"; }
-                    else if ([3].includes(wcode)) { icon = "☁️"; text = "Overcast"; }
-                    else if ([45,48].includes(wcode)) { icon = "🌫️"; text = "Fog"; }
-                    else if ([51,53,55,56,57,61,63,65,66,67,80,81,82].includes(wcode)) { icon = "🌧️"; text = "Rain"; }
-                    else if ([71,73,75,77,85,86].includes(wcode)) { icon = "❄️"; text = "Snow"; }
-                    else if ([95,96,99].includes(wcode)) { icon = "⛈️"; text = "Thunderstorm"; }
+                    const wmoInfo = WMO_CODES[wcode] || { title: "不明", icon: "☁️", color: "text-slate-300" };
 
                     const wxDataToSave = {
                         tempC: tempC > 0 ? `+${tempC}` : `${tempC}`,
                         tempF: tempF > 0 ? `+${tempF}` : `${tempF}`,
-                        icon: icon,
-                        text: text
+                        icon: wmoInfo.icon,
+                        text: wmoInfo.title,
+                        color: wmoInfo.color
                     };
 
                     wxCache[cacheKeyStr] = { data: wxDataToSave, timestamp: now };
@@ -1220,64 +1207,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
     fetchWeather();
     return () => { isMounted = false; };
   }, [parsedDestIcao, parsedDate, calculatedData.estBlockInMins, lastFetchedBlockInMins, lastFetchedDestIcao, destWeather]);
-
-  useEffect(() => {
-    let newLocalBlockIn = "";
-    let newLocalLdg = "";
-
-    if (parsedDestIcao && parsedDate && (calculatedData.estBlockInMins !== null || calculatedData.estLandingTimeMins !== null)) {
-      try {
-        const day = parseInt(parsedDate.substring(0, 2), 10);
-        const monthMap = {JAN:0, FEB:1, MAR:2, APR:3, MAY:4, JUN:5, JUL:6, AUG:7, SEP:8, OCT:9, NOV:10, DEC:11};
-        const monthStr = parsedDate.substring(2, 5).toUpperCase();
-        const mon = monthMap[monthStr] !== undefined ? monthMap[monthStr] : 0;
-        const yy = 2000 + parseInt(parsedDate.substring(5, 7), 10);
-
-        const tz = getLocalTimeZone(parsedDestIcao);
-        const formatter = new Intl.DateTimeFormat('en-GB', {
-          timeZone: tz,
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: false
-        });
-
-        if (calculatedData.estBlockInMins !== null && calculatedData.estBlockInMins !== undefined) {
-          const h = Math.floor(calculatedData.estBlockInMins / 60) % 24;
-          const m = calculatedData.estBlockInMins % 60;
-          
-          const utcDateBlk = new Date(Date.UTC(yy, mon, day, h, m));
-          
-          if (calculatedData.estBlockInMins >= 24 * 60) {
-              utcDateBlk.setUTCDate(utcDateBlk.getUTCDate() + Math.floor(calculatedData.estBlockInMins / (24 * 60)));
-          }
-
-          if (!isNaN(utcDateBlk.getTime())) {
-            newLocalBlockIn = formatter.format(utcDateBlk).replace(':', '');
-          }
-        }
-
-        if (calculatedData.estLandingTimeMins !== null && calculatedData.estLandingTimeMins !== undefined) {
-          const hLdg = Math.floor(calculatedData.estLandingTimeMins / 60) % 24;
-          const mLdg = calculatedData.estLandingTimeMins % 60;
-          
-          const utcDateLdg = new Date(Date.UTC(yy, mon, day, hLdg, mLdg));
-          
-          if (calculatedData.estLandingTimeMins >= 24 * 60) {
-              utcDateLdg.setUTCDate(utcDateLdg.getUTCDate() + Math.floor(calculatedData.estLandingTimeMins / (24 * 60)));
-          }
-
-          if (!isNaN(utcDateLdg.getTime())) {
-            newLocalLdg = formatter.format(utcDateLdg).replace(':', '');
-          }
-        }
-
-      } catch(e) {
-        // Ignore
-      }
-    }
-    setLocalBlockIn(newLocalBlockIn);
-    setLocalLdg(newLocalLdg);
-  }, [parsedSta, parsedDate, parsedDestIcao, calculatedData.estBlockInMins, calculatedData.estLandingTimeMins]);
 
   const scrollToCurrentFix = () => {
     if (!takeoffTime || calculatedData.flightData.length === 0) return;
@@ -1463,8 +1392,8 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                   {destWeather ? (
                     <div className="flex items-center gap-1.5 cursor-help whitespace-nowrap" title={destWeather.text}>
                       <span className="text-lg leading-none">{destWeather.icon}</span>
-                      <span className="text-xs font-mono font-bold text-amber-300">
-                        {destWeather.tempC}℃ <span className="text-amber-300/80 text-[10px]">({destWeather.tempF}℉)</span>
+                      <span className={`text-xs font-mono font-bold ${destWeather.color}`}>
+                        {destWeather.tempC}℃ <span className="text-[10px] opacity-80">({destWeather.tempF}℉)</span>
                       </span>
                     </div>
                   ) : (
