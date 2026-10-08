@@ -82,6 +82,13 @@ const MAX_ALT_DATA = {
   "77F": [ [380, 43100, 43100, 40800, 43100, 43100, 43100], [400, 41700, 42500, 39700, 43100, 43100, 43100], [420, 40600, 41600, 38800, 43100, 43100, 43100], [440, 39700, 40800, 37900, 43100, 43100, 43100], [460, 38700, 40000, 37100, 43100, 43100, 43100], [480, 37800, 39200, 36300, 43100, 43100, 42500], [500, 37000, 38500, 35600, 42800, 42300, 41700], [520, 36200, 37800, 34900, 42000, 41500, 40900], [540, 36000, 37200, 34200, 41300, 40800, 40200], [560, 35700, 36500, 33500, 40500, 40100, 39500], [580, 34900, 35900, 32900, 39800, 39400, 38800], [600, 34200, 35400, 32300, 39200, 38700, 38100], [620, 33500, 34800, 31800, 38500, 38000, 37400], [640, 32800, 34300, 31200, 37800, 37400, 36800], [660, 32100, 33700, 30700, 37200, 36700, 36100], [680, 31500, 33200, 30100, 36500, 36100, 35600], [700, 30800, 32700, 29600, 36000, 35600, 35000], [720, 30200, 32300, 29200, 35400, 35000, 34300], [740, 29600, 31800, 28700, 34800, 34300, 33600], [760, 29100, 31300, 28100, 34200, 33700, 32900], [780, 28500, 30700, 27600, 33600, 33100, 32300] ]
 };
 
+const REG_MAP = {
+  "JA713A": "772", "JA714A": "772", "JA715A": "772", "JA716A": "772", "JA717A": "772", "JA741A": "772", "JA742A": "772", "JA743A": "772", "JA744A": "772", "JA745A": "772",
+  "JA751A": "773", "JA752A": "773", "JA753A": "773", "JA754A": "773", "JA755A": "773",
+  "JA784A": "77W", "JA785A": "77W", "JA787A": "77W", "JA788A": "77W", "JA790A": "77W", "JA791A": "77W", "JA792A": "77W", "JA793A": "77W", "JA794A": "77W", "JA795A": "77W", "JA796A": "77W", "JA797A": "77W", "JA798A": "77W", "JA799A": "77W",
+  "JA771F": "77F", "JA772F": "77F"
+};
+
 const ICAO_TZ = {
     // 日本
     "RJTT": "Asia/Tokyo", "RJAA": "Asia/Tokyo", "RJCC": "Asia/Tokyo", "RJBB": "Asia/Tokyo", "RJOO": "Asia/Tokyo", "RJGG": "Asia/Tokyo",
@@ -685,7 +692,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
       return () => clearInterval(timer);
   }, []);
 
-  // 1. calculatedData の定義 (API依存・計算の根幹)
   const calculatedData = useMemo(() => {
     const data = [];
     const takeoffMinutes = timeToMinutes(takeoffTime);
@@ -1019,6 +1025,41 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
       }
   }, [currentUtcMins, calculatedData, activeAlerts, triggeredAlerts, popupWp]);
 
+  const handleUpdateActual = (wp, field, value) => {
+    setActuals(prev => ({ ...prev, [wp]: { ...prev[wp], [field]: value } }));
+    if (field === 'ato' && value !== "") {
+        setActiveAlerts(prev => { 
+            if(!prev[wp]) return prev;
+            const n = {...prev}; delete n[wp]; return n; 
+        });
+        setTriggeredAlerts(prev => { 
+            if(!prev[wp]) return prev;
+            const n = {...prev}; delete n[wp]; return n; 
+        });
+    }
+  };
+
+  const handleSyncData = (importedData) => {
+    setActuals(prev => {
+        const merged = { ...prev };
+        for (const wp in importedData) {
+            if (!merged[wp]) merged[wp] = {};
+            if (importedData[wp].ato) merged[wp].ato = importedData[wp].ato;
+            if (importedData[wp].afob) merged[wp].afob = importedData[wp].afob;
+            if (importedData[wp].actAlt) merged[wp].actAlt = importedData[wp].actAlt;
+            if (importedData[wp].actTmp) merged[wp].actTmp = importedData[wp].actTmp;
+            if (importedData[wp].actWind) merged[wp].actWind = importedData[wp].actWind;
+            if (importedData[wp].memo) merged[wp].memo = importedData[wp].memo;
+
+            if (importedData[wp].ato) {
+                setActiveAlerts(a => { const n = {...a}; delete n[wp]; return n; });
+                setTriggeredAlerts(t => { const n = {...t}; delete n[wp]; return n; });
+            }
+        }
+        return merged;
+    });
+  };
+
   useEffect(() => {
     if (parsedDepIcao && navlogData && navlogData.stdH !== undefined && navlogData.stdM !== undefined && parsedDate) {
         try {
@@ -1208,6 +1249,64 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
     return () => { isMounted = false; };
   }, [parsedDestIcao, parsedDate, calculatedData.estBlockInMins, lastFetchedBlockInMins, lastFetchedDestIcao, destWeather]);
 
+  useEffect(() => {
+    let newLocalBlockIn = "";
+    let newLocalLdg = "";
+
+    if (parsedDestIcao && parsedDate && (calculatedData.estBlockInMins !== null || calculatedData.estLandingTimeMins !== null)) {
+      try {
+        const day = parseInt(parsedDate.substring(0, 2), 10);
+        const monthMap = {JAN:0, FEB:1, MAR:2, APR:3, MAY:4, JUN:5, JUL:6, AUG:7, SEP:8, OCT:9, NOV:10, DEC:11};
+        const monthStr = parsedDate.substring(2, 5).toUpperCase();
+        const mon = monthMap[monthStr] !== undefined ? monthMap[monthStr] : 0;
+        const yy = 2000 + parseInt(parsedDate.substring(5, 7), 10);
+
+        const tz = getLocalTimeZone(parsedDestIcao);
+        const formatter = new Intl.DateTimeFormat('en-GB', {
+          timeZone: tz,
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false
+        });
+
+        if (calculatedData.estBlockInMins !== null && calculatedData.estBlockInMins !== undefined) {
+          const h = Math.floor(calculatedData.estBlockInMins / 60) % 24;
+          const m = calculatedData.estBlockInMins % 60;
+          
+          const utcDateBlk = new Date(Date.UTC(yy, mon, day, h, m));
+          
+          if (calculatedData.estBlockInMins >= 24 * 60) {
+              utcDateBlk.setUTCDate(utcDateBlk.getUTCDate() + Math.floor(calculatedData.estBlockInMins / (24 * 60)));
+          }
+
+          if (!isNaN(utcDateBlk.getTime())) {
+            newLocalBlockIn = formatter.format(utcDateBlk).replace(':', '');
+          }
+        }
+
+        if (calculatedData.estLandingTimeMins !== null && calculatedData.estLandingTimeMins !== undefined) {
+          const hLdg = Math.floor(calculatedData.estLandingTimeMins / 60) % 24;
+          const mLdg = calculatedData.estLandingTimeMins % 60;
+          
+          const utcDateLdg = new Date(Date.UTC(yy, mon, day, hLdg, mLdg));
+          
+          if (calculatedData.estLandingTimeMins >= 24 * 60) {
+              utcDateLdg.setUTCDate(utcDateLdg.getUTCDate() + Math.floor(calculatedData.estLandingTimeMins / (24 * 60)));
+          }
+
+          if (!isNaN(utcDateLdg.getTime())) {
+            newLocalLdg = formatter.format(utcDateLdg).replace(':', '');
+          }
+        }
+
+      } catch(e) {
+        // Ignore
+      }
+    }
+    setLocalBlockIn(newLocalBlockIn);
+    setLocalLdg(newLocalLdg);
+  }, [parsedSta, parsedDate, parsedDestIcao, calculatedData.estBlockInMins, calculatedData.estLandingTimeMins]);
+
   const scrollToCurrentFix = () => {
     if (!takeoffTime || calculatedData.flightData.length === 0) return;
     const now = new Date();
@@ -1392,8 +1491,8 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                   {destWeather ? (
                     <div className="flex items-center gap-1.5 cursor-help whitespace-nowrap" title={destWeather.text}>
                       <span className="text-lg leading-none">{destWeather.icon}</span>
-                      <span className={`text-xs font-mono font-bold ${destWeather.color}`}>
-                        {destWeather.tempC}℃ <span className="text-[10px] opacity-80">({destWeather.tempF}℉)</span>
+                      <span className="text-xs font-mono font-bold text-amber-300">
+                        {destWeather.tempC}℃ <span className="text-amber-300/80 text-[10px]">({destWeather.tempF}℉)</span>
                       </span>
                     </div>
                   ) : (
