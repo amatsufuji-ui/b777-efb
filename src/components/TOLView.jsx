@@ -76,19 +76,18 @@ const TOLView = ({ navlogData }) => {
   const [unforeseen, setUnforeseen] = useState(false);
   const [calcResults, setCalcResults] = useState(null);
   
-  // Notification State
-  const [isTimerActive, setIsTimerActive] = useState(false);
+  // タイマー関連ステート
   const [timeRemainingMins, setTimeRemainingMins] = useState(null);
   const [showAlertModal, setShowAlertModal] = useState(false);
-  // カレンダー登録待ちダイアログ用
+  const [isTimerActive, setIsTimerActive] = useState(false);
   const [showCalendarWaitModal, setShowCalendarWaitModal] = useState(false);
-
+  
+  // 再通知防止用フラグ（条件が変わればリセットする）
   const notifiedStagesRef = useRef({ three: false, zero: false });
 
   const currentAirport = airportData.find(a => a.code === airportCode) || airportData[0];
   const airportTz = currentAirport.tz;
 
-  /* STREAMING_CHUNK:Time Calculation Helpers... */
   const getTzOffsetMins = useCallback((timeZone) => {
     try {
       const date = new Date();
@@ -103,7 +102,7 @@ const TOLView = ({ navlogData }) => {
     const absMins = Math.abs(offsetMins);
     const h = Math.floor(absMins / 60).toString().padStart(2, '0');
     const m = (absMins % 60).toString().padStart(2, '0');
-    return `UTC${sign}${h}:${m}`;
+    return "UTC" + sign + h + ":" + m;
   };
 
   const timeToMins = (timeStr) => {
@@ -120,17 +119,18 @@ const TOLView = ({ navlogData }) => {
     let positiveMins = ((totalMins % 1440) + 1440) % 1440;
     const h = Math.floor(positiveMins / 60);
     const m = Math.floor(positiveMins % 60);
-    const dayStr = days > 0 ? `(+${days}d) ` : (days < 0 ? `(${days}d) ` : '');
-    return `${dayStr}${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+    const dayStr = days > 0 ? "(+" + days + "d) " : (days < 0 ? "(" + days + "d) " : '');
+    return dayStr + h.toString().padStart(2, '0') + ":" + m.toString().padStart(2, '0');
   };
 
   const formatDuration = (totalMins) => {
     if (isNaN(totalMins)) return "-";
     const h = Math.floor(totalMins / 60);
     const m = Math.floor(totalMins % 60);
-    return `${h}H${m > 0 ? `${m}M` : ''}`;
+    return h + "H" + (m > 0 ? m + "M" : '');
   };
 
+  // 日本は1時間40分(100分)前、それ以外は1時間30分(90分)前に設定
   const calculateDefaultSuTime = useCallback((boTimeStr, currentTz) => {
       const boMins = timeToMins(boTimeStr);
       const isJapan = currentTz === "Asia/Tokyo";
@@ -139,15 +139,14 @@ const TOLView = ({ navlogData }) => {
       if (suMins < 0) suMins += 1440;
       const h = Math.floor(suMins / 60).toString().padStart(2, '0');
       const m = (suMins % 60).toString().padStart(2, '0');
-      return `${h}:${m}`;
+      return h + ":" + m;
   }, []);
 
-  /* STREAMING_CHUNK:Event Handlers... */
   const handleBoTimeChange = (newBoTime) => {
     setBoTime(newBoTime);
     setSuTime(calculateDefaultSuTime(newBoTime, airportTz));
     notifiedStagesRef.current = { three: false, zero: false };
-    setIsTimerActive(false); 
+    setIsTimerActive(false);
   };
 
   const handleAirportChange = (newCode) => {
@@ -166,28 +165,6 @@ const TOLView = ({ navlogData }) => {
       setIsTimerActive(false);
   };
 
-  const playAlertSound = useCallback(() => {
-    try {
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        const ctx = new AudioContext();
-        const osc = ctx.createOscillator();
-        const gainNode = ctx.createGain();
-        osc.type = 'square';
-        osc.frequency.setValueAtTime(880, ctx.currentTime);
-        osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.1);
-        osc.frequency.setValueAtTime(880, ctx.currentTime + 0.2);
-        osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.3);
-        
-        gainNode.gain.setValueAtTime(0.1, ctx.currentTime); 
-        osc.connect(gainNode);
-        gainNode.connect(ctx.destination);
-        
-        osc.start();
-        osc.stop(ctx.currentTime + 0.6);
-    } catch(e) { console.error("Audio playback failed", e); }
-  }, []);
-
-  /* STREAMING_CHUNK:Effect Hooks... */
   useEffect(() => {
     if (navlogData) {
       let newCode = airportCode;
@@ -208,13 +185,13 @@ const TOLView = ({ navlogData }) => {
       const matchedTz = airportData.find(a => a.code === newCode)?.tz || "Asia/Tokyo";
 
       if (navlogData.stdH !== undefined && navlogData.stdM !== undefined) {
-        const stdStr = `${String(navlogData.stdH).padStart(2, '0')}:${String(navlogData.stdM).padStart(2, '0')}`;
+        const stdStr = String(navlogData.stdH).padStart(2, '0') + ":" + String(navlogData.stdM).padStart(2, '0');
         setBoTime(stdStr);
         setSuTime(calculateDefaultSuTime(stdStr, matchedTz));
       }
       
       if (navlogData.fltTimeH !== undefined && navlogData.fltTimeM !== undefined) {
-        setEteTime(`${String(navlogData.fltTimeH).padStart(2, '0')}:${String(navlogData.fltTimeM).padStart(2, '0')}`);
+        setEteTime(String(navlogData.fltTimeH).padStart(2, '0') + ":" + String(navlogData.fltTimeM).padStart(2, '0'));
       }
       if (navlogData.pTaxiIn !== undefined) {
         setTaxiIn(navlogData.pTaxiIn);
@@ -223,8 +200,8 @@ const TOLView = ({ navlogData }) => {
         setCrewCount(navlogData.pCrewCount);
       }
       
-      setIsTimerActive(false);
       notifiedStagesRef.current = { three: false, zero: false };
+      setIsTimerActive(false);
     }
   }, [navlogData, calculateDefaultSuTime]);
 
@@ -281,42 +258,28 @@ const TOLView = ({ navlogData }) => {
     });
   }, [airportTz, suTime, boTime, crewCount, sectors, restClass, eteTime, taxiIn, unforeseen, getTzOffsetMins]);
 
-  /* STREAMING_CHUNK:App-level Timer Logic... */
-  // アプリ（フォアグラウンド時）用のタイマー監視処理
-  useEffect(() => {
-    let interval;
-    if (isTimerActive && calcResults && !calcResults.isImpossible) {
-      const checkTime = () => {
-         const now = new Date();
-         const nowUtcMins = now.getUTCHours() * 60 + now.getUTCMinutes();
-         
-         let diff = calcResults.finalToLimitMins - nowUtcMins;
-         if (diff < -720) diff += 1440; 
-         if (diff > 720) diff -= 1440;  
+  const playAlertSound = useCallback(() => {
+    try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const ctx = new AudioContext();
+        const osc = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(880, ctx.currentTime);
+        osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.1);
+        osc.frequency.setValueAtTime(880, ctx.currentTime + 0.2);
+        osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.3);
+        
+        gainNode.gain.setValueAtTime(0.1, ctx.currentTime); 
+        osc.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        
+        osc.start();
+        osc.stop(ctx.currentTime + 0.6);
+    } catch(e) { console.error("Audio playback failed", e); }
+  }, []);
 
-         setTimeRemainingMins(diff);
-
-         if (diff <= 0 && diff > -60 && !notifiedStagesRef.current.zero) {
-           notifiedStagesRef.current.zero = true;
-           setShowAlertModal(true);
-           playAlertSound();
-           setIsTimerActive(false); 
-         } else if (diff === 3 && !notifiedStagesRef.current.three) {
-           notifiedStagesRef.current.three = true;
-           window.dispatchEvent(new CustomEvent('show-toast', { detail: `T/O Limit まで残り 3 分です` }));
-           playAlertSound();
-         }
-      };
-      
-      checkTime();
-      interval = setInterval(checkTime, 10000); 
-    } else {
-      setTimeRemainingMins(null);
-    }
-    return () => clearInterval(interval);
-  }, [isTimerActive, calcResults, playAlertSound]);
-
-  /* STREAMING_CHUNK:ICS Generation and Wait Logic... */
+  // カレンダー用のICSファイルを生成してダウンロードさせる
   const generateICSFile = () => {
     if (!calcResults || calcResults.isImpossible) return;
 
@@ -338,9 +301,9 @@ const TOLView = ({ navlogData }) => {
       'PRODID:-//7PT//TOLimit Calculator//EN',
       'CALSCALE:GREGORIAN',
       'BEGIN:VEVENT',
-      `DTSTART:${limitDateStr}`,
-      `DTEND:${limitDateStr}`,
-      `DTSTAMP:${now.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z'}`,
+      'DTSTART:' + limitDateStr,
+      'DTEND:' + limitDateStr,
+      'DTSTAMP:' + now.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z',
       'SUMMARY:✈️ T/O Limit 到達',
       'DESCRIPTION:計算上の離陸制限時刻になりました。運航の可否を確認してください。\\n制限要因: ' + calcResults.limitingFactor,
       'STATUS:CONFIRMED',
@@ -363,7 +326,7 @@ const TOLView = ({ navlogData }) => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `TOLimit_${limitDateStr}.ics`);
+    link.setAttribute('download', 'TOLimit_' + limitDateStr + '.ics');
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -386,16 +349,52 @@ const TOLView = ({ navlogData }) => {
     }
   };
 
+
+  // アプリを画面に開いている間のためのタイマー処理（常時監視）
+  useEffect(() => {
+    let interval;
+    if (isTimerActive && calcResults && !calcResults.isImpossible) {
+      const checkTime = () => {
+         const now = new Date();
+         const nowUtcMins = now.getUTCHours() * 60 + now.getUTCMinutes();
+         
+         let diff = calcResults.finalToLimitMins - nowUtcMins;
+         if (diff < -720) diff += 1440; 
+         if (diff > 720) diff -= 1440;  
+
+         setTimeRemainingMins(diff);
+
+         // T/O Limit 到達時
+         if (diff <= 0 && diff > -60 && !notifiedStagesRef.current.zero) {
+           notifiedStagesRef.current.zero = true;
+           setShowAlertModal(true);
+           playAlertSound();
+           setIsTimerActive(false);
+         // T/O Limit 3分前
+         } else if (diff === 3 && !notifiedStagesRef.current.three) {
+           notifiedStagesRef.current.three = true;
+           window.dispatchEvent(new CustomEvent('show-toast', { detail: 'T/O Limit まで残り 3 分です' }));
+           playAlertSound();
+         }
+      };
+      
+      checkTime(); 
+      interval = setInterval(checkTime, 10000); 
+    } else {
+      setTimeRemainingMins(null);
+    }
+    return () => clearInterval(interval);
+  }, [isTimerActive, calcResults, playAlertSound]);
+
   if (!calcResults) return <div className="p-8 text-center text-slate-500">Loading...</div>;
 
-  /* STREAMING_CHUNK:Rendering TOLView UI... */
   return (
     <div className="w-full h-full overflow-y-auto bg-[#0a111f] p-2 sm:p-4 font-sans rounded-lg custom-scrollbar">
       
-      {/* 警告モーダル（縦画面時は画面上部、横画面時は中央に表示） */}
+      {/* 警告モーダル（アプリをフォアグラウンドで開いている時用） */}
       {showAlertModal && (
-        <div className="fixed inset-x-0 inset-y-0 z-[9999] flex portrait:items-start landscape:items-center justify-center p-4 bg-rose-900/90 backdrop-blur-sm animate-in fade-in duration-300">
-           <div className="bg-slate-900 border-2 border-rose-500 rounded-3xl p-8 max-w-lg w-full shadow-2xl flex flex-col items-center text-center animate-bounce-short portrait:absolute portrait:top-4 landscape:relative">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-rose-900/90 backdrop-blur-sm animate-in fade-in duration-300">
+           <div className="bg-slate-900 border-2 border-rose-500 rounded-3xl p-8 max-w-lg w-full shadow-2xl flex flex-col items-center text-center animate-bounce-short">
               <AlertOctagon className="text-rose-500 w-24 h-24 mb-4 animate-pulse" />
               <h2 className="text-3xl font-black text-white mb-2">T/O Limit 到達！</h2>
               <p className="text-rose-200 font-bold mb-8">計算上の離陸制限時刻を過ぎました。</p>
@@ -409,7 +408,7 @@ const TOLView = ({ navlogData }) => {
         </div>
       )}
 
-      {/* カレンダー登録待ちモーダル - 縦画面時は画面上部、横画面時は画面中央 */}
+      {/* カレンダー登録待ちモーダル */}
       {showCalendarWaitModal && (
         <div className="fixed inset-x-0 inset-y-0 z-[9999] flex portrait:items-start landscape:items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
            <div className="bg-slate-900 border-2 border-blue-500 rounded-3xl p-6 shadow-2xl flex flex-col items-center text-center relative overflow-hidden pointer-events-auto w-full max-w-sm portrait:absolute portrait:top-4 landscape:relative">
@@ -434,8 +433,7 @@ const TOLView = ({ navlogData }) => {
         </div>
       )}
 
-      <div className="max-w-6xl mx-auto pb-20 relative">
-        
+      <div className="max-w-6xl mx-auto pb-20">
         <header className="bg-[#1e293b] border border-slate-700 text-white rounded-2xl p-6 shadow-xl mb-6 relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="absolute -right-10 -bottom-10 opacity-5 pointer-events-none">
             <PlaneTakeoff size={180} />
@@ -453,7 +451,7 @@ const TOLView = ({ navlogData }) => {
           <div className="flex w-full sm:w-auto gap-4 relative z-10">
             <button 
               onClick={handleTimerToggle} 
-              className={`flex-1 sm:flex-none transition-all px-4 py-2.5 rounded-lg text-sm font-black flex items-center justify-center gap-2 border shadow-md ${isTimerActive ? 'bg-rose-600 hover:bg-rose-500 text-white border-rose-500 animate-pulse' : 'bg-slate-700 hover:bg-slate-600 text-slate-200 border-slate-500'}`}
+              className={"flex-1 sm:flex-none transition-all px-4 py-2.5 rounded-lg text-sm font-black flex items-center justify-center gap-2 border shadow-md " + (isTimerActive ? "bg-rose-600 hover:bg-rose-500 text-white border-rose-500 animate-pulse" : "bg-slate-700 hover:bg-slate-600 text-slate-200 border-slate-500")}
               title="iPadのカレンダーアプリにアラームを登録します"
             >
               {isTimerActive ? <><Bell className="animate-wiggle" size={16} /> 監視中</> : <><CalendarPlus size={16} /> 通知を登録</>}
@@ -461,89 +459,87 @@ const TOLView = ({ navlogData }) => {
           </div>
         </header>
 
-        <div className={`grid grid-cols-1 lg:grid-cols-12 gap-6 transition-opacity duration-300 ${showCalendarWaitModal || showAlertModal ? 'opacity-20 pointer-events-none' : 'opacity-100'}`}>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-7 space-y-6">
-            
-            {/* 縦画面時は上に配置、横画面時は左に配置される結果カード */}
-            <div className="flex flex-col gap-6 portrait:order-first landscape:order-none">
-                <div className="bg-indigo-900/30 border border-indigo-500/30 rounded-3xl p-5 flex items-center justify-between shadow-lg">
-                  <div className="flex items-center gap-3 text-indigo-400">
-                    <Clock className="w-6 h-6" />
-                    <span className="text-sm font-bold">順応地LCL S/U時刻</span>
+            {/* 左側：入力フォームと、縦画面時のみ表示される結果カード */}
+            <div className="flex flex-col gap-6 order-first lg:hidden">
+              <div className="bg-indigo-900/30 border border-indigo-500/30 rounded-3xl p-5 flex items-center justify-between shadow-lg">
+                <div className="flex items-center gap-3 text-indigo-400">
+                  <Clock className="w-6 h-6" />
+                  <span className="text-sm font-bold">順応地LCL S/U時刻</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-3xl font-black text-indigo-100 tracking-tight">{minsToTime(calcResults.suLocalMins).trim()}</span>
+                </div>
+              </div>
+
+              <div className={"rounded-3xl shadow-2xl overflow-hidden relative transition-colors duration-500 border " + (calcResults.isImpossible ? "bg-rose-900/80 border-rose-500" : "bg-[#1e40af] border-blue-500/50")}>
+                <div className="p-6 relative z-10 text-white">
+                  <div className="flex justify-between items-start mb-2">
+                     <h3 className="text-xs font-bold tracking-widest text-blue-300 uppercase">Final T/O Limit Time</h3>
+                     {isTimerActive && timeRemainingMins !== null && !calcResults.isImpossible && (
+                       <div className={"px-2 py-1 rounded text-xs font-black border " + (timeRemainingMins <= 60 ? "bg-rose-500/20 text-rose-300 border-rose-500/50 animate-pulse" : "bg-blue-500/20 text-blue-300 border-blue-500/50")}>
+                          残り {timeRemainingMins > 0 ? timeRemainingMins : 0} 分
+                       </div>
+                     )}
                   </div>
-                  <div className="text-right">
-                    <span className="text-3xl font-black text-indigo-100 tracking-tight">{minsToTime(calcResults.suLocalMins).trim()}</span>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-6xl font-black tracking-tighter">{minsToTime(calcResults.finalToLimitMins)}</span>
+                    <span className="text-2xl font-bold text-blue-300">Z</span>
+                  </div>
+                  <div className="mt-6 pt-4 border-t border-white/20 flex items-center gap-3">
+                    {calcResults.isImpossible ? (
+                      <><AlertTriangle className="text-rose-400 w-5 h-5" /><span className="text-sm font-bold text-rose-100">B/O時刻での離陸は不可能</span></>
+                    ) : (
+                      <><CheckCircle2 className="text-emerald-400 w-5 h-5" /><span className="text-sm font-bold text-white">制限要因: <span className="font-black text-emerald-400 bg-black/20 px-1 rounded">{calcResults.limitingFactor}</span> 上限</span></>
+                    )}
                   </div>
                 </div>
+              </div>
 
-                <div className={`rounded-3xl shadow-2xl overflow-hidden relative transition-colors duration-500 border ${calcResults.isImpossible ? 'bg-rose-900/80 border-rose-500' : 'bg-[#1e40af] border-blue-500/50'}`}>
-                  <div className="p-6 relative z-10 text-white">
-                    <div className="flex justify-between items-start mb-2">
-                       <h3 className="text-xs font-bold tracking-widest text-blue-300 uppercase">Final T/O Limit Time</h3>
-                       {isTimerActive && timeRemainingMins !== null && !calcResults.isImpossible && (
-                         <div className={`px-2 py-1 rounded text-xs font-black border ${timeRemainingMins <= 60 ? 'bg-rose-500/20 text-rose-300 border-rose-500/50 animate-pulse' : 'bg-blue-500/20 text-blue-300 border-blue-500/50'}`}>
-                            残り {timeRemainingMins > 0 ? timeRemainingMins : 0} 分
-                         </div>
-                       )}
-                    </div>
-                    <div className="flex items-baseline gap-1.5">
-                      <span className="text-6xl font-black tracking-tighter">{minsToTime(calcResults.finalToLimitMins)}</span>
-                      <span className="text-2xl font-bold text-blue-300">Z</span>
-                    </div>
-                    <div className="mt-6 pt-4 border-t border-white/20 flex items-center gap-3">
-                      {calcResults.isImpossible ? (
-                        <><AlertTriangle className="text-rose-400 w-5 h-5" /><span className="text-sm font-bold text-rose-100">B/O時刻での離陸は不可能</span></>
-                      ) : (
-                        <><CheckCircle2 className="text-emerald-400 w-5 h-5" /><span className="text-sm font-bold text-white">制限要因: <span className="font-black text-emerald-400 bg-black/20 px-1 rounded">{calcResults.limitingFactor}</span> 上限</span></>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* 2列レイアウトに変更したBreakdown */}
-                <div className="bg-[#1e293b] rounded-3xl shadow-lg border border-slate-700 p-6">
-                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-5 flex items-center gap-2">
-                    <Info size={14} /> 上限とリミット内訳 (ZULU)
-                  </h3>
-                  
-                  <div className="flex gap-4 mb-4">
-                    {/* FDP (Left Column) */}
-                    <div className={`flex-1 p-4 rounded-2xl border ${calcResults.limitingFactor === 'FDP' ? 'bg-[#0f172a]/80 border-blue-500/50' : 'bg-[#0f172a]/50 border-slate-700'} flex flex-col justify-between transition-colors`}>
-                      <div className="mb-3">
-                        <p className="text-[10px] font-bold text-slate-500 mb-1">FDP (飛行勤務時間)</p>
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-xl font-black text-white">{formatDuration(calcResults.finalFdpLimit)}</span>
-                          {unforeseen && <span className="px-1.5 py-0.5 rounded text-[10px] font-black bg-amber-500/20 text-amber-400 border border-amber-500/30 animate-in zoom-in">+{formatDuration(calcResults.finalFdpLimit - calcResults.fdpLimit)}</span>}
-                        </div>
-                      </div>
-                      <div className="mt-auto">
-                        <p className="text-[10px] text-slate-500 font-bold uppercase mb-0.5">T/O Limit</p>
-                        <p className={`text-2xl font-black tracking-tight ${calcResults.limitingFactor === 'FDP' ? 'text-blue-400' : 'text-white'}`}>{minsToTime(calcResults.fdpToLimitMins)}</p>
+              {/* 2列レイアウトに変更したBreakdown */}
+              <div className="bg-[#1e293b] rounded-3xl shadow-lg border border-slate-700 p-6">
+                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-5 flex items-center gap-2">
+                  <Info size={14} /> 上限とリミット内訳 (ZULU)
+                </h3>
+                
+                <div className="flex gap-4 mb-4">
+                  {/* FDP (Left Column) */}
+                  <div className={"flex-1 p-4 rounded-2xl border flex flex-col justify-between transition-colors " + (calcResults.limitingFactor === 'FDP' ? 'bg-[#0f172a]/80 border-blue-500/50' : 'bg-[#0f172a]/50 border-slate-700')}>
+                    <div className="mb-3">
+                      <p className="text-[10px] font-bold text-slate-500 mb-1">FDP (飛行勤務時間)</p>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-xl font-black text-white">{formatDuration(calcResults.finalFdpLimit)}</span>
+                        {unforeseen && <span className="px-1.5 py-0.5 rounded text-[10px] font-black bg-amber-500/20 text-amber-400 border border-amber-500/30 animate-in zoom-in">+{formatDuration(calcResults.finalFdpLimit - calcResults.fdpLimit)}</span>}
                       </div>
                     </div>
-                    
-                    {/* F/T (Right Column) */}
-                    <div className={`flex-1 p-4 rounded-2xl border ${calcResults.limitingFactor === 'F/T' ? 'bg-[#0f172a]/80 border-blue-500/50' : 'bg-[#0f172a]/50 border-slate-700'} flex flex-col justify-between transition-colors`}>
-                      <div className="mb-3">
-                        <p className="text-[10px] font-bold text-slate-500 mb-1">F/T (乗務時間)</p>
-                        <p className="text-xl font-black text-white">{formatDuration(calcResults.finalFtLimit)}</p>
-                      </div>
-                      <div className="mt-auto">
-                        <p className="text-[10px] text-slate-500 font-bold uppercase mb-0.5">T/O Limit</p>
-                        <p className={`text-2xl font-black tracking-tight ${calcResults.limitingFactor === 'F/T' ? 'text-blue-400' : 'text-white'}`}>{minsToTime(calcResults.ftToLimitMins)}</p>
-                      </div>
+                    <div className="mt-auto">
+                      <p className="text-[10px] text-slate-500 font-bold uppercase mb-0.5">T/O Limit</p>
+                      <p className={"text-2xl font-black tracking-tight " + (calcResults.limitingFactor === 'FDP' ? 'text-blue-400' : 'text-white')}>{minsToTime(calcResults.fdpToLimitMins)}</p>
                     </div>
                   </div>
                   
-                  <div className="flex justify-between items-center px-4 pt-4 border-t border-slate-700 mt-2">
-                    <span className="text-[10px] font-bold text-slate-400">フライト所要 (ETE + Taxi In)</span>
-                    <span className="text-sm font-black text-white bg-slate-900 px-2 py-1 rounded border border-slate-700">{formatDuration(calcResults.fltReqMins)}</span>
+                  {/* F/T (Right Column) */}
+                  <div className={"flex-1 p-4 rounded-2xl border flex flex-col justify-between transition-colors " + (calcResults.limitingFactor === 'F/T' ? 'bg-[#0f172a]/80 border-blue-500/50' : 'bg-[#0f172a]/50 border-slate-700')}>
+                    <div className="mb-3">
+                      <p className="text-[10px] font-bold text-slate-500 mb-1">F/T (乗務時間)</p>
+                      <p className="text-xl font-black text-white">{formatDuration(calcResults.finalFtLimit)}</p>
+                    </div>
+                    <div className="mt-auto">
+                      <p className="text-[10px] text-slate-500 font-bold uppercase mb-0.5">T/O Limit</p>
+                      <p className={"text-2xl font-black tracking-tight " + (calcResults.limitingFactor === 'F/T' ? 'text-blue-400' : 'text-white')}>{minsToTime(calcResults.ftToLimitMins)}</p>
+                    </div>
                   </div>
                 </div>
+                
+                <div className="flex justify-between items-center px-4 pt-4 border-t border-slate-700 mt-2">
+                  <span className="text-[10px] font-bold text-slate-400">フライト所要 (ETE + Taxi In)</span>
+                  <span className="text-sm font-black text-white bg-slate-900 px-2 py-1 rounded border border-slate-700">{formatDuration(calcResults.fltReqMins)}</span>
+                </div>
+              </div>
             </div>
 
-            {/* 入力フォーム (Portrait時は下になる) */}
-            <div className="bg-[#1e293b] rounded-3xl shadow-lg border border-slate-700 p-6 portrait:order-last landscape:order-none mt-6 landscape:mt-0">
+            <div className="bg-[#1e293b] rounded-3xl shadow-lg border border-slate-700 p-6 order-last lg:order-none mt-6 lg:mt-0">
               <h2 className="text-lg font-bold text-white mb-5 flex items-center gap-2 border-b border-slate-600 pb-3">
                 <PlaneTakeoff className="text-blue-400 w-5 h-5" /> フライト条件入力 (UTC)
               </h2>
@@ -553,10 +549,10 @@ const TOLView = ({ navlogData }) => {
                   <label className="block text-xs font-bold text-slate-400">出発地の空港 (Time Zone)</label>
                   <select value={airportCode} onChange={(e) => handleAirportChange(e.target.value)} className="w-full px-3 py-2.5 bg-[#0f172a] border border-slate-600 text-white rounded-xl text-sm font-black focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer shadow-inner">
                     {airportData.map(ap => (
-                      <option key={ap.code} value={ap.code}>{ap.region} - {ap.name} ({ap.code})</option>
+                      <option key={ap.code} value={ap.code}>{ap.region + " - " + ap.name + " (" + ap.code + ")"}</option>
                     ))}
                   </select>
-                  <p className="text-[10px] text-slate-500 font-bold text-right mt-1">Offset: {formatOffset(calcResults.offsetMins)}</p>
+                  <p className="text-[10px] text-slate-500 font-bold text-right mt-1">{"Offset: " + formatOffset(calcResults.offsetMins)}</p>
                 </div>
                 
                 <div className="space-y-1.5">
@@ -612,109 +608,106 @@ const TOLView = ({ navlogData }) => {
               </div>
             </div>
 
-            <div className={`rounded-3xl shadow-lg border p-5 transition-all duration-300 flex items-center justify-between cursor-pointer select-none portrait:order-last landscape:order-none mt-6 ${unforeseen ? 'bg-[#331b0b] border-amber-500/50' : 'bg-[#1e293b] border-slate-600 hover:border-slate-500'}`} onClick={toggleUnforeseen}>
+            <div className={"rounded-3xl shadow-lg border p-5 transition-all duration-300 flex items-center justify-between cursor-pointer select-none order-last lg:order-none mt-6 " + (unforeseen ? 'bg-[#331b0b] border-amber-500/50' : 'bg-[#1e293b] border-slate-600 hover:border-slate-500')} onClick={toggleUnforeseen}>
               <div className="flex items-center gap-4">
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl transition-colors ${unforeseen ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-700 text-slate-400'}`}>
+                <div className={"w-12 h-12 rounded-2xl flex items-center justify-center text-xl transition-colors " + (unforeseen ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-700 text-slate-400')}>
                   <AlertTriangle />
                 </div>
                 <div>
-                  <p className={`font-bold text-base ${unforeseen ? 'text-amber-400' : 'text-white'}`}>不測の事態の適用</p>
-                  <p className={`text-xs mt-1 ${unforeseen ? 'text-amber-500/80' : 'text-slate-500'}`}>
-                    離陸前発生: FDP上限 <span className="font-mono font-black ml-1 bg-black/50 px-1.5 py-0.5 rounded-md text-amber-400">+{crewCount === 2 ? '2' : '3'}時間</span>
+                  <p className={"font-bold text-base " + (unforeseen ? 'text-amber-400' : 'text-white')}>不測の事態の適用</p>
+                  <p className={"text-xs mt-1 " + (unforeseen ? 'text-amber-500/80' : 'text-slate-500')}>
+                    離陸前発生: FDP上限 <span className="font-mono font-black ml-1 bg-black/50 px-1.5 py-0.5 rounded-md text-amber-400">{"+" + (crewCount === 2 ? '2' : '3') + "時間"}</span>
                   </p>
                 </div>
               </div>
               
-              <div className={`relative inline-flex items-center h-8 rounded-full w-14 transition-colors focus:outline-none border-2 shadow-inner ${unforeseen ? 'bg-amber-500 border-amber-400' : 'bg-slate-600 border-slate-500'}`}>
-                <div className={`absolute z-10 w-6 h-6 transform rounded-full bg-white shadow-md transition-transform duration-300 ease-in-out ${unforeseen ? 'translate-x-7' : 'translate-x-0.5'}`} />
+              <div className={"relative inline-flex items-center h-8 rounded-full w-14 transition-colors focus:outline-none border-2 shadow-inner " + (unforeseen ? 'bg-amber-500 border-amber-400' : 'bg-slate-600 border-slate-500')}>
+                <div className={"absolute z-10 w-6 h-6 transform rounded-full bg-white shadow-md transition-transform duration-300 ease-in-out " + (unforeseen ? 'translate-x-7' : 'translate-x-0.5')} />
               </div>
             </div>
-            
           </div>
 
           <div className="lg:col-span-5 space-y-6">
-            
-            {/* 横画面時 (Landscape) はこちらのブロックに結果カードを表示 */}
-            <div className="hidden landscape:flex flex-col gap-6 h-full">
-                <div className="bg-indigo-900/30 border border-indigo-500/30 rounded-3xl p-5 flex items-center justify-between shadow-lg">
-                  <div className="flex items-center gap-3 text-indigo-400">
-                    <Clock className="w-6 h-6" />
-                    <span className="text-sm font-bold">順応地LCL S/U時刻</span>
+            {/* 横画面時 (lg以上) はこちらのブロックに結果カードを表示 */}
+            <div className="hidden lg:flex flex-col gap-6 h-full">
+              <div className="bg-indigo-900/30 border border-indigo-500/30 rounded-3xl p-5 flex items-center justify-between shadow-lg">
+                <div className="flex items-center gap-3 text-indigo-400">
+                  <Clock className="w-6 h-6" />
+                  <span className="text-sm font-bold">順応地LCL S/U時刻</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-3xl font-black text-indigo-100 tracking-tight">{minsToTime(calcResults.suLocalMins).trim()}</span>
+                </div>
+              </div>
+
+              <div className={"rounded-3xl shadow-2xl overflow-hidden relative transition-colors duration-500 border " + (calcResults.isImpossible ? 'bg-rose-900/80 border-rose-500' : 'bg-[#1e40af] border-blue-500/50')}>
+                <div className="p-6 relative z-10 text-white">
+                  <div className="flex justify-between items-start mb-2">
+                     <h3 className="text-xs font-bold tracking-widest text-blue-300 uppercase">Final T/O Limit Time</h3>
+                     {isTimerActive && timeRemainingMins !== null && !calcResults.isImpossible && (
+                       <div className={"px-2 py-1 rounded text-xs font-black border " + (timeRemainingMins <= 60 ? 'bg-rose-500/20 text-rose-300 border-rose-500/50 animate-pulse' : 'bg-blue-500/20 text-blue-300 border-blue-500/50')}>
+                          残り {timeRemainingMins > 0 ? timeRemainingMins : 0} 分
+                       </div>
+                     )}
                   </div>
-                  <div className="text-right">
-                    <span className="text-3xl font-black text-indigo-100 tracking-tight">{minsToTime(calcResults.suLocalMins).trim()}</span>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-6xl font-black tracking-tighter">{minsToTime(calcResults.finalToLimitMins)}</span>
+                    <span className="text-2xl font-bold text-blue-300">Z</span>
+                  </div>
+                  <div className="mt-6 pt-4 border-t border-white/20 flex items-center gap-3">
+                    {calcResults.isImpossible ? (
+                      <><AlertTriangle className="text-rose-400 w-5 h-5" /><span className="text-sm font-bold text-rose-100">B/O時刻での離陸は不可能</span></>
+                    ) : (
+                      <><CheckCircle2 className="text-emerald-400 w-5 h-5" /><span className="text-sm font-bold text-white">制限要因: <span className="font-black text-emerald-400 bg-black/20 px-1 rounded">{calcResults.limitingFactor}</span> 上限</span></>
+                    )}
                   </div>
                 </div>
+              </div>
 
-                <div className={`rounded-3xl shadow-2xl overflow-hidden relative transition-colors duration-500 border ${calcResults.isImpossible ? 'bg-rose-900/80 border-rose-500' : 'bg-[#1e40af] border-blue-500/50'}`}>
-                  <div className="p-6 relative z-10 text-white">
-                    <div className="flex justify-between items-start mb-2">
-                       <h3 className="text-xs font-bold tracking-widest text-blue-300 uppercase">Final T/O Limit Time</h3>
-                       {isTimerActive && timeRemainingMins !== null && !calcResults.isImpossible && (
-                         <div className={`px-2 py-1 rounded text-xs font-black border ${timeRemainingMins <= 60 ? 'bg-rose-500/20 text-rose-300 border-rose-500/50 animate-pulse' : 'bg-blue-500/20 text-blue-300 border-blue-500/50'}`}>
-                            残り {timeRemainingMins > 0 ? timeRemainingMins : 0} 分
-                         </div>
-                       )}
+              <div className="bg-[#1e293b] rounded-3xl shadow-lg border border-slate-700 p-6">
+                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-5 flex items-center gap-2">
+                  <Info size={14} /> 上限とリミット内訳 (ZULU)
+                </h3>
+                <div className="space-y-4">
+                  <div className={"p-4 rounded-2xl border flex justify-between items-center transition-colors " + (calcResults.limitingFactor === 'FDP' ? 'bg-[#0f172a]/80 border-blue-500/50' : 'bg-[#0f172a]/50 border-slate-700')}>
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-500 mb-1">FDP (飛行勤務時間)</p>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xl font-black text-white">{formatDuration(calcResults.finalFdpLimit)}</span>
+                        {unforeseen && <span className="px-1.5 py-0.5 rounded text-[10px] font-black bg-amber-500/20 text-amber-400 border border-amber-500/30 animate-in zoom-in">{"+" + formatDuration(calcResults.finalFdpLimit - calcResults.fdpLimit)}</span>}
+                      </div>
                     </div>
-                    <div className="flex items-baseline gap-1.5">
-                      <span className="text-6xl font-black tracking-tighter">{minsToTime(calcResults.finalToLimitMins)}</span>
-                      <span className="text-2xl font-bold text-blue-300">Z</span>
-                    </div>
-                    <div className="mt-6 pt-4 border-t border-white/20 flex items-center gap-3">
-                      {calcResults.isImpossible ? (
-                        <><AlertTriangle className="text-rose-400 w-5 h-5" /><span className="text-sm font-bold text-rose-100">B/O時刻での離陸は不可能</span></>
-                      ) : (
-                        <><CheckCircle2 className="text-emerald-400 w-5 h-5" /><span className="text-sm font-bold text-white">制限要因: <span className="font-black text-emerald-400 bg-black/20 px-1 rounded">{calcResults.limitingFactor}</span> 上限</span></>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-[#1e293b] rounded-3xl shadow-lg border border-slate-700 p-6">
-                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-5 flex items-center gap-2">
-                    <Info size={14} /> 上限とリミット内訳 (ZULU)
-                  </h3>
-                  
-                  <div className="flex flex-col gap-4">
-                    <div className={`p-4 rounded-2xl border ${calcResults.limitingFactor === 'FDP' ? 'bg-[#0f172a]/80 border-blue-500/50' : 'bg-[#0f172a]/50 border-slate-700'} flex justify-between items-center transition-colors`}>
+                    <div className="text-right flex items-center gap-3">
+                      <ChevronRight className="text-slate-600 w-5 h-5" />
                       <div>
-                        <p className="text-[10px] font-bold text-slate-500 mb-1">FDP (飛行勤務時間)</p>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xl font-black text-white">{formatDuration(calcResults.finalFdpLimit)}</span>
-                          {unforeseen && <span className="px-1.5 py-0.5 rounded text-[10px] font-black bg-amber-500/20 text-amber-400 border border-amber-500/30 animate-in zoom-in">+{formatDuration(calcResults.finalFdpLimit - calcResults.fdpLimit)}</span>}
-                        </div>
-                      </div>
-                      <div className="text-right flex items-center gap-3">
-                        <ChevronRight className="text-slate-600 w-5 h-5" />
-                        <div>
-                          <p className="text-[10px] text-slate-500 font-bold uppercase mb-0.5">T/O Limit</p>
-                          <p className={`text-2xl font-black tracking-tight ${calcResults.limitingFactor === 'FDP' ? 'text-blue-400' : 'text-white'}`}>{minsToTime(calcResults.fdpToLimitMins)}</p>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className={`p-4 rounded-2xl border ${calcResults.limitingFactor === 'F/T' ? 'bg-[#0f172a]/80 border-blue-500/50' : 'bg-[#0f172a]/50 border-slate-700'} flex justify-between items-center transition-colors`}>
-                      <div>
-                        <p className="text-[10px] font-bold text-slate-500 mb-1">F/T (乗務時間)</p>
-                        <p className="text-xl font-black text-white">{formatDuration(calcResults.finalFtLimit)}</p>
-                      </div>
-                      <div className="text-right flex items-center gap-3">
-                        <ChevronRight className="text-slate-600 w-5 h-5" />
-                        <div>
-                          <p className="text-[10px] text-slate-500 font-bold uppercase mb-0.5">T/O Limit</p>
-                          <p className={`text-2xl font-black tracking-tight ${calcResults.limitingFactor === 'F/T' ? 'text-blue-400' : 'text-white'}`}>{minsToTime(calcResults.ftToLimitMins)}</p>
-                        </div>
+                        <p className="text-[10px] text-slate-500 font-bold uppercase mb-0.5">T/O Limit</p>
+                        <p className={"text-2xl font-black tracking-tight " + (calcResults.limitingFactor === 'FDP' ? 'text-blue-400' : 'text-white')}>{minsToTime(calcResults.fdpToLimitMins)}</p>
                       </div>
                     </div>
                   </div>
                   
-                  <div className="flex justify-between items-center px-4 pt-4 border-t border-slate-700 mt-4">
+                  <div className={"p-4 rounded-2xl border flex justify-between items-center transition-colors " + (calcResults.limitingFactor === 'F/T' ? 'bg-[#0f172a]/80 border-blue-500/50' : 'bg-[#0f172a]/50 border-slate-700')}>
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-500 mb-1">F/T (乗務時間)</p>
+                      <p className="text-xl font-black text-white">{formatDuration(calcResults.finalFtLimit)}</p>
+                    </div>
+                    <div className="text-right flex items-center gap-3">
+                      <ChevronRight className="text-slate-600 w-5 h-5" />
+                      <div>
+                        <p className="text-[10px] text-slate-500 font-bold uppercase mb-0.5">T/O Limit</p>
+                        <p className={"text-2xl font-black tracking-tight " + (calcResults.limitingFactor === 'F/T' ? 'text-blue-400' : 'text-white')}>{minsToTime(calcResults.ftToLimitMins)}</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex justify-between items-center px-4 pt-4 border-t border-slate-700 mt-2">
                     <span className="text-[10px] font-bold text-slate-400">フライト所要 (ETE + Taxi In)</span>
                     <span className="text-sm font-black text-white bg-slate-900 px-2 py-1 rounded border border-slate-700">{formatDuration(calcResults.fltReqMins)}</span>
                   </div>
                 </div>
+              </div>
+              
             </div>
-            
           </div>
         </div>
       </div>
