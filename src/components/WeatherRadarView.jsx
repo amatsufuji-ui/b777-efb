@@ -672,7 +672,7 @@ const CrossSectionView = ({ routeData, weatherData, timeIndex, showTemp, navlogD
 const WeatherRadarMap = ({ 
     navlogData, routeWps, frameIndex, setFrameIndex, isPlaying, setIsPlaying, maxFrames, setMaxFrames,
     deviationNM, setDeviationNM, opacity, setOpacity,
-    showHimawari, setShowHimawari, showGoes, setShowGoes, showMeteosat, setShowMeteosat,
+    showHimawari, setShowHimawari, showGoesEast, setShowGoesEast, showGoesWest, setShowGoesWest, showMeteosat, setShowMeteosat,
     showGlobalIr, setShowGlobalIr, showRadar, setShowRadar, showNavlogRoute, setShowNavlogRoute,
     showAirspace, setShowAirspace, showFIR, setShowFIR, safeFrameIndex
 }) => {
@@ -748,7 +748,8 @@ const WeatherRadarMap = ({
   }, [fetchData]);
 
   const himawariLayerRef = useRef(null);
-  const goesLayerRef = useRef(null); 
+  const goesEastLayerRef = useRef(null); 
+  const goesWestLayerRef = useRef(null);
   const meteosatLayerRef = useRef(null); 
   const globalIrLayerRef = useRef(null);
   const radarLayerRef = useRef(null);
@@ -775,9 +776,16 @@ const WeatherRadarMap = ({
           mapInstanceRef.current = map;
           layersRef.current.base = darkBase;
 
+          // サテライトとレーダーの重なり順（Z-Index）を管理する専用Paneを作成
+          map.createPane('satellitePane');
+          map.getPane('satellitePane').style.zIndex = 250; 
+          map.getPane('satellitePane').style.mixBlendMode = 'screen'; // 雲画像の黒背景を透過
+
+          map.createPane('radarPane');
+          map.getPane('radarPane').style.zIndex = 300; // レーダーは必ずサテライトの上に描画する
+
           const style = document.createElement('style');
           style.innerHTML = `
-            .sat-blend { mix-blend-mode: screen !important; }
             .yellow-boundaries { filter: invert(100%) sepia(100%) saturate(1000%) hue-rotate(15deg) brightness(1.2); opacity: 0.85; pointer-events: none; }
             .nav-tooltip { background-color: rgba(15, 23, 42, 0.85) !important; border: 1px solid rgba(56, 189, 248, 0.4) !important; color: #e0f2fe !important; font-size: 10px !important; font-weight: bold !important; padding: 2px 6px !important; border-radius: 4px !important; box-shadow: 0 2px 4px rgba(0,0,0,0.5) !important; }
             .airspace-tooltip { background-color: rgba(0, 0, 0, 0.7) !important; border: 1px solid #38bdf8 !important; color: #bae6fd !important; font-size: 10px !important; font-weight: bold !important; padding: 2px 6px !important; border-radius: 4px !important; }
@@ -788,11 +796,12 @@ const WeatherRadarMap = ({
 
           const errImg = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
           
-          meteosatLayerRef.current = L.tileLayer.wms('https://view.eumetsat.int/geoserver/ows', { layers: 'msg_fes:ir108,msg_iodc:ir108', format: 'image/png', transparent: true, version: '1.3.0', opacity: opacity, zIndex: 2 }).addTo(map);
-          goesLayerRef.current = L.tileLayer(errImg, { opacity: opacity, maxNativeZoom: 5, maxZoom: 16, noWrap: false, errorTileUrl: errImg, zIndex: 3 }).addTo(map);
-          himawariLayerRef.current = L.tileLayer(errImg, { opacity: opacity, minZoom: 3, maxNativeZoom: 5, maxZoom: 16, bounds: [[-60, 70], [60, 210]], noWrap: false, errorTileUrl: errImg, zIndex: 4, className: 'sat-blend', keepBuffer: 16 }).addTo(map);
-          globalIrLayerRef.current = L.tileLayer(errImg, { opacity: opacity, maxNativeZoom: 5, maxZoom: 16, noWrap: false, errorTileUrl: errImg, zIndex: 1, className: 'sat-blend', keepBuffer: 16 }).addTo(map);
-          radarLayerRef.current = L.tileLayer(errImg, { opacity: opacity, maxZoom: 16, noWrap: false, errorTileUrl: errImg, zIndex: 10 }).addTo(map);
+          meteosatLayerRef.current = L.tileLayer.wms('https://view.eumetsat.int/geoserver/ows', { layers: 'msg_fes:ir108,msg_iodc:ir108', format: 'image/png', transparent: true, version: '1.3.0', opacity: opacity, pane: 'satellitePane' }).addTo(map);
+          goesEastLayerRef.current = L.tileLayer(errImg, { opacity: opacity, maxNativeZoom: 5, maxZoom: 16, noWrap: false, errorTileUrl: errImg, pane: 'satellitePane' }).addTo(map);
+          goesWestLayerRef.current = L.tileLayer(errImg, { opacity: opacity, maxNativeZoom: 5, maxZoom: 16, noWrap: false, errorTileUrl: errImg, pane: 'satellitePane', keepBuffer: 16 }).addTo(map);
+          himawariLayerRef.current = L.tileLayer(errImg, { opacity: opacity, minZoom: 3, maxNativeZoom: 5, maxZoom: 16, noWrap: false, errorTileUrl: errImg, pane: 'satellitePane', keepBuffer: 16 }).addTo(map);
+          globalIrLayerRef.current = L.tileLayer(errImg, { opacity: opacity, maxNativeZoom: 5, maxZoom: 16, noWrap: false, errorTileUrl: errImg, pane: 'satellitePane', keepBuffer: 16 }).addTo(map);
+          radarLayerRef.current = L.tileLayer(errImg, { opacity: opacity, maxZoom: 16, noWrap: false, errorTileUrl: errImg, pane: 'radarPane' }).addTo(map);
 
           setIsMapLoaded(true);
         }
@@ -830,9 +839,10 @@ const WeatherRadarMap = ({
   }, [isMapLoaded]);
 
   useEffect(() => {
-    if (!isMapLoaded || !himawariLayerRef.current) return;
+    if (!isMapLoaded || !himawariLayerRef.current || !window.L) return;
     const errImg = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
 
+    // 1. HIMAWARI パスの修正 (SND/ETC で拡張子 jpg。カラーの雲頂強調画像になります。経度の途切れ回避のためboundsは除去済)
     let himawariUrl = errImg;
     if (showHimawari && jmaFrames.length > 0) {
         const frame = jmaFrames[Math.max(0, Math.min(getLayerFrameIndex(jmaFrames.length), jmaFrames.length - 1))];
@@ -841,13 +851,20 @@ const WeatherRadarMap = ({
     if (himawariLayerRef.current._url !== himawariUrl) himawariLayerRef.current.setUrl(himawariUrl);
     himawariLayerRef.current.setOpacity(showHimawari ? opacity : 0);
 
-    let goesUrl = errImg;
-    if (showGoes) goesUrl = `https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/goes-ir-4km-900913/{z}/{x}/{y}.png`;
-    if (goesLayerRef.current._url !== goesUrl) goesLayerRef.current.setUrl(goesUrl);
-    goesLayerRef.current.setOpacity(showGoes ? opacity : 0);
+    let goesEastUrl = errImg;
+    if (showGoesEast) goesEastUrl = `https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/goes-ir-4km-900913/{z}/{x}/{y}.png`;
+    if (goesEastLayerRef.current._url !== goesEastUrl) goesEastLayerRef.current.setUrl(goesEastUrl);
+    goesEastLayerRef.current.setOpacity(showGoesEast ? opacity : 0);
+
+    // 2. GOES-W を安定したXYZのフルディスクに変更 (扇形回避、極点の過度な歪みはカット)
+    let goesWestUrl = errImg;
+    if (showGoesWest) goesWestUrl = `https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/goes-west-ir-4km-900913/{z}/{x}/{y}.png`;
+    if (goesWestLayerRef.current._url !== goesWestUrl) goesWestLayerRef.current.setUrl(goesWestUrl);
+    goesWestLayerRef.current.setOpacity(showGoesWest ? opacity : 0);
 
     meteosatLayerRef.current.setOpacity(showMeteosat ? opacity : 0);
 
+    // 3. GLOBAL IR: 安定取得可能なデフォルトスキーム "0/0_0.png" に修正
     let globalIrUrl = errImg;
     if (showGlobalIr && rvSatFrames.length > 0) {
         const idx = getLayerFrameIndex(rvSatFrames.length);
@@ -869,7 +886,7 @@ const WeatherRadarMap = ({
     }
     if (radarLayerRef.current._url !== radarUrl) radarLayerRef.current.setUrl(radarUrl);
     radarLayerRef.current.setOpacity(showRadar ? opacity : 0);
-  }, [isMapLoaded, frameIndex, safeFrameIndex, opacity, showHimawari, showGoes, showMeteosat, showGlobalIr, showRadar, jmaFrames, rvSatFrames, rvRadarFrames, maxFrames]);
+  }, [isMapLoaded, frameIndex, safeFrameIndex, opacity, showHimawari, showGoesEast, showGoesWest, showMeteosat, showGlobalIr, showRadar, jmaFrames, rvSatFrames, rvRadarFrames, maxFrames]);
 
   useEffect(() => {
     if (!isMapLoaded || !mapInstanceRef.current || !window.L) return;
@@ -1130,7 +1147,8 @@ const WeatherRadarMap = ({
 
   let layerNames = [];
   if (showHimawari) layerNames.push("HIMAWARI");
-  if (showGoes) layerNames.push("GOES");
+  if (showGoesEast) layerNames.push("GOES-E");
+  if (showGoesWest) layerNames.push("GOES-W");
   if (showMeteosat) layerNames.push("METEOSAT");
   if (showGlobalIr) layerNames.push("GLOBAL IR");
   if (showRadar) layerNames.push("RADAR");
@@ -1185,7 +1203,8 @@ export const WeatherRadarView = ({ navlogData }) => {
     
     // Map側に渡すための状態をメインコンポーネントで管理
     const [showHimawari, setShowHimawari] = useState(true);
-    const [showGoes, setShowGoes] = useState(true); 
+    const [showGoesEast, setShowGoesEast] = useState(true); 
+    const [showGoesWest, setShowGoesWest] = useState(true); 
     const [showMeteosat, setShowMeteosat] = useState(true); 
     const [showGlobalIr, setShowGlobalIr] = useState(false); 
     const [showRadar, setShowRadar] = useState(true);
@@ -1387,9 +1406,31 @@ export const WeatherRadarView = ({ navlogData }) => {
             <Toast message={toastData.message} visible={toastData.visible} onClose={() => setToastData({ ...toastData, visible: false })} />
 
             <div className="flex items-center justify-between p-2 bg-slate-900 border-b border-slate-800 shrink-0 relative z-20 shadow-md w-full">
-                <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800 mx-auto">
-                    <button onClick={() => setActiveSubTab('map')} className={`px-4 py-1.5 text-xs font-bold rounded-md transition-colors ${activeSubTab === 'map' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}>MAP</button>
-                    <button onClick={() => setActiveSubTab('section')} className={`px-4 py-1.5 text-xs font-bold rounded-md transition-colors ${activeSubTab === 'section' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}>CROSS SECTION</button>
+                <div className="flex items-center gap-2 mx-auto overflow-x-auto w-full px-2 hide-scrollbar">
+                    <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800 shrink-0">
+                        <button onClick={() => setActiveSubTab('map')} className={`px-4 py-1.5 text-xs font-bold rounded-md transition-colors ${activeSubTab === 'map' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}>MAP</button>
+                        <button onClick={() => setActiveSubTab('section')} className={`px-4 py-1.5 text-xs font-bold rounded-md transition-colors ${activeSubTab === 'section' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}>CROSS SECTION</button>
+                    </div>
+                    <div className="flex items-center bg-slate-950 p-1 rounded-lg border border-slate-800 shrink-0">
+                        <span className="text-slate-400 font-bold text-xs px-2 shrink-0">DEV:</span>
+                        <div className="flex items-center gap-1">
+                            <button 
+                                onClick={() => setDeviationNM(0)} 
+                                className={`px-2 py-1 text-xs font-bold rounded-md transition-colors shrink-0 ${deviationNM === 0 ? 'bg-violet-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}
+                            >
+                                OFF
+                            </button>
+                            {[10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map(val => (
+                                <button 
+                                    key={val} 
+                                    onClick={() => setDeviationNM(val)} 
+                                    className={`px-2 py-1 text-xs font-bold rounded-md transition-colors shrink-0 ${deviationNM === val ? 'bg-violet-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}
+                                >
+                                    {val}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
                 </div>
 
                 <button onClick={() => { window.dispatchEvent(new Event('refreshWX')); showToast("最新の気象画像を要求しました"); }} className="absolute right-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white p-1.5 rounded-lg flex items-center justify-center transition-colors border border-slate-700" title="Refresh Weather">
@@ -1408,13 +1449,6 @@ export const WeatherRadarView = ({ navlogData }) => {
                         <input type="range" min="0" max={maxFrames - 1} value={safeFrameIndex} onChange={(e) => { setIsPlaying(false); setFrameIndex(Number(e.target.value)); }} className="w-24 accent-sky-400 cursor-pointer" />
                         </div>
                     )}
-                    <div className="flex items-center gap-1 bg-slate-800 px-2 py-1 rounded border border-slate-700 shrink-0">
-                        <span className="text-slate-400 font-bold">Dev:</span>
-                        <select value={deviationNM} onChange={(e) => setDeviationNM(Number(e.target.value))} className="bg-transparent text-white font-mono focus:outline-none cursor-pointer">
-                        <option value={0} className="bg-slate-900">OFF</option>
-                        {[10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map(val => ( <option key={val} value={val} className="bg-slate-900">{val} NM</option> ))}
-                        </select>
-                    </div>
                     <div className="flex items-center gap-1.5 bg-slate-800 px-2 py-1 rounded border border-slate-700 shrink-0">
                         <span className="text-slate-400 font-bold">Trans:</span>
                         <input type="range" min="0.1" max="1.0" step="0.05" value={opacity} onChange={(e) => setOpacity(parseFloat(e.target.value))} className="w-16 accent-sky-400 cursor-pointer" />
@@ -1422,7 +1456,8 @@ export const WeatherRadarView = ({ navlogData }) => {
 
                     <div className="flex items-center gap-2 bg-slate-800 px-2 py-1 rounded border border-slate-700 flex-wrap shrink-0">
                         <label className="flex items-center gap-1 cursor-pointer select-none text-slate-300 hover:text-white"><input type="checkbox" checked={showHimawari} onChange={(e) => setShowHimawari(e.target.checked)} className="accent-sky-500 rounded" /><span>HIMAWARI</span></label>
-                        <label className="flex items-center gap-1 cursor-pointer select-none text-slate-300 hover:text-white"><input type="checkbox" checked={showGoes} onChange={(e) => setShowGoes(e.target.checked)} className="accent-sky-500 rounded" /><span>GOES</span></label>
+                        <label className="flex items-center gap-1 cursor-pointer select-none text-slate-300 hover:text-white"><input type="checkbox" checked={showGoesEast} onChange={(e) => setShowGoesEast(e.target.checked)} className="accent-sky-500 rounded" /><span>GOES-E</span></label>
+                        <label className="flex items-center gap-1 cursor-pointer select-none text-slate-300 hover:text-white"><input type="checkbox" checked={showGoesWest} onChange={(e) => setShowGoesWest(e.target.checked)} className="accent-sky-500 rounded" /><span>GOES-W</span></label>
                         <label className="flex items-center gap-1 cursor-pointer select-none text-slate-300 hover:text-white"><input type="checkbox" checked={showMeteosat} onChange={(e) => setShowMeteosat(e.target.checked)} className="accent-sky-500 rounded" /><span>METEOSAT</span></label>
                         <label className="flex items-center gap-1 cursor-pointer select-none text-slate-300 hover:text-white border-l border-slate-600 pl-2" title="RainViewer Global IR"><input type="checkbox" checked={showGlobalIr} onChange={(e) => setShowGlobalIr(e.target.checked)} className="accent-sky-500 rounded" /><span className="font-bold text-sky-200">GLOBAL IR</span></label>
                         <label className="flex items-center gap-1 cursor-pointer select-none text-slate-300 hover:text-white border-l border-slate-600 pl-2"><input type="checkbox" checked={showRadar} onChange={(e) => setShowRadar(e.target.checked)} className="accent-sky-500 rounded" /><span>RADAR</span></label>
@@ -1465,8 +1500,10 @@ export const WeatherRadarView = ({ navlogData }) => {
                         setOpacity={setOpacity}
                         showHimawari={showHimawari}
                         setShowHimawari={setShowHimawari}
-                        showGoes={showGoes}
-                        setShowGoes={setShowGoes}
+                        showGoesEast={showGoesEast}
+                        setShowGoesEast={setShowGoesEast}
+                        showGoesWest={showGoesWest}
+                        setShowGoesWest={setShowGoesWest}
                         showMeteosat={showMeteosat}
                         setShowMeteosat={setShowMeteosat}
                         showGlobalIr={showGlobalIr}
