@@ -684,11 +684,13 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
       return now.getUTCHours() * 60 + now.getUTCMinutes();
   });
 
+  // ★ タイマー間隔を10秒に短縮し、確実な差分更新でリアルタイム性を向上
   useEffect(() => {
       const timer = setInterval(() => {
           const now = new Date();
-          setCurrentUtcMins(now.getUTCHours() * 60 + now.getUTCMinutes());
-      }, 60000);
+          const newMins = now.getUTCHours() * 60 + now.getUTCMinutes();
+          setCurrentUtcMins(prev => prev !== newMins ? newMins : prev);
+      }, 10000);
       return () => clearInterval(timer);
   }, []);
 
@@ -836,6 +838,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
       return parsedEtopsInfo.data[parsedEtopsInfo.data.length - 1].airport;
   }, [takeoffTime, currentUtcMins, parsedEtopsInfo, calculatedData.latestAtoTimeDiff, calculatedData.flightData]);
 
+  // ★ 新しいデータが読み込まれた際に確実にリセットする処理
   useEffect(() => {
     if (navlogData && navlogData.newPlan && navlogData.newPlan.length > 0) {
         setFlightPlan(navlogData.newPlan);
@@ -863,7 +866,10 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
 
         hasAutoScrolled.current = false;
         
-        if (navlogData.isNew) {
+        // isNewかつ前回と異なるloadIdの場合にのみリセットを走らせる
+        if (navlogData.isNew && navlogData.loadId !== lastLoadId.current) {
+            lastLoadId.current = navlogData.loadId;
+
             setActuals({});
             setMemoModal({ isOpen: false, wp: '', text: '' });
             setIsDistCheckOpen(false);
@@ -873,16 +879,15 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
             setPopupWp(null);
             setTimerPopupData(null);
             
-            if (navlogData.stdH !== undefined && navlogData.stdM !== undefined) {
-                const taxiOut = navlogData.pTaxiOut !== undefined ? navlogData.pTaxiOut : 20;
+            // TAKEOFF time を確実に STD + AVG TAXI OUT で初期化する
+            if (navlogData.stdH !== undefined && navlogData.stdM !== undefined && !isNaN(navlogData.stdH) && !isNaN(navlogData.stdM)) {
+                const taxiOut = navlogData.pTaxiOut !== undefined && !isNaN(navlogData.pTaxiOut) ? navlogData.pTaxiOut : 20;
                 const defaultToMins = (navlogData.stdH * 60 + navlogData.stdM + taxiOut) % 1440;
                 setTakeoffTime(minutesToTime(defaultToMins));
             } else {
                 setTakeoffTime('');
             }
-            
-            lastLoadId.current = Date.now();
-        } else {
+        } else if (!navlogData.isNew) {
             setActuals(prev => ({ ...prev }));
         }
     }
@@ -1413,7 +1418,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                 <span className="text-[10px] sm:text-[11px] font-bold text-slate-300 bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5">{parsedReg}</span>
                 {parsedDate && <span className="text-[10px] sm:text-[11px] font-bold text-blue-300 bg-blue-900/40 border border-blue-500/40 rounded px-1.5 py-0.5">{parsedDate}</span>}
                 <span className="text-[10px] sm:text-[11px] font-bold text-slate-300 bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5">ZFW:{parsedPzfw}</span>
-                <span className="text-[10px] sm:text-[11px] font-bold text-slate-300 bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5">TAXI:{parsedTaxiOut}/{parsedTaxiIn}M</span>
+                <span className="text-[10px] sm:text-[11px] font-bold text-slate-300 bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5">TAXI OUT/IN: {parsedTaxiOut}/{parsedTaxiIn}M</span>
             </div>
           </div>
           

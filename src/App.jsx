@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import * as LucideIcons from 'lucide-react';
 
-const APP_VERSION = "11.9"; 
+const APP_VERSION = "12.0"; 
 
 import { RAW_CSV_DATA, aircraftRegistrationList, BUDDYCOM_LINKS } from './data/flightData';
 import { aircraftPerformanceData, defaultCruiseWeights, defaultLandingWeights, modelKeyMap, AIRCRAFT_DIMENSIONS, SEAT_DATA, CRUISE_PERF_DATA, VREF_DATA, HOLD_SPD_DATA_RAW, MANEUVER_1_3G_MACH_DATA, TARGET_PITCH_N1_DATA_RAW, LANDING_DIST_DATA_RAW, B777_WIND_LIMITS, MAX_MAN_DATA } from './data/perfData';
@@ -80,6 +80,7 @@ export default function App() {
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [isLoadModalOpen, setIsLoadModalOpen] = useState(false); 
   const [showSetupBanner, setShowSetupBanner] = useState(false);
+  const [showQR, setShowQR] = useState(false);
 
   const pdfInputRef = useRef(null);
   const [isParsingPdf, setIsParsingPdf] = useState(false);
@@ -1156,10 +1157,34 @@ export default function App() {
               {flightId && (<span className="text-slate-300 font-mono text-[9px] border border-slate-600 px-1 rounded bg-slate-800 tracking-normal font-bold">ANA{flightId}</span>)}
             </div>
             
-            <button onClick={handleResetAll} className="bg-rose-900/60 hover:bg-rose-600 text-rose-200 hover:text-white px-2 py-0.5 rounded flex items-center justify-center gap-0.5 transition-colors border border-rose-500/50 hover:border-rose-400 shadow-sm shrink-0 ml-auto" title="すべての入力データをリセット">
-                <SafeIcon name="Trash2" className="w-2.5 h-2.5 pointer-events-none" />
-                <span className="text-[8px] sm:text-[9px] font-black tracking-widest leading-none mt-[1px] pointer-events-none">RESET</span>
-            </button>
+          
+
+<div className="flex items-center gap-2 ml-auto relative">
+                {/* SHAREボタン */}
+                <button onClick={() => setShowQR(!showQR)} className="bg-blue-900/60 hover:bg-blue-600 text-blue-200 hover:text-white px-2 py-0.5 rounded flex items-center justify-center gap-0.5 transition-colors border border-blue-500/50 hover:border-blue-400 shadow-sm shrink-0" title="アプリを共有">
+                    <SafeIcon name="QrCode" className="w-2.5 h-2.5 pointer-events-none" />
+                    <span className="text-[8px] sm:text-[9px] font-black tracking-widest leading-none mt-[1px] pointer-events-none">SHARE</span>
+                </button>
+                
+                {/* RESETボタン */}
+                <button onClick={handleResetAll} className="bg-rose-900/60 hover:bg-rose-600 text-rose-200 hover:text-white px-2 py-0.5 rounded flex items-center justify-center gap-0.5 transition-colors border border-rose-500/50 hover:border-rose-400 shadow-sm shrink-0" title="すべての入力データをリセット">
+                    <SafeIcon name="Trash2" className="w-2.5 h-2.5 pointer-events-none" />
+                    <span className="text-[8px] sm:text-[9px] font-black tracking-widest leading-none mt-[1px] pointer-events-none">RESET</span>
+                </button>
+
+                {/* QRコードのポップアップ表示 */}
+                {showQR && (
+                    <div className="absolute top-full right-0 mt-2 p-2 bg-white rounded-xl shadow-2xl z-[999] border border-slate-300 animate-in fade-in zoom-in-95">
+                        <img 
+                            src="/QR.png" 
+                            alt="Share QR Code" 
+                            className="w-32 h-32 md:w-40 md:h-40 rounded-lg object-contain" 
+                        />
+                        <div className="text-center mt-1 text-slate-800 text-[10px] font-bold">スキャンして共有</div>
+                    </div>
+                )}
+            </div>
+
           </div>
 
           <div className="flex items-center gap-1 w-full overflow-x-auto hide-scrollbar pb-0.5 mt-0.5">
