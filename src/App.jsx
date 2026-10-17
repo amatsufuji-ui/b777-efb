@@ -1174,14 +1174,21 @@ export default function App() {
 
                 {/* QRコードのポップアップ表示 */}
                 {showQR && (
-                    <div className="absolute top-full right-0 mt-2 p-2 bg-white rounded-xl shadow-2xl z-[999] border border-slate-300 animate-in fade-in zoom-in-95">
-                        <img 
-                            src="/QR.png" 
-                            alt="Share QR Code" 
-                            className="w-32 h-32 md:w-40 md:h-40 rounded-lg object-contain" 
-                        />
-                        <div className="text-center mt-1 text-slate-800 text-[10px] font-bold">スキャンして共有</div>
-                    </div>
+                    <>
+                        {/* 画面外クリック検知用のバックドロップ */}
+                        <div 
+                            className="fixed inset-0 z-[998]" 
+                            onClick={() => setShowQR(false)}
+                        ></div>
+                        <div className="absolute top-full right-0 mt-2 p-2 bg-white rounded-xl shadow-2xl z-[999] border border-slate-300 animate-in fade-in zoom-in-95">
+                            <img 
+                                 src="/QR.png" 
+                                alt="Share QR Code" 
+                                className="w-32 h-32 md:w-40 md:h-40 rounded-lg object-contain" 
+                            />
+                            <div className="text-center mt-1 text-slate-800 text-[10px] font-bold">スキャンして共有</div>
+                        </div>
+                    </>
                 )}
             </div>
 
