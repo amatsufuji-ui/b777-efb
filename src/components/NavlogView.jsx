@@ -830,6 +830,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
       return now.getUTCHours() * 60 + now.getUTCMinutes();
   });
 
+  // ★ タイマー間隔を10秒に短縮し、確実な差分更新でリアルタイム性を向上
   useEffect(() => {
       const timer = setInterval(() => {
           const now = new Date();
@@ -995,6 +996,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
       return parsedEtopsInfo.data[parsedEtopsInfo.data.length - 1].airport;
   }, [takeoffTime, currentUtcMins, parsedEtopsInfo, calculatedData.latestAtoTimeDiff, calculatedData.flightData]);
 
+  // ★ 新しいデータが読み込まれた際に確実にリセットする処理
   useEffect(() => {
     if (navlogData && navlogData.newPlan && navlogData.newPlan.length > 0) {
         setFlightPlan(navlogData.newPlan);
@@ -1022,6 +1024,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
 
         hasAutoScrolled.current = false;
         
+        // isNewかつ前回と異なるloadIdの場合にのみリセットを走らせる
         if (navlogData.isNew && navlogData.loadId !== lastLoadId.current) {
             lastLoadId.current = navlogData.loadId;
 
@@ -1034,6 +1037,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
             setPopupWp(null);
             setTimerPopupData(null);
             
+            // TAKEOFF time を確実に STD + AVG TAXI OUT で初期化する
             if (navlogData.stdH !== undefined && navlogData.stdM !== undefined && !isNaN(navlogData.stdH) && !isNaN(navlogData.stdM)) {
                 const taxiOut = navlogData.pTaxiOut !== undefined && !isNaN(navlogData.pTaxiOut) ? navlogData.pTaxiOut : 20;
                 const defaultToMins = (navlogData.stdH * 60 + navlogData.stdM + taxiOut) % 1440;
@@ -1768,8 +1772,8 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
         </div>
       </header>
 
-      <div className="flex-1 w-full relative overflow-hidden bg-slate-900/40">
-        <div className="absolute inset-0 overflow-auto custom-scrollbar p-1 flex justify-center">
+      <div className="flex-1 w-full relative overflow-hidden bg-slate-900/40 touch-pinch-zoom">
+        <div className="absolute inset-0 overflow-auto custom-scrollbar p-1 flex justify-center touch-auto" style={{ touchAction: 'pan-x pan-y pinch-zoom' }}>
             <div className="w-full max-w-[1400px] min-w-[800px] pb-16 px-1">
               
               <div className="sticky top-0 z-30 bg-[#0f172a] border-b border-slate-700 shadow-md rounded-t-lg">
@@ -1819,7 +1823,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                             <div className="w-full flex gap-1 pl-1 mt-0.5" title="Nearest Adequate Airports">
                                 {row.nearestAirports.map(apt => (
                                     <span key={apt.icao} className="text-[8px] bg-slate-800 text-sky-300 font-bold px-1 py-0.5 rounded border border-slate-700 flex items-center gap-0.5 tracking-tighter">
-                                        {apt.icao} <span className="text-[7px] text-slate-500 font-normal">{Math.round(apt.dist)}</span>
+                                        {apt.icao} <span className="text-[8px] text-slate-300 font-bold ml-0.5">{Math.round(apt.dist)}</span>
                                     </span>
                                 ))}
                             </div>
