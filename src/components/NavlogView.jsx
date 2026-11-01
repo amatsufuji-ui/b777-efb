@@ -75,6 +75,38 @@ const ICAO_COORDS = {
     "OMDB": { lat: 25.2532, lon: 55.3657 }, "OTHH": { lat: 25.2731, lon: 51.6081 }
 };
 
+// 787 Adequate Airports List
+const ADEQUATE_AIRPORTS_787 = [
+    // 日本
+    "RJCW", "RJCM", "RJCK", "RJCN", "RJEC", "RJCC", "RJCH", "RJSM", "RJSH", "RJSR", "RJSK", "RJSY", "RJSS", "RJSF", "RJAA", "RJTT", "RJTY", "RJTH", "RJAW", "RJSN", "RJNT", "RJNW", "RJNK", "RJGG", "RJOO", "RJBB", "RJBE", "RJOR", "RJOH", "RJOW", "RJOB", "RJOA", "RJOI", "RJDC", "RJOS", "RJOT", "RJOM", "RJOK", "RJFF", "RJFS", "RJFU", "RJFO", "RJFT", "RJFM", "RJFK", "ROAH", "RODN", "ROMY", "ROIG", "RORS",
+    // アジア
+    "VGEG", "VGHS", "WBSB", "ZBAA", "ZYCC", "ZUCK", "ZYTL", "ZLDH", "ZGGG", "ZUGY", "ZSHC", "ZYHB", "ZBHH", "ZBLA", "ZPPP", "ZLLL", "ZGNN", "ZSQD", "ZJSY", "ZSSS", "ZSPD", "ZYTX", "ZGSZ", "ZBTJ", "ZWWW", "ZHHH", "ZSAM", "ZLXY", "VHHH", "VAAH", "VOBL", "VOMM", "VIDP", "VOHS", "VIJP", "VECC", "VABB", "VANP", "WADD", "WIHH", "WIII", "WICA", "WAAA", "WARR", "RKPK", "RKPC", "RKSS", "RKSI", "VMMC", "WMKJ", "WBKK", "WMKK", "WBGG", "WMKP", "ZMCK", "VYMD", "VYNT", "VYYY", "RPVM", "RPLL", "RPLC", "WSSS", "RCKH", "RCSS", "RCTP", "VTBD", "VTBS", "VTCC", "VTSP", "VTBU", "VVDN", "VVCI", "VVNB", "VVTS", "VVVD",
+    // オセアニア
+    "YPAD", "YBBN", "YBRM", "YBCS", "YPDN", "YGEL", "YPLM", "YMML", "YPPH", "YPPD", "YSSY", "YBTL", "PKWA", "PKMJ", "NWWW", "NZAA", "NZCH", "AYPY",
+    // 北米・中南米
+    "KAUS", "KBWI", "KBIL", "KBOS", "KCHS", "KORD", "KRFD", "KDFW", "KDEN", "KDTW", "KIAH", "KIND", "KLAS", "KLAX", "KMKE", "KMSP", "KEWR", "KJFK", "KOAK", "KONT", "KPHX", "KPDX", "KSLC", "KSAT", "KSFO", "KSJC", "KBFI", "KSEA", "KIAD", "PAED", "PANC", "PACD", "PAFA", "PAKN", "PASY", "PHNL", "PHOG", "PHKO", "PGUM", "PMDY", "PGSN", "PWAK", "CYYC", "CYEG", "CYQX", "CYYR", "CYFB", "CYUL", "CYXS", "CYYZ", "CYVR", "CYXY", "CYWG", "CYZF", "MMAA", "MMDO", "MMGL", "MMHO", "MMMZ", "MMMX", "MMMY", "MMQT", "MMSM", "MMTC",
+    // ヨーロッパ
+    "UDYZ", "LOWL", "LOWW", "UBBB", "EBBR", "LBBG", "EKCH", "EFHK", "LFPG", "LFPO", "UGTB", "EDDK", "EDDL", "EDDF", "EDDM", "EDDN", "LGAV", "BIKF", "EINN", "LIMC", "LIRF", "LIMF", "LIPZ", "UAAA", "UACC", "UCFM", "EHAM", "ENBR", "ENBO", "EPWA", "UNAA", "UHMA", "UIBB", "UIAA", "UIII", "UHHH", "UNKL", "UHMM", "UUDD", "ULMM", "UNNT", "UHPP", "UWWW", "ULLI", "USRR", "UUYY", "UIUU", "UHWW", "UEEE", "USSS", "UHSS", "ESGG", "ESSA", "EGAA", "EGPF", "EGKK", "EGLL", "EGSS", "UZTT",
+    // 中東
+    "LTAC", "LTAI", "LTCE", "LTBA", "LTFM", "LTBJ"
+];
+
+// 777 Adequate Airports List
+const ADEQUATE_AIRPORTS_777 = [
+    // 日本
+    "RJCW", "RJCM", "RJCK", "RJEC", "RJCC", "RJCH", "RJSM", "RJSK", "RJSS", "RJAA", "RJTT", "RJTY", "RJNK", "RJGG", "RJOO", "RJBB", "RJBE", "RJOA", "RJOM", "RJOK", "RJFF", "RJFO", "RJFM", "RJFK", "ROAH", "RODN", "RORS",
+    // アジア
+    "VGEG", "VGHS", "WBSB", "ZBAA", "ZUCK", "ZYTL", "ZGGG", "ZPPP", "ZGNN", "ZSQD", "ZSSS", "ZSPD", "ZGSZ", "ZBTJ", "ZSAM", "ZLXY", "VHHH", "VAAH", "VOBL", "VOMM", "VIDP", "VOHS", "VIJP", "VECC", "VABB", "WADD", "WIHH", "WIII", "WICA", "WARR", "RKPK", "RKPC", "RKSS", "RKSI", "VMMC", "WMKJ", "WMKK", "WBGG", "WMKP", "VYNT", "VYYY", "RPVM", "RPLL", "RPLC", "WSSS", "RCKH", "RCTP", "VTBD", "VTBS", "VTCC", "VTSP", "VTBU", "VVDN", "VVCI", "VVNB", "VVTS", "VVVD",
+    // オセアニア
+    "YPAD", "YBBN", "YPDN", "YMML", "YPPH", "YSSY", "NZAA", 
+    // 北米・中南米
+    "KAUS", "KBWI", "KBOS", "KORD", "KRFD", "KDFW", "KDTW", "KIND", "KLAS", "KLAX", "KMKE", "KMSP", "KEWR", "KJFK", "KOAK", "KONT", "KPDX", "KSFO", "KSJC", "KBFI", "KSEA", "KIAD", "PAED", "PANC", "PHNL", "PHOG", "PHKO", "CYYC", "CYYZ", "CYVR", "MMAA", "MMGL", "MMQT", "MMSM",
+    // ヨーロッパ
+    "LOWW", "EBBR", "LBBG", "EKCH", "EFHK", "LFPG", "LFPO", "EDDK", "EDDL", "EDDM", "LIRF", "LIMF", "LIPZ", "EHAM", "UHHH", "ESGG", "ESSA", "EGLL", "EGSS",
+    // 中東
+    "LTAC", "LTAI", "LTBJ"
+];
+
 const MAX_ALT_DATA = {
   "772": [ [320, 43100, 43100, 43100, 43100, 43100, 43100], [340, 43100, 43100, 43100, 43100, 43100, 43100], [360, 42100, 43100, 43100, 43100, 43000, 42300], [380, 41000, 43100, 43100, 42900, 42200, 41400], [400, 40000, 43100, 42300, 42100, 41300, 40500], [420, 39000, 43100, 41400, 41200, 40500, 39600], [440, 38000, 42900, 40500, 40400, 39600, 38700], [460, 37100, 42100, 39600, 39600, 38800, 37900], [480, 36300, 41300, 38800, 38700, 37900, 37100], [500, 35500, 40500, 37900, 37900, 37100, 36100], [520, 34800, 39600, 37000, 37100, 36200, 35200], [540, 34000, 38800, 36100, 36200, 35400, 34300], [560, 33600, 38000, 35200, 35400, 34500, 33500] ],
   "773": [ [340, 43100, 43100, 43100, 43100, 43100, 43100], [360, 42300, 43100, 43100, 43100, 43100, 43100], [380, 41200, 43100, 43100, 43100, 42900, 42200], [400, 40100, 43100, 42200, 42600, 42100, 41400], [420, 39000, 43100, 41400, 41800, 41300, 40600], [440, 38000, 43100, 40600, 41100, 40500, 39700], [460, 37200, 42500, 39800, 40300, 39700, 38900], [480, 36400, 41700, 39000, 39500, 39000, 38100], [500, 35700, 40900, 38200, 38800, 37400, 36400], [520, 35000, 40200, 37400, 38000, 37400, 36400], [540, 34200, 39400, 36600, 37200, 36600, 35600] ],
@@ -208,6 +240,119 @@ const interpolateAlt = (weight, tableData, is15g, isaDev) => {
   
   const maxAlt = Math.min(buffetAlt, thrustAlt);
   return `FL${Math.round(maxAlt / 100)}`;
+};
+
+// --- Haversine formula to calculate distance between two coordinates in NM ---
+const getDistanceNM = (lat1, lon1, lat2, lon2) => {
+    const R = 3440.065; // Radius of the Earth in nautical miles
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+        Math.sin(dLat/2) * Math.sin(dLat/2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+        Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+};
+
+// --- Parse Coordinate strings with robust format matching ---
+const parseCoordString = (coordStr) => {
+    if (!coordStr) return null;
+    
+    // Format 1: Explicit N/S Lat W/E Lon format: e.g., N49000W140000 (Very rare, but possible)
+    const explicitMatch = coordStr.match(/^([NS])(\d{2})(\d{3})([EW])(\d{3})(\d{3})$/i);
+    if (explicitMatch) {
+        let lat = parseInt(explicitMatch[2], 10) + parseInt(explicitMatch[3], 10) / 600;
+        if (explicitMatch[1].toUpperCase() === 'S') lat = -lat;
+        let lon = parseInt(explicitMatch[5], 10) + parseInt(explicitMatch[6], 10) / 600;
+        if (explicitMatch[4].toUpperCase() === 'W') lon = -lon;
+        return { lat, lon };
+    }
+    
+    // Format 2: ARINC 424 shorthand (e.g., 49N40)
+    const arincMatch = coordStr.match(/^(\d{2})([NSWE])(\d{2})$/i);
+    if (arincMatch) {
+        let latVal = parseInt(arincMatch[1], 10);
+        let lonVal = parseInt(arincMatch[3], 10);
+        let lat, lon;
+        const hemi = arincMatch[2].toUpperCase();
+        
+        switch (hemi) {
+            case 'N': lat = latVal; lon = -lonVal; break; // North, West
+            case 'E': lat = latVal; lon = lonVal; break;  // North, East
+            case 'S': lat = -latVal; lon = lonVal; break; // South, East
+            case 'W': lat = -latVal; lon = -lonVal; break; // South, West
+            default: return null;
+        }
+        
+        if (hemi === 'N' || hemi === 'W') {
+            if (lonVal < 100 && lon < 0 && hemi === 'N') {
+               lon -= 100;
+            }
+        }
+        
+        return { lat, lon };
+    }
+
+    // Format 3: Raw digits typical in flight plans (e.g. 23156E095246 or 26186E082342 or 51286W000310)
+    // Structure: [LatDeg][LatMin][LatDec][E/W][LonDeg][LonMin][LonDec] OR just N/S missing but East/West explicit in middle
+    const rawMatch = coordStr.match(/^(\d{2})(\d{3})([NSWE])(\d{3})(\d{3})$/i);
+    if (rawMatch) {
+        let lat = parseInt(rawMatch[1], 10) + parseInt(rawMatch[2], 10) / 600;
+        let lon = parseInt(rawMatch[4], 10) + parseInt(rawMatch[5], 10) / 600;
+        const lonDir = rawMatch[3].toUpperCase();
+        if (lonDir === 'W') lon = -lon;
+        
+        // Flight plan format like '26186E082342' usually implies North latitude unless specified otherwise
+        return { lat, lon };
+    }
+
+    // Format 4: Starting with N/S and middle E/W (e.g. N26186E082342)
+    const fullLatLonMatch = coordStr.match(/^([NS])(\d{2})(\d{3})([EW])(\d{3})(\d{3})$/i);
+    if (fullLatLonMatch) {
+        let lat = parseInt(fullLatLonMatch[2], 10) + parseInt(fullLatLonMatch[3], 10) / 600;
+        if (fullLatLonMatch[1].toUpperCase() === 'S') lat = -lat;
+        
+        let lon = parseInt(fullLatLonMatch[5], 10) + parseInt(fullLatLonMatch[6], 10) / 600;
+        if (fullLatLonMatch[4].toUpperCase() === 'W') lon = -lon;
+        
+        return { lat, lon };
+    }
+    
+    return null;
+};
+
+// --- Find nearest adequate airports ---
+const findNearestAirports = (wpName, wpLatLon, acType) => {
+    // 1. Resolve coordinates
+    let coords = parseCoordString(wpLatLon || wpName);
+    if (!coords && ICAO_COORDS[wpName]) {
+        coords = ICAO_COORDS[wpName];
+    }
+    
+    if (!coords) return [];
+
+    // 2. Select Appropriate Adequate Airport List Based on Aircraft Type
+    let targetAirportsList = [];
+    if (/787/i.test(acType)) {
+        targetAirportsList = ADEQUATE_AIRPORTS_787;
+    } else if (/777/i.test(acType) || /77W/i.test(acType) || /77F/i.test(acType) || /773/i.test(acType) || /772/i.test(acType)) {
+        targetAirportsList = ADEQUATE_AIRPORTS_777;
+    } else {
+        return []; // If not 787 or 777, don't calculate
+    }
+
+    // 3. Calculate distance to all airports in the targeted list
+    const distances = targetAirportsList.map(icao => {
+        const aptCoords = ICAO_COORDS[icao];
+        if (!aptCoords) return null;
+        const dist = getDistanceNM(coords.lat, coords.lon, aptCoords.lat, aptCoords.lon);
+        return { icao, dist };
+    }).filter(item => item !== null);
+
+    // 4. Sort by distance and return top 2
+    distances.sort((a, b) => a.dist - b.dist);
+    return distances.slice(0, 2);
 };
 
 const SYNC_HEADER = "7PT|";
@@ -355,14 +500,15 @@ const DistCheckModal = ({ isOpen, onClose, flightData }) => {
             }
 
             const isExclude = wp.isOffRoute || /^(TOC|TOD|CLM|DEC|WPT|EEP\d*|ETP\d*|EXP\d*)$/i.test(wp.wp);
-            const isLatLon = /^\d{2}[A-Z]\d{2}$|^\d{4}[A-Z]$|^\d{2}[NS]\d{2}[EW]$/.test(wp.wp);
+            // Enhanced Lat/Lon matching for Dist Check
+            const isLatLon = /^\d{2}[A-Z]\d{2}$|^\d{4}[A-Z]$|^\d{2}[NS]\d{2}[EW]$|^(\d{2})(\d{3})([NSWE])(\d{3})(\d{3})$/i.test(wp.wp) || wp.latLon;
 
             if (isExclude) {
                 continue;
             }
 
             if (lastBoundaryWp) {
-                const wasLatLon = /^\d{2}[A-Z]\d{2}$|^\d{4}[A-Z]$|^\d{2}[NS]\d{2}[EW]$/.test(lastBoundaryWp.wp);
+                const wasLatLon = /^\d{2}[A-Z]\d{2}$|^\d{4}[A-Z]$|^\d{2}[NS]\d{2}[EW]$|^(\d{2})(\d{3})([NSWE])(\d{3})(\d{3})$/i.test(lastBoundaryWp.wp) || lastBoundaryWp.latLon;
                 if (wasLatLon || isLatLon) {
                     segs.push({
                         from: lastBoundaryWp.wp,
@@ -684,7 +830,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
       return now.getUTCHours() * 60 + now.getUTCMinutes();
   });
 
-  // ★ タイマー間隔を10秒に短縮し、確実な差分更新でリアルタイム性を向上
   useEffect(() => {
       const timer = setInterval(() => {
           const now = new Date();
@@ -698,7 +843,12 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
     const data = [];
     const takeoffMinutes = timeToMinutes(takeoffTime);
     const acType = REG_MAP[parsedReg] || "77W";
-    const perfTable = MAX_ALT_DATA[acType];
+    const perfTable = MAX_ALT_DATA[acType] || MAX_ALT_DATA["77W"];
+    
+    // Check if aircraft type is either 787 or 777 to allow nearest airport logic
+    const is787 = /787/i.test(acType);
+    const is777 = /777/i.test(acType) || /77W/i.test(acType) || /77F/i.test(acType) || /773/i.test(acType) || /772/i.test(acType);
+    const isNearestAirportEligible = is787 || is777;
 
     let currentDiff = 0;
     let totalBurnDiff = 0, lastValidWpIndex = -1;
@@ -770,14 +920,21 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
 
       const maxAlt = interpolateAlt(currentWeight, perfTable, is15gLimit, wpPlan.isaDev);
 
+      // --- Nearest Adequate Airports logic ---
+      let nearestAirports = [];
+      if (isNearestAirportEligible && (wpPlan.latLon || wpPlan.wp)) {
+         nearestAirports = findNearestAirports(wpPlan.wp, wpPlan.latLon, acType);
+      }
+
       data.push({
         ...wpPlan, revisedEtoStr, ato: wpActual.ato || "", timeDiffStr, afob: wpActual.afob || "", memo: wpActual.memo || "",
         fuelDiff, maxAlt, currentWeight: currentWeight.toFixed(1), actAlt: wpActual.actAlt || "",
-        actTmp: wpActual.actTmp || "", actWind: wpActual.actWind || ""
+        actTmp: wpActual.actTmp || "", actWind: wpActual.actWind || "",
+        nearestAirports
       });
     }
 
-    return { flightData: data, totalBurnDiff, lastValidWpIndex, estLandingTimeStr: minutesToTime(estLandingTimeMins), estBlockInStr: minutesToTime(estBlockInMins), estBlockInMins, estLandingTimeMins, latestAtoTimeDiffStr: formatTimeDiff(latestAtoTimeDiff), latestAtoTimeDiff };
+    return { flightData: data, totalBurnDiff, lastValidWpIndex, estLandingTimeStr: minutesToTime(estLandingTimeMins), estBlockInStr: minutesToTime(estBlockInMins), estBlockInMins, estLandingTimeMins, latestAtoTimeDiffStr: formatTimeDiff(latestAtoTimeDiff), latestAtoTimeDiff, isNearestAirportEligible };
   }, [takeoffTime, actuals, flightPlan, parsedPzfw, parsedReg, is15gLimit, parsedTaxiIn]);
 
   const etopsTimeDiff = useMemo(() => {
@@ -838,7 +995,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
       return parsedEtopsInfo.data[parsedEtopsInfo.data.length - 1].airport;
   }, [takeoffTime, currentUtcMins, parsedEtopsInfo, calculatedData.latestAtoTimeDiff, calculatedData.flightData]);
 
-  // ★ 新しいデータが読み込まれた際に確実にリセットする処理
   useEffect(() => {
     if (navlogData && navlogData.newPlan && navlogData.newPlan.length > 0) {
         setFlightPlan(navlogData.newPlan);
@@ -866,7 +1022,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
 
         hasAutoScrolled.current = false;
         
-        // isNewかつ前回と異なるloadIdの場合にのみリセットを走らせる
         if (navlogData.isNew && navlogData.loadId !== lastLoadId.current) {
             lastLoadId.current = navlogData.loadId;
 
@@ -879,7 +1034,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
             setPopupWp(null);
             setTimerPopupData(null);
             
-            // TAKEOFF time を確実に STD + AVG TAXI OUT で初期化する
             if (navlogData.stdH !== undefined && navlogData.stdM !== undefined && !isNaN(navlogData.stdH) && !isNaN(navlogData.stdM)) {
                 const taxiOut = navlogData.pTaxiOut !== undefined && !isNaN(navlogData.pTaxiOut) ? navlogData.pTaxiOut : 20;
                 const defaultToMins = (navlogData.stdH * 60 + navlogData.stdM + taxiOut) % 1440;
@@ -1496,8 +1650,8 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                   {destWeather ? (
                     <div className="flex items-center gap-1.5 cursor-help whitespace-nowrap" title={destWeather.text}>
                       <span className="text-lg leading-none">{destWeather.icon}</span>
-                      <span className="text-xs font-mono font-bold text-amber-300">
-                        {destWeather.tempC}℃ <span className="text-amber-300/80 text-[10px]">({destWeather.tempF}℉)</span>
+                      <span className={`text-xs font-mono font-bold ${destWeather.color}`}>
+                        {destWeather.tempC}℃ <span className="text-[10px] opacity-80">({destWeather.tempF}℉)</span>
                       </span>
                     </div>
                   ) : (
@@ -1646,18 +1800,29 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                   return (
                   <div key={idx} ref={el => rowRefs.current[idx] = el} className={finalRowClass}>
                     
-                    <div 
-                        className="w-[90px] shrink-0 font-mono text-sm sm:text-[15px] font-black text-left pl-1 text-slate-200 truncate flex items-center gap-1 select-none cursor-pointer"
-                        onPointerDown={(e) => handlePointerDown(e, row.wp)}
-                        onPointerUp={handlePointerUpOrLeave}
-                        onPointerLeave={handlePointerUpOrLeave}
-                        onPointerCancel={handlePointerUpOrLeave}
-                        onContextMenu={(e) => e.preventDefault()}
-                        title="長押しで通過通知をセット/解除"
-                    >
-                        {row.wp}
-                        {isAlertActive && (
-                            <SafeIcon name="BellRing" className={`w-3.5 h-3.5 ${isTriggered ? 'text-rose-400 animate-bounce' : 'text-sky-400'}`} />
+                    <div className="flex flex-col w-[90px] shrink-0 items-start justify-center">
+                        <div 
+                            className="w-full font-mono text-sm sm:text-[15px] font-black text-left pl-1 text-slate-200 truncate flex items-center gap-1 select-none cursor-pointer"
+                            onPointerDown={(e) => handlePointerDown(e, row.wp)}
+                            onPointerUp={handlePointerUpOrLeave}
+                            onPointerLeave={handlePointerUpOrLeave}
+                            onPointerCancel={handlePointerUpOrLeave}
+                            onContextMenu={(e) => e.preventDefault()}
+                            title="長押しで通過通知をセット/解除"
+                        >
+                            {row.wp}
+                            {isAlertActive && (
+                                <SafeIcon name="BellRing" className={`w-3.5 h-3.5 ${isTriggered ? 'text-rose-400 animate-bounce' : 'text-sky-400'}`} />
+                            )}
+                        </div>
+                        {calculatedData.isNearestAirportEligible && row.nearestAirports && row.nearestAirports.length > 0 && (
+                            <div className="w-full flex gap-1 pl-1 mt-0.5" title="Nearest Adequate Airports">
+                                {row.nearestAirports.map(apt => (
+                                    <span key={apt.icao} className="text-[8px] bg-slate-800 text-sky-300 font-bold px-1 py-0.5 rounded border border-slate-700 flex items-center gap-0.5 tracking-tighter">
+                                        {apt.icao} <span className="text-[7px] text-slate-500 font-normal">{Math.round(apt.dist)}</span>
+                                    </span>
+                                ))}
+                            </div>
                         )}
                     </div>
                     
