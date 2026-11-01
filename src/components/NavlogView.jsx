@@ -25,54 +25,154 @@ const WMO_CODES = {
     96: { title: "雷・ひょう", icon: "⛈️", color: "text-amber-400" }
 };
 
+// 網羅版 ICAO座標辞書 (マニュアル掲載の Adequate Airports を完全カバー)
 const ICAO_COORDS = {
-    // 日本国内主要空港
-    "RJTT": { lat: 35.5494, lon: 139.7798 }, "RJAA": { lat: 35.7647, lon: 140.3863 },
-    "RJCC": { lat: 42.7752, lon: 141.6925 }, "RJBB": { lat: 34.4347, lon: 135.2442 },
-    "RJOO": { lat: 34.7855, lon: 135.4382 }, "RJGG": { lat: 34.8583, lon: 136.8053 },
-    "ROAH": { lat: 26.1958, lon: 127.6458 }, "RJFF": { lat: 33.5859, lon: 130.4506 },
-    "ROIG": { lat: 24.3964, lon: 124.2450 }, "ROMY": { lat: 24.7828, lon: 125.2950 },
-    "RJFT": { lat: 32.8378, lon: 130.8550 }, "RJFO": { lat: 33.4333, lon: 131.7333 },
-    "RJFM": { lat: 31.8772, lon: 131.4486 }, "RJFK": { lat: 31.8033, lon: 130.7194 },
-    "RJFU": { lat: 32.9169, lon: 129.9136 }, "RJSS": { lat: 38.1397, lon: 140.9169 },
-    "RJSA": { lat: 40.7350, lon: 140.6900 }, "RJSK": { lat: 39.6156, lon: 140.2186 },
-    "RJCH": { lat: 41.7700, lon: 140.8222 }, "RJNK": { lat: 36.3933, lon: 136.4072 },
-    "RJNT": { lat: 36.6486, lon: 137.1875 }, "RJOM": { lat: 33.8272, lon: 132.6997 },
-    "RJOT": { lat: 34.2142, lon: 134.0156 }, "RJOA": { lat: 34.4361, lon: 132.9194 },
-    "RJOC": { lat: 35.4136, lon: 132.8894 }, "RJCB": { lat: 42.7333, lon: 143.2167 },
+    // 日本
+    "RJCW": { lat: 45.4022, lon: 141.6922 }, "RJCM": { lat: 43.8806, lon: 144.1642 },
+    "RJCK": { lat: 43.0408, lon: 144.1931 }, "RJCN": { lat: 43.5775, lon: 144.9606 },
+    "RJEC": { lat: 43.6708, lon: 142.4475 }, "RJCC": { lat: 42.7752, lon: 141.6925 },
+    "RJCH": { lat: 41.7700, lon: 140.8222 }, "RJSM": { lat: 40.7039, lon: 141.3683 },
+    "RJSH": { lat: 40.5564, lon: 141.4675 }, "RJSR": { lat: 40.1925, lon: 140.3703 },
+    "RJSK": { lat: 39.6156, lon: 140.2186 }, "RJSY": { lat: 38.8122, lon: 139.7867 },
+    "RJSS": { lat: 38.1397, lon: 140.9169 }, "RJSF": { lat: 37.2272, lon: 140.4283 },
+    "RJAA": { lat: 35.7647, lon: 140.3863 }, "RJTT": { lat: 35.5494, lon: 139.7798 },
+    "RJTY": { lat: 35.7486, lon: 139.3486 }, "RJTH": { lat: 33.1150, lon: 139.7861 },
+    "RJAW": { lat: 24.7839, lon: 141.3225 }, "RJSN": { lat: 37.9542, lon: 139.1172 },
+    "RJNT": { lat: 36.6486, lon: 137.1875 }, "RJNW": { lat: 37.2933, lon: 136.9617 },
+    "RJNK": { lat: 36.3933, lon: 136.4072 }, "RJGG": { lat: 34.8583, lon: 136.8053 },
+    "RJOO": { lat: 34.7855, lon: 135.4382 }, "RJBB": { lat: 34.4347, lon: 135.2442 },
+    "RJBE": { lat: 34.6328, lon: 135.2239 }, "RJOR": { lat: 35.5300, lon: 134.1658 },
+    "RJOH": { lat: 35.4922, lon: 133.2361 }, "RJOW": { lat: 34.6761, lon: 131.7900 },
+    "RJOB": { lat: 34.7575, lon: 133.8553 }, "RJOA": { lat: 34.4361, lon: 132.9194 },
+    "RJOI": { lat: 34.1439, lon: 132.2356 }, "RJDC": { lat: 33.9300, lon: 131.2772 },
+    "RJOS": { lat: 34.1328, lon: 134.6064 }, "RJOT": { lat: 34.2142, lon: 134.0156 },
+    "RJOM": { lat: 33.8272, lon: 132.6997 }, "RJOK": { lat: 33.5461, lon: 133.6694 },
+    "RJFF": { lat: 33.5859, lon: 130.4506 }, "RJFS": { lat: 33.1497, lon: 130.3022 },
+    "RJFU": { lat: 32.9169, lon: 129.9136 }, "RJFO": { lat: 33.4333, lon: 131.7333 },
+    "RJFT": { lat: 32.8378, lon: 130.8550 }, "RJFM": { lat: 31.8772, lon: 131.4486 },
+    "RJFK": { lat: 31.8033, lon: 130.7194 }, "ROAH": { lat: 26.1958, lon: 127.6458 },
+    "RODN": { lat: 26.3556, lon: 127.7675 }, "ROMY": { lat: 24.7828, lon: 125.2950 },
+    "ROIG": { lat: 24.3964, lon: 124.2450 }, "RORS": { lat: 24.8267, lon: 125.1447 },
+    
+    // アジア
+    "VGEG": { lat: 22.2496, lon: 91.8133 }, "VGHS": { lat: 23.8433, lon: 90.4011 },
+    "WBSB": { lat: 4.9442, lon: 114.9283 }, "ZBAA": { lat: 40.0799, lon: 116.6031 },
+    "ZYCC": { lat: 43.9961, lon: 125.6853 }, "ZUCK": { lat: 29.7192, lon: 106.6417 },
+    "ZYTL": { lat: 38.9657, lon: 121.5386 }, "ZLDH": { lat: 40.1625, lon: 94.8094 },
+    "ZGGG": { lat: 23.3924, lon: 113.2988 }, "ZUGY": { lat: 26.5386, lon: 106.8008 },
+    "ZSHC": { lat: 30.2295, lon: 120.4345 }, "ZYHB": { lat: 45.6234, lon: 126.2503 },
+    "ZBHH": { lat: 40.8516, lon: 111.8242 }, "ZBLA": { lat: 49.2052, lon: 119.8252 },
+    "ZPPP": { lat: 25.1019, lon: 102.9292 }, "ZLLL": { lat: 36.5152, lon: 103.6214 },
+    "ZGNN": { lat: 22.6083, lon: 108.1725 }, "ZSQD": { lat: 36.2661, lon: 120.3744 },
+    "ZJSY": { lat: 18.3029, lon: 109.4123 }, "ZSSS": { lat: 31.1979, lon: 121.3363 },
+    "ZSPD": { lat: 31.1443, lon: 121.8083 }, "ZYTX": { lat: 41.6396, lon: 123.4833 },
+    "ZGSZ": { lat: 22.6393, lon: 113.8107 }, "ZBTJ": { lat: 39.1244, lon: 117.3462 },
+    "ZWWW": { lat: 43.9071, lon: 87.4743 }, "ZHHH": { lat: 30.7701, lon: 114.2081 },
+    "ZSAM": { lat: 24.5440, lon: 118.1277 }, "ZLXY": { lat: 34.4471, lon: 108.7516 },
+    "VHHH": { lat: 22.3080, lon: 113.9185 }, "VAAH": { lat: 23.0772, lon: 72.6347 },
+    "VOBL": { lat: 13.1986, lon: 77.7066 }, "VOMM": { lat: 12.9941, lon: 80.1709 },
+    "VIDP": { lat: 28.5562, lon: 77.1000 }, "VOHS": { lat: 17.2403, lon: 78.4294 },
+    "VIJP": { lat: 26.8242, lon: 75.8011 }, "VECC": { lat: 22.6546, lon: 88.4467 },
+    "VABB": { lat: 19.0896, lon: 72.8656 }, "VANP": { lat: 21.0922, lon: 79.0472 },
+    "WADD": { lat: -8.7481, lon: 115.1671 }, "WIHH": { lat: -6.2653, lon: 106.8856 },
+    "WIII": { lat: -6.1256, lon: 106.6558 }, "WICA": { lat: -6.6666, lon: 108.1750 },
+    "WAAA": { lat: -5.0616, lon: 119.5540 }, "WARR": { lat: -7.3798, lon: 112.7870 },
+    "RKPK": { lat: 35.1795, lon: 128.9382 }, "RKPC": { lat: 33.5113, lon: 126.4930 },
+    "RKSS": { lat: 37.5583, lon: 126.7906 }, "RKSI": { lat: 37.4602, lon: 126.4407 },
+    "VMMC": { lat: 22.1495, lon: 113.5915 }, "WMKJ": { lat: 1.6413, lon: 103.6696 },
+    "WBKK": { lat: 5.9372, lon: 116.0515 }, "WMKK": { lat: 2.7456, lon: 101.7099 },
+    "WBGG": { lat: 1.4842, lon: 110.3470 }, "WMKP": { lat: 5.2971, lon: 100.2769 },
+    "ZMCK": { lat: 47.6494, lon: 106.8209 }, "VYMD": { lat: 21.7011, lon: 95.9772 },
+    "VYNT": { lat: 19.6247, lon: 96.2003 }, "VYYY": { lat: 16.9022, lon: 96.1332 },
+    "RPVM": { lat: 10.3075, lon: 123.9794 }, "RPLL": { lat: 14.5086, lon: 121.0194 },
+    "RPLC": { lat: 15.1858, lon: 120.5596 }, "WSSS": { lat: 1.3644, lon: 103.9915 },
+    "RCKH": { lat: 22.5771, lon: 120.3500 }, "RCSS": { lat: 25.0697, lon: 121.5520 },
+    "RCTP": { lat: 25.0777, lon: 121.2328 }, "VTBD": { lat: 13.9125, lon: 100.6067 },
+    "VTBS": { lat: 13.6900, lon: 100.7501 }, "VTCC": { lat: 18.7668, lon: 98.9626 },
+    "VTSP": { lat: 8.1132, lon: 98.3169 }, "VTBU": { lat: 12.6798, lon: 101.0051 },
+    "VVDN": { lat: 16.0439, lon: 108.1994 }, "VVCI": { lat: 20.8193, lon: 106.7269 },
+    "VVNB": { lat: 21.2212, lon: 105.8072 }, "VVTS": { lat: 10.8188, lon: 106.6520 },
+    "VVVD": { lat: 21.1170, lon: 107.4243 },
+
+    // オセアニア
+    "YPAD": { lat: -34.9450, lon: 138.5306 }, "YBBN": { lat: -27.3842, lon: 153.1175 },
+    "YBRM": { lat: -17.9490, lon: 122.2270 }, "YBCS": { lat: -16.8858, lon: 145.7553 },
+    "YPDN": { lat: -12.4082, lon: 130.8783 }, "YGEL": { lat: -28.7961, lon: 114.7065 },
+    "YPLM": { lat: -22.2356, lon: 114.0886 }, "YMML": { lat: -37.6690, lon: 144.8410 },
+    "YPPH": { lat: -31.9403, lon: 115.9668 }, "YPPD": { lat: -20.3776, lon: 118.6253 },
+    "YSSY": { lat: -33.9461, lon: 151.1772 }, "YBTL": { lat: -19.2525, lon: 146.7653 },
+    "PKWA": { lat: 8.7199, lon: 167.7340 }, "PKMJ": { lat: 7.0645, lon: 171.2720 },
+    "NWWW": { lat: -22.0146, lon: 166.2128 }, "NZAA": { lat: -37.0082, lon: 174.7850 },
+    "NZCH": { lat: -43.4894, lon: 172.5322 }, "AYPY": { lat: -9.4434, lon: 147.2200 },
 
     // 北米・中南米
-    "KJFK": { lat: 40.6413, lon: -73.7781 }, "KEWR": { lat: 40.6895, lon: -74.1745 },
-    "KORD": { lat: 41.9742, lon: -87.9073 }, "KLAX": { lat: 33.9416, lon: -118.4085 },
-    "KSFO": { lat: 37.6213, lon: -122.3790 }, "KSJC": { lat: 37.3619, lon: -121.9290 },
-    "KSEA": { lat: 47.4502, lon: -122.3088 }, "KIAH": { lat: 29.9902, lon: -95.3368 },
-    "KIAD": { lat: 38.9445, lon: -77.4558 }, "PANC": { lat: 61.1744, lon: -149.9963 },
-    "PHNL": { lat: 21.3187, lon: -157.9225 }, "CYVR": { lat: 49.1967, lon: -123.1815 },
-    "MMMX": { lat: 19.4361, lon: -99.0719 },
+    "KAUS": { lat: 30.1945, lon: -97.6699 }, "KBWI": { lat: 39.1754, lon: -76.6683 },
+    "KBIL": { lat: 45.8077, lon: -108.5429 }, "KBOS": { lat: 42.3643, lon: -71.0052 },
+    "KCHS": { lat: 32.8986, lon: -80.0405 }, "KORD": { lat: 41.9742, lon: -87.9073 },
+    "KRFD": { lat: 42.1954, lon: -89.0972 }, "KDFW": { lat: 32.8968, lon: -97.0380 },
+    "KDEN": { lat: 39.8584, lon: -104.6670 }, "KDTW": { lat: 42.2121, lon: -83.3533 },
+    "KIAH": { lat: 29.9805, lon: -95.3397 }, "KIND": { lat: 39.7173, lon: -86.2944 },
+    "KLAS": { lat: 36.0801, lon: -115.1522 }, "KLAX": { lat: 33.9416, lon: -118.4085 },
+    "KMKE": { lat: 42.9472, lon: -87.8966 }, "KMSP": { lat: 44.8805, lon: -93.2169 },
+    "KEWR": { lat: 40.6895, lon: -74.1745 }, "KJFK": { lat: 40.6413, lon: -73.7781 },
+    "KOAK": { lat: 37.7213, lon: -122.2207 }, "KONT": { lat: 34.0560, lon: -117.6012 },
+    "KPHX": { lat: 33.4342, lon: -112.0080 }, "KPDX": { lat: 45.5887, lon: -122.5975 },
+    "KSLC": { lat: 40.7884, lon: -111.9778 }, "KSAT": { lat: 29.5337, lon: -98.4698 },
+    "KSFO": { lat: 37.6213, lon: -122.3790 }, "KSJC": { lat: 37.3626, lon: -121.9290 },
+    "KBFI": { lat: 47.5300, lon: -122.3019 }, "KSEA": { lat: 47.4489, lon: -122.3090 },
+    "KIAD": { lat: 38.9445, lon: -77.4558 }, "PAED": { lat: 61.2509, lon: -149.7992 },
+    "PANC": { lat: 61.1744, lon: -149.9963 }, "PACD": { lat: 55.2056, lon: -162.7239 },
+    "PAFA": { lat: 64.8151, lon: -147.8564 }, "PAKN": { lat: 58.6768, lon: -156.6492 },
+    "PASY": { lat: 52.7123, lon: 174.1136 }, "PHNL": { lat: 21.3187, lon: -157.9225 },
+    "PHOG": { lat: 20.8986, lon: -156.4305 }, "PHKO": { lat: 19.7388, lon: -156.0456 },
+    "PGUM": { lat: 13.4835, lon: 144.7960 }, "PMDY": { lat: 28.2015, lon: -177.3800 },
+    "PGSN": { lat: 15.1188, lon: 145.7292 }, "PWAK": { lat: 19.2821, lon: 166.6360 },
+    "CYYC": { lat: 51.1139, lon: -114.0203 }, "CYEG": { lat: 53.3097, lon: -113.5797 },
+    "CYQX": { lat: 48.9369, lon: -54.5681 }, "CYYR": { lat: 53.3192, lon: -60.4258 },
+    "CYFB": { lat: 63.7564, lon: -68.5558 }, "CYUL": { lat: 45.4706, lon: -73.7408 },
+    "CYXS": { lat: 53.8894, lon: -122.6789 }, "CYYZ": { lat: 43.6772, lon: -79.6248 },
+    "CYVR": { lat: 49.1939, lon: -123.1844 }, "CYXY": { lat: 60.7095, lon: -135.0673 },
+    "CYWG": { lat: 49.9100, lon: -97.2399 }, "CYZF": { lat: 62.4628, lon: -114.4403 },
+    "MMAA": { lat: 16.7571, lon: -99.7540 }, "MMDO": { lat: 24.1242, lon: -104.5283 },
+    "MMGL": { lat: 20.5218, lon: -103.3112 }, "MMHO": { lat: 29.0959, lon: -111.0479 },
+    "MMMZ": { lat: 23.1613, lon: -106.2661 }, "MMMX": { lat: 19.4361, lon: -99.0719 },
+    "MMMY": { lat: 25.7785, lon: -100.1069 }, "MMQT": { lat: 20.6172, lon: -100.1860 },
+    "MMSM": { lat: 19.7490, lon: -98.9818 }, "MMTC": { lat: 25.5683, lon: -103.4106 },
 
-    // ヨーロッパ
-    "EGLL": { lat: 51.4700, lon: -0.4543 }, "LFPG": { lat: 49.0097, lon: 2.5479 },
-    "EDDF": { lat: 50.0379, lon: 8.5622 }, "EDDM": { lat: 48.3538, lon: 11.7861 },
-    "EBBR": { lat: 50.9014, lon: 4.4844 }, "LOWW": { lat: 48.1103, lon: 16.5697 },
-    "LIMC": { lat: 45.6301, lon: 8.7231 }, "ESSA": { lat: 59.6519, lon: 17.9186 },
-    "LTFM": { lat: 41.2753, lon: 28.7520 },
-
-    // アジア・オセアニア
-    "YSSY": { lat: -33.9461, lon: 151.1772 }, "YPPH": { lat: -31.9403, lon: 115.9668 },
-    "VHHH": { lat: 22.3080, lon: 113.9185 }, "WSSS": { lat: 1.3644, lon: 103.9915 },
-    "VTBS": { lat: 13.6900, lon: 100.7501 }, "RCTP": { lat: 25.0777, lon: 121.2328 },
-    "RCSS": { lat: 25.0697, lon: 121.5520 }, "RKSI": { lat: 37.4602, lon: 126.4407 },
-    "RKSS": { lat: 37.5583, lon: 126.7906 }, "ZBAA": { lat: 40.0799, lon: 116.6031 },
-    "ZBAD": { lat: 39.5097, lon: 116.4106 }, "ZSPD": { lat: 31.1443, lon: 121.8083 },
-    "ZSSS": { lat: 31.1979, lon: 121.3363 }, "ZGGG": { lat: 23.3924, lon: 113.2988 },
-    "ZBTJ": { lat: 39.1244, lon: 117.3462 }, "ZSQD": { lat: 36.2661, lon: 120.3744 },
-    "ZYTX": { lat: 41.6396, lon: 123.4833 }, "ZSQZ": { lat: 24.5440, lon: 118.1277 },
-    "WMKK": { lat: 2.7456, lon: 101.7099 }, "WIII": { lat: -6.1256, lon: 106.6558 },
-    "RPLL": { lat: 14.5090, lon: 121.0194 }, "VVTS": { lat: 10.8188, lon: 106.6623 },
-    "VVNB": { lat: 21.2212, lon: 105.8072 }, "VABB": { lat: 19.0896, lon: 72.8656 },
-    "VIDP": { lat: 28.5562, lon: 77.1000 }, "VOMM": { lat: 12.9941, lon: 80.1709 },
-    "YMML": { lat: -37.6690, lon: 144.8410 }, "NZAA": { lat: -37.0082, lon: 174.7850 },
-    "OMDB": { lat: 25.2532, lon: 55.3657 }, "OTHH": { lat: 25.2731, lon: 51.6081 }
+    // ヨーロッパ・ロシア・中東
+    "UDYZ": { lat: 40.1473, lon: 44.3959 }, "LOWL": { lat: 48.2332, lon: 14.1875 },
+    "LOWW": { lat: 48.1103, lon: 16.5697 }, "UBBB": { lat: 40.4675, lon: 50.0467 },
+    "EBBR": { lat: 50.9014, lon: 4.4844 }, "LBBG": { lat: 42.5696, lon: 27.5152 },
+    "EKCH": { lat: 55.6179, lon: 12.6560 }, "EFHK": { lat: 60.3172, lon: 24.9633 },
+    "LFPG": { lat: 49.0097, lon: 2.5479 }, "LFPO": { lat: 48.7253, lon: 2.3594 },
+    "UGTB": { lat: 41.6692, lon: 44.9547 }, "EDDK": { lat: 50.8659, lon: 7.1427 },
+    "EDDL": { lat: 51.2895, lon: 6.7668 }, "EDDF": { lat: 50.0333, lon: 8.5705 },
+    "EDDM": { lat: 48.3538, lon: 11.7861 }, "EDDN": { lat: 49.4987, lon: 11.0780 },
+    "LGAV": { lat: 37.9364, lon: 23.9445 }, "BIKF": { lat: 63.9850, lon: -22.6056 },
+    "EINN": { lat: 52.7020, lon: -8.9248 }, "LIMC": { lat: 45.6301, lon: 8.7231 },
+    "LIRF": { lat: 41.8003, lon: 12.2389 }, "LIMF": { lat: 45.2008, lon: 7.6496 },
+    "LIPZ": { lat: 45.5053, lon: 12.3519 }, "UAAA": { lat: 43.3521, lon: 77.0405 },
+    "UACC": { lat: 51.0222, lon: 71.4669 }, "UCFM": { lat: 43.0613, lon: 74.4776 },
+    "EHAM": { lat: 52.3086, lon: 4.7639 }, "ENBR": { lat: 60.2934, lon: 5.2181 },
+    "ENBO": { lat: 67.2692, lon: 14.3653 }, "EPWA": { lat: 52.1657, lon: 20.9671 },
+    "UNAA": { lat: 53.7400, lon: 91.3850 }, "UHMA": { lat: 64.7350, lon: 177.7417 },
+    "UIBB": { lat: 56.3703, lon: 101.6978 }, "UIAA": { lat: 52.0253, lon: 113.3056 },
+    "UIII": { lat: 52.2680, lon: 104.3890 }, "UHHH": { lat: 48.5280, lon: 135.1883 },
+    "UNKL": { lat: 56.1722, lon: 92.4933 }, "UHMM": { lat: 59.9108, lon: 150.7200 },
+    "UUDD": { lat: 55.4086, lon: 37.9061 }, "ULMM": { lat: 68.7817, lon: 32.7508 },
+    "UNNT": { lat: 55.0125, lon: 82.6507 }, "UHPP": { lat: 53.1678, lon: 158.4533 },
+    "UWWW": { lat: 53.5048, lon: 50.1637 }, "ULLI": { lat: 59.8003, lon: 30.2625 },
+    "USRR": { lat: 61.3436, lon: 73.4022 }, "UUYY": { lat: 61.6483, lon: 50.8447 },
+    "UIUU": { lat: 51.8078, lon: 107.4375 }, "UHWW": { lat: 43.3989, lon: 132.1481 },
+    "UEEE": { lat: 62.1764, lon: 129.7711 }, "USSS": { lat: 56.7431, lon: 60.8027 },
+    "UHSS": { lat: 46.8887, lon: 142.7175 }, "ESGG": { lat: 57.6628, lon: 12.2798 },
+    "ESSA": { lat: 59.6519, lon: 17.9186 }, "EGAA": { lat: 54.6575, lon: -6.2158 },
+    "EGPF": { lat: 55.8719, lon: -4.4331 }, "EGKK": { lat: 51.1481, lon: -0.1903 },
+    "EGLL": { lat: 51.4700, lon: -0.4543 }, "EGSS": { lat: 51.8850, lon: 0.2350 },
+    "UZTT": { lat: 41.2579, lon: 69.2812 }, "LTAC": { lat: 40.1281, lon: 32.9951 },
+    "LTAI": { lat: 36.8987, lon: 30.8005 }, "LTCE": { lat: 39.9556, lon: 41.1703 },
+    "LTBA": { lat: 40.9769, lon: 28.8146 }, "LTFM": { lat: 41.2753, lon: 28.7520 },
+    "LTBJ": { lat: 38.2924, lon: 27.1570 }
 };
 
 // 787 Adequate Airports List
@@ -830,7 +930,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
       return now.getUTCHours() * 60 + now.getUTCMinutes();
   });
 
-  // ★ タイマー間隔を10秒に短縮し、確実な差分更新でリアルタイム性を向上
   useEffect(() => {
       const timer = setInterval(() => {
           const now = new Date();
@@ -843,10 +942,15 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
   const calculatedData = useMemo(() => {
     const data = [];
     const takeoffMinutes = timeToMinutes(takeoffTime);
-    const acType = REG_MAP[parsedReg] || "77W";
-    const perfTable = MAX_ALT_DATA[acType] || MAX_ALT_DATA["77W"];
     
-    // Check if aircraft type is either 787 or 777 to allow nearest airport logic
+    // 機材判定の精度向上 (JA8**A, JA9**A は確実にB787として処理)
+    let acType = REG_MAP[parsedReg] || "77W";
+    if (!REG_MAP[parsedReg]) {
+        if (parsedReg.startsWith("JA8") || parsedReg.startsWith("JA9")) acType = "787";
+        else if (parsedReg.startsWith("JA7")) acType = "77W";
+    }
+
+    const perfTable = MAX_ALT_DATA[acType] || MAX_ALT_DATA["77W"];
     const is787 = /787/i.test(acType);
     const is777 = /777/i.test(acType) || /77W/i.test(acType) || /77F/i.test(acType) || /773/i.test(acType) || /772/i.test(acType);
     const isNearestAirportEligible = is787 || is777;
@@ -921,7 +1025,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
 
       const maxAlt = interpolateAlt(currentWeight, perfTable, is15gLimit, wpPlan.isaDev);
 
-      // --- Nearest Adequate Airports logic ---
       let nearestAirports = [];
       if (isNearestAirportEligible && (wpPlan.latLon || wpPlan.wp)) {
          nearestAirports = findNearestAirports(wpPlan.wp, wpPlan.latLon, acType);
@@ -996,7 +1099,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
       return parsedEtopsInfo.data[parsedEtopsInfo.data.length - 1].airport;
   }, [takeoffTime, currentUtcMins, parsedEtopsInfo, calculatedData.latestAtoTimeDiff, calculatedData.flightData]);
 
-  // ★ 新しいデータが読み込まれた際に確実にリセットする処理
   useEffect(() => {
     if (navlogData && navlogData.newPlan && navlogData.newPlan.length > 0) {
         setFlightPlan(navlogData.newPlan);
@@ -1024,7 +1126,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
 
         hasAutoScrolled.current = false;
         
-        // isNewかつ前回と異なるloadIdの場合にのみリセットを走らせる
         if (navlogData.isNew && navlogData.loadId !== lastLoadId.current) {
             lastLoadId.current = navlogData.loadId;
 
@@ -1037,7 +1138,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
             setPopupWp(null);
             setTimerPopupData(null);
             
-            // TAKEOFF time を確実に STD + AVG TAXI OUT で初期化する
             if (navlogData.stdH !== undefined && navlogData.stdM !== undefined && !isNaN(navlogData.stdH) && !isNaN(navlogData.stdM)) {
                 const taxiOut = navlogData.pTaxiOut !== undefined && !isNaN(navlogData.pTaxiOut) ? navlogData.pTaxiOut : 20;
                 const defaultToMins = (navlogData.stdH * 60 + navlogData.stdM + taxiOut) % 1440;
