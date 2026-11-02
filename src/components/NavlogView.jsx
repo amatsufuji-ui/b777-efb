@@ -25,7 +25,7 @@ const WMO_CODES = {
     96: { title: "雷・ひょう", icon: "⛈️", color: "text-amber-400" }
 };
 
-// 網羅版 ICAO座標辞書 (マニュアル掲載の Adequate Airports を完全カバー)
+// 網羅版 ICAO座標辞書 (中華圏は漢字/カタカナ表記に変更、日本国内はnameを持たせない)
 const ICAO_COORDS = {
     // 日本
     "RJCW": { lat: 45.4022, lon: 141.6922 }, "RJCM": { lat: 43.8806, lon: 144.1642 },
@@ -55,170 +55,175 @@ const ICAO_COORDS = {
     "ROIG": { lat: 24.3964, lon: 124.2450 }, "RORS": { lat: 24.8267, lon: 125.1447 },
     
     // アジア
-    "VGEG": { lat: 22.2496, lon: 91.8133 }, "VGHS": { lat: 23.8433, lon: 90.4011 },
-    "WBSB": { lat: 4.9442, lon: 114.9283 }, "ZBAA": { lat: 40.0799, lon: 116.6031 },
-    "ZYCC": { lat: 43.9961, lon: 125.6853 }, "ZUCK": { lat: 29.7192, lon: 106.6417 },
-    "ZYTL": { lat: 38.9657, lon: 121.5386 }, "ZLDH": { lat: 40.1625, lon: 94.8094 },
-    "ZGGG": { lat: 23.3924, lon: 113.2988 }, "ZUGY": { lat: 26.5386, lon: 106.8008 },
-    "ZSHC": { lat: 30.2295, lon: 120.4345 }, "ZYHB": { lat: 45.6234, lon: 126.2503 },
-    "ZBHH": { lat: 40.8516, lon: 111.8242 }, "ZBLA": { lat: 49.2052, lon: 119.8252 },
-    "ZPPP": { lat: 25.1019, lon: 102.9292 }, "ZLLL": { lat: 36.5152, lon: 103.6214 },
-    "ZGNN": { lat: 22.6083, lon: 108.1725 }, "ZSQD": { lat: 36.2661, lon: 120.3744 },
-    "ZJSY": { lat: 18.3029, lon: 109.4123 }, "ZSSS": { lat: 31.1979, lon: 121.3363 },
-    "ZSPD": { lat: 31.1443, lon: 121.8083 }, "ZYTX": { lat: 41.6396, lon: 123.4833 },
-    "ZGSZ": { lat: 22.6393, lon: 113.8107 }, "ZBTJ": { lat: 39.1244, lon: 117.3462 },
-    "ZWWW": { lat: 43.9071, lon: 87.4743 }, "ZHHH": { lat: 30.7701, lon: 114.2081 },
-    "ZSAM": { lat: 24.5440, lon: 118.1277 }, "ZLXY": { lat: 34.4471, lon: 108.7516 },
-    "VHHH": { lat: 22.3080, lon: 113.9185 }, "VAAH": { lat: 23.0772, lon: 72.6347 },
-    "VOBL": { lat: 13.1986, lon: 77.7066 }, "VOMM": { lat: 12.9941, lon: 80.1709 },
-    "VIDP": { lat: 28.5562, lon: 77.1000 }, "VOHS": { lat: 17.2403, lon: 78.4294 },
-    "VIJP": { lat: 26.8242, lon: 75.8011 }, "VECC": { lat: 22.6546, lon: 88.4467 },
-    "VABB": { lat: 19.0896, lon: 72.8656 }, "VANP": { lat: 21.0922, lon: 79.0472 },
-    "WADD": { lat: -8.7481, lon: 115.1671 }, "WIHH": { lat: -6.2653, lon: 106.8856 },
-    "WIII": { lat: -6.1256, lon: 106.6558 }, "WICA": { lat: -6.6666, lon: 108.1750 },
-    "WAAA": { lat: -5.0616, lon: 119.5540 }, "WARR": { lat: -7.3798, lon: 112.7870 },
-    "RKPK": { lat: 35.1795, lon: 128.9382 }, "RKPC": { lat: 33.5113, lon: 126.4930 },
-    "RKSS": { lat: 37.5583, lon: 126.7906 }, "RKSI": { lat: 37.4602, lon: 126.4407 },
-    "VMMC": { lat: 22.1495, lon: 113.5915 }, "WMKJ": { lat: 1.6413, lon: 103.6696 },
-    "WBKK": { lat: 5.9372, lon: 116.0515 }, "WMKK": { lat: 2.7456, lon: 101.7099 },
-    "WBGG": { lat: 1.4842, lon: 110.3470 }, "WMKP": { lat: 5.2971, lon: 100.2769 },
-    "ZMCK": { lat: 47.6494, lon: 106.8209 }, "VYMD": { lat: 21.7011, lon: 95.9772 },
-    "VYNT": { lat: 19.6247, lon: 96.2003 }, "VYYY": { lat: 16.9022, lon: 96.1332 },
-    "RPVM": { lat: 10.3075, lon: 123.9794 }, "RPLL": { lat: 14.5086, lon: 121.0194 },
-    "RPLC": { lat: 15.1858, lon: 120.5596 }, "WSSS": { lat: 1.3644, lon: 103.9915 },
-    "RCKH": { lat: 22.5771, lon: 120.3500 }, "RCSS": { lat: 25.0697, lon: 121.5520 },
-    "RCTP": { lat: 25.0777, lon: 121.2328 }, "VTBD": { lat: 13.9125, lon: 100.6067 },
-    "VTBS": { lat: 13.6900, lon: 100.7501 }, "VTCC": { lat: 18.7668, lon: 98.9626 },
-    "VTSP": { lat: 8.1132, lon: 98.3169 }, "VTBU": { lat: 12.6798, lon: 101.0051 },
-    "VVDN": { lat: 16.0439, lon: 108.1994 }, "VVCI": { lat: 20.8193, lon: 106.7269 },
-    "VVNB": { lat: 21.2212, lon: 105.8072 }, "VVTS": { lat: 10.8188, lon: 106.6520 },
-    "VVVD": { lat: 21.1170, lon: 107.4243 },
+    "VGEG": { lat: 22.2496, lon: 91.8133, name: "Chattogram" }, "VGHS": { lat: 23.8433, lon: 90.4011, name: "Dhaka" },
+    "WBSB": { lat: 4.9442, lon: 114.9283, name: "Bandar Seri Begawan" }, "ZBAA": { lat: 40.0799, lon: 116.6031, name: "北京" },
+    "ZYCC": { lat: 43.9961, lon: 125.6853, name: "長春" }, "ZUCK": { lat: 29.7192, lon: 106.6417, name: "重慶" },
+    "ZYTL": { lat: 38.9657, lon: 121.5386, name: "大連" }, "ZLDH": { lat: 40.1625, lon: 94.8094, name: "敦煌" },
+    "ZGGG": { lat: 23.3924, lon: 113.2988, name: "広州" }, "ZUGY": { lat: 26.5386, lon: 106.8008, name: "貴陽" },
+    "ZSHC": { lat: 30.2295, lon: 120.4345, name: "杭州" }, "ZYHB": { lat: 45.6234, lon: 126.2503, name: "ハルピン" },
+    "ZBHH": { lat: 40.8516, lon: 111.8242, name: "フフホト" }, "ZBLA": { lat: 49.2052, lon: 119.8252, name: "フルンボイル" },
+    "ZPPP": { lat: 25.1019, lon: 102.9292, name: "昆明" }, "ZLLL": { lat: 36.5152, lon: 103.6214, name: "蘭州" },
+    "ZGNN": { lat: 22.6083, lon: 108.1725, name: "南寧" }, "ZSQD": { lat: 36.2661, lon: 120.3744, name: "青島" },
+    "ZJSY": { lat: 18.3029, lon: 109.4123, name: "三亜" }, "ZSSS": { lat: 31.1979, lon: 121.3363, name: "上海/虹橋" },
+    "ZSPD": { lat: 31.1443, lon: 121.8083, name: "上海/浦東" }, "ZYTX": { lat: 41.6396, lon: 123.4833, name: "瀋陽" },
+    "ZGSZ": { lat: 22.6393, lon: 113.8107, name: "深セン" }, "ZBTJ": { lat: 39.1244, lon: 117.3462, name: "天津" },
+    "ZWWW": { lat: 43.9071, lon: 87.4743, name: "ウルムチ" }, "ZHHH": { lat: 30.7701, lon: 114.2081, name: "武漢" },
+    "ZSAM": { lat: 24.5440, lon: 118.1277, name: "厦門" }, "ZLXY": { lat: 34.4471, lon: 108.7516, name: "西安" },
+    "VHHH": { lat: 22.3080, lon: 113.9185, name: "香港" }, "VAAH": { lat: 23.0772, lon: 72.6347, name: "Ahmedabad" },
+    "VOBL": { lat: 13.1986, lon: 77.7066, name: "Bengaluru" }, "VOMM": { lat: 12.9941, lon: 80.1709, name: "Chennai" },
+    "VIDP": { lat: 28.5562, lon: 77.1000, name: "Delhi" }, "VOHS": { lat: 17.2403, lon: 78.4294, name: "Hyderabad" },
+    "VIJP": { lat: 26.8242, lon: 75.8011, name: "Jaipur" }, "VECC": { lat: 22.6546, lon: 88.4467, name: "Kolkata" },
+    "VABB": { lat: 19.0896, lon: 72.8656, name: "Mumbai" }, "VANP": { lat: 21.0922, lon: 79.0472, name: "Nagpur" },
+    "WADD": { lat: -8.7481, lon: 115.1671, name: "Bali" }, "WIHH": { lat: -6.2653, lon: 106.8856, name: "Jakarta/Halim Perdanakusuma" },
+    "WIII": { lat: -6.1256, lon: 106.6558, name: "Jakarta/Soekarno-Hatta" }, "WICA": { lat: -6.6666, lon: 108.1750, name: "Majalengka" },
+    "WAAA": { lat: -5.0616, lon: 119.5540, name: "Maros" }, "WARR": { lat: -7.3798, lon: 112.7870, name: "Surabaya" },
+    "RKPK": { lat: 35.1795, lon: 128.9382, name: "Busan" }, "RKPC": { lat: 33.5113, lon: 126.4930, name: "Jeju" },
+    "RKSS": { lat: 37.5583, lon: 126.7906, name: "Seoul/Gimpo" }, "RKSI": { lat: 37.4602, lon: 126.4407, name: "Seoul/Incheon" },
+    "VMMC": { lat: 22.1495, lon: 113.5915, name: "マカオ" }, "WMKJ": { lat: 1.6413, lon: 103.6696, name: "Johor Bahru" },
+    "WBKK": { lat: 5.9372, lon: 116.0515, name: "Kota Kinabalu" }, "WMKK": { lat: 2.7456, lon: 101.7099, name: "Kuala Lumpur" },
+    "WBGG": { lat: 1.4842, lon: 110.3470, name: "Kuching" }, "WMKP": { lat: 5.2971, lon: 100.2769, name: "Penang" },
+    "ZMCK": { lat: 47.6494, lon: 106.8209, name: "Ulaanbaatar" }, "VYMD": { lat: 21.7011, lon: 95.9772, name: "Mandalay" },
+    "VYNT": { lat: 19.6247, lon: 96.2003, name: "Naypyitaw" }, "VYYY": { lat: 16.9022, lon: 96.1332, name: "Yangon" },
+    "RPVM": { lat: 10.3075, lon: 123.9794, name: "Lapu-Lapu" }, "RPLL": { lat: 14.5086, lon: 121.0194, name: "Manila" },
+    "RPLC": { lat: 15.1858, lon: 120.5596, name: "Pampanga" }, "WSSS": { lat: 1.3644, lon: 103.9915, name: "Singapore" },
+    "RCKH": { lat: 22.5771, lon: 120.3500, name: "高雄" }, "RCSS": { lat: 25.0697, lon: 121.5520, name: "台北/松山" },
+    "RCTP": { lat: 25.0777, lon: 121.2328, name: "台北/台湾桃園" }, "VTBD": { lat: 13.9125, lon: 100.6067, name: "Bangkok/Don Mueang" },
+    "VTBS": { lat: 13.6900, lon: 100.7501, name: "Bangkok/Suvarnabhumi" }, "VTCC": { lat: 18.7668, lon: 98.9626, name: "Chiang Mai" },
+    "VTSP": { lat: 8.1132, lon: 98.3169, name: "Phuket" }, "VTBU": { lat: 12.6798, lon: 101.0051, name: "Rayong" },
+    "VVDN": { lat: 16.0439, lon: 108.1994, name: "Da Nang" }, "VVCI": { lat: 20.8193, lon: 106.7269, name: "Hai Phong" },
+    "VVNB": { lat: 21.2212, lon: 105.8072, name: "Hanoi" }, "VVTS": { lat: 10.8188, lon: 106.6520, name: "Ho Chi Minh" },
+    "VVVD": { lat: 21.1170, lon: 107.4243, name: "Quang Ninh" },
 
     // オセアニア
-    "YPAD": { lat: -34.9450, lon: 138.5306 }, "YBBN": { lat: -27.3842, lon: 153.1175 },
-    "YBRM": { lat: -17.9490, lon: 122.2270 }, "YBCS": { lat: -16.8858, lon: 145.7553 },
-    "YPDN": { lat: -12.4082, lon: 130.8783 }, "YGEL": { lat: -28.7961, lon: 114.7065 },
-    "YPLM": { lat: -22.2356, lon: 114.0886 }, "YMML": { lat: -37.6690, lon: 144.8410 },
-    "YPPH": { lat: -31.9403, lon: 115.9668 }, "YPPD": { lat: -20.3776, lon: 118.6253 },
-    "YSSY": { lat: -33.9461, lon: 151.1772 }, "YBTL": { lat: -19.2525, lon: 146.7653 },
-    "PKWA": { lat: 8.7199, lon: 167.7340 }, "PKMJ": { lat: 7.0645, lon: 171.2720 },
-    "NWWW": { lat: -22.0146, lon: 166.2128 }, "NZAA": { lat: -37.0082, lon: 174.7850 },
-    "NZCH": { lat: -43.4894, lon: 172.5322 }, "AYPY": { lat: -9.4434, lon: 147.2200 },
+    "YPAD": { lat: -34.9450, lon: 138.5306, name: "Adelaide" }, "YBBN": { lat: -27.3842, lon: 153.1175, name: "Brisbane" },
+    "YBRM": { lat: -17.9490, lon: 122.2270, name: "Broome" }, "YBCS": { lat: -16.8858, lon: 145.7553, name: "Cairns" },
+    "YPDN": { lat: -12.4082, lon: 130.8783, name: "Darwin" }, "YGEL": { lat: -28.7961, lon: 114.7065, name: "Geraldton" },
+    "YPLM": { lat: -22.2356, lon: 114.0886, name: "Learmonth" }, "YMML": { lat: -37.6690, lon: 144.8410, name: "Melbourne" },
+    "YPPH": { lat: -31.9403, lon: 115.9668, name: "Perth" }, "YPPD": { lat: -20.3776, lon: 118.6253, name: "Port Hedland" },
+    "YSSY": { lat: -33.9461, lon: 151.1772, name: "Sydney" }, "YBTL": { lat: -19.2525, lon: 146.7653, name: "Townsville" },
+    "PKWA": { lat: 8.7199, lon: 167.7340, name: "Kwajalein Atoll" }, "PKMJ": { lat: 7.0645, lon: 171.2720, name: "Majuro Atoll" },
+    "NWWW": { lat: -22.0146, lon: 166.2128, name: "Noumea" }, "NZAA": { lat: -37.0082, lon: 174.7850, name: "Auckland" },
+    "NZCH": { lat: -43.4894, lon: 172.5322, name: "Christchurch" }, "AYPY": { lat: -9.4434, lon: 147.2200, name: "Port Moresby" },
 
     // 北米・中南米
-    "KAUS": { lat: 30.1945, lon: -97.6699 }, "KBWI": { lat: 39.1754, lon: -76.6683 },
-    "KBIL": { lat: 45.8077, lon: -108.5429 }, "KBOS": { lat: 42.3643, lon: -71.0052 },
-    "KCHS": { lat: 32.8986, lon: -80.0405 }, "KORD": { lat: 41.9742, lon: -87.9073 },
-    "KRFD": { lat: 42.1954, lon: -89.0972 }, "KDFW": { lat: 32.8968, lon: -97.0380 },
-    "KDEN": { lat: 39.8584, lon: -104.6670 }, "KDTW": { lat: 42.2121, lon: -83.3533 },
-    "KIAH": { lat: 29.9805, lon: -95.3397 }, "KIND": { lat: 39.7173, lon: -86.2944 },
-    "KLAS": { lat: 36.0801, lon: -115.1522 }, "KLAX": { lat: 33.9416, lon: -118.4085 },
-    "KMKE": { lat: 42.9472, lon: -87.8966 }, "KMSP": { lat: 44.8805, lon: -93.2169 },
-    "KEWR": { lat: 40.6895, lon: -74.1745 }, "KJFK": { lat: 40.6413, lon: -73.7781 },
-    "KOAK": { lat: 37.7213, lon: -122.2207 }, "KONT": { lat: 34.0560, lon: -117.6012 },
-    "KPHX": { lat: 33.4342, lon: -112.0080 }, "KPDX": { lat: 45.5887, lon: -122.5975 },
-    "KSLC": { lat: 40.7884, lon: -111.9778 }, "KSAT": { lat: 29.5337, lon: -98.4698 },
-    "KSFO": { lat: 37.6213, lon: -122.3790 }, "KSJC": { lat: 37.3626, lon: -121.9290 },
-    "KBFI": { lat: 47.5300, lon: -122.3019 }, "KSEA": { lat: 47.4489, lon: -122.3090 },
-    "KIAD": { lat: 38.9445, lon: -77.4558 }, "PAED": { lat: 61.2509, lon: -149.7992 },
-    "PANC": { lat: 61.1744, lon: -149.9963 }, "PACD": { lat: 55.2056, lon: -162.7239 },
-    "PAFA": { lat: 64.8151, lon: -147.8564 }, "PAKN": { lat: 58.6768, lon: -156.6492 },
-    "PASY": { lat: 52.7123, lon: 174.1136 }, "PHNL": { lat: 21.3187, lon: -157.9225 },
-    "PHOG": { lat: 20.8986, lon: -156.4305 }, "PHKO": { lat: 19.7388, lon: -156.0456 },
-    "PGUM": { lat: 13.4835, lon: 144.7960 }, "PMDY": { lat: 28.2015, lon: -177.3800 },
-    "PGSN": { lat: 15.1188, lon: 145.7292 }, "PWAK": { lat: 19.2821, lon: 166.6360 },
-    "CYYC": { lat: 51.1139, lon: -114.0203 }, "CYEG": { lat: 53.3097, lon: -113.5797 },
-    "CYQX": { lat: 48.9369, lon: -54.5681 }, "CYYR": { lat: 53.3192, lon: -60.4258 },
-    "CYFB": { lat: 63.7564, lon: -68.5558 }, "CYUL": { lat: 45.4706, lon: -73.7408 },
-    "CYXS": { lat: 53.8894, lon: -122.6789 }, "CYYZ": { lat: 43.6772, lon: -79.6248 },
-    "CYVR": { lat: 49.1939, lon: -123.1844 }, "CYXY": { lat: 60.7095, lon: -135.0673 },
-    "CYWG": { lat: 49.9100, lon: -97.2399 }, "CYZF": { lat: 62.4628, lon: -114.4403 },
-    "MMAA": { lat: 16.7571, lon: -99.7540 }, "MMDO": { lat: 24.1242, lon: -104.5283 },
-    "MMGL": { lat: 20.5218, lon: -103.3112 }, "MMHO": { lat: 29.0959, lon: -111.0479 },
-    "MMMZ": { lat: 23.1613, lon: -106.2661 }, "MMMX": { lat: 19.4361, lon: -99.0719 },
-    "MMMY": { lat: 25.7785, lon: -100.1069 }, "MMQT": { lat: 20.6172, lon: -100.1860 },
-    "MMSM": { lat: 19.7490, lon: -98.9818 }, "MMTC": { lat: 25.5683, lon: -103.4106 },
+    "KAUS": { lat: 30.1945, lon: -97.6699, name: "Austin" }, "KBWI": { lat: 39.1754, lon: -76.6683, name: "Baltimore" },
+    "KBIL": { lat: 45.8077, lon: -108.5429, name: "Billings" }, "KBOS": { lat: 42.3643, lon: -71.0052, name: "Boston" },
+    "KCHS": { lat: 32.8986, lon: -80.0405, name: "Charleston" }, "KORD": { lat: 41.9742, lon: -87.9073, name: "Chicago/O'hare" },
+    "KRFD": { lat: 42.1954, lon: -89.0972, name: "Chicago/Rockford" }, "KDFW": { lat: 32.8968, lon: -97.0380, name: "Dallas-Ft Worth" },
+    "KDEN": { lat: 39.8584, lon: -104.6670, name: "Denver" }, "KDTW": { lat: 42.2121, lon: -83.3533, name: "Detroit" },
+    "KIAH": { lat: 29.9805, lon: -95.3397, name: "Houston" }, "KIND": { lat: 39.7173, lon: -86.2944, name: "Indianapolis" },
+    "KLAS": { lat: 36.0801, lon: -115.1522, name: "Las Vegas" }, "KLAX": { lat: 33.9416, lon: -118.4085, name: "Los Angeles" },
+    "KMKE": { lat: 42.9472, lon: -87.8966, name: "Milwaukee" }, "KMSP": { lat: 44.8805, lon: -93.2169, name: "Minneapolis" },
+    "KEWR": { lat: 40.6895, lon: -74.1745, name: "Newark" }, "KJFK": { lat: 40.6413, lon: -73.7781, name: "New York" },
+    "KOAK": { lat: 37.7213, lon: -122.2207, name: "Oakland" }, "KONT": { lat: 34.0560, lon: -117.6012, name: "Ontario" },
+    "KPHX": { lat: 33.4342, lon: -112.0080, name: "Phoenix" }, "KPDX": { lat: 45.5887, lon: -122.5975, name: "Portland" },
+    "KSLC": { lat: 40.7884, lon: -111.9778, name: "Salt Lake City" }, "KSAT": { lat: 29.5337, lon: -98.4698, name: "San Antonio" },
+    "KSFO": { lat: 37.6213, lon: -122.3790, name: "San Francisco" }, "KSJC": { lat: 37.3626, lon: -121.9290, name: "San Jose" },
+    "KBFI": { lat: 47.5300, lon: -122.3019, name: "Seattle/Boeing King CO" }, "KSEA": { lat: 47.4489, lon: -122.3090, name: "Seattle/Seattle-Tacoma" },
+    "KIAD": { lat: 38.9445, lon: -77.4558, name: "Washington, D.C." }, "PAED": { lat: 61.2509, lon: -149.7992, name: "Anchorage/Elmendorf AFB" },
+    "PANC": { lat: 61.1744, lon: -149.9963, name: "Anchorage/Ted Stevens" }, "PACD": { lat: 55.2056, lon: -162.7239, name: "Cold Bay" },
+    "PAFA": { lat: 64.8151, lon: -147.8564, name: "Fairbanks" }, "PAKN": { lat: 58.6768, lon: -156.6492, name: "King Salmon" },
+    "PASY": { lat: 52.7123, lon: 174.1136, name: "Shemya I" }, "PHNL": { lat: 21.3187, lon: -157.9225, name: "Honolulu" },
+    "PHOG": { lat: 20.8986, lon: -156.4305, name: "Kahului" }, "PHKO": { lat: 19.7388, lon: -156.0456, name: "Kailua-Kona" },
+    "PGUM": { lat: 13.4835, lon: 144.7960, name: "Guam" }, "PMDY": { lat: 28.2015, lon: -177.3800, name: "Midway Atoll" },
+    "PGSN": { lat: 15.1188, lon: 145.7292, name: "Saipan I" }, "PWAK": { lat: 19.2821, lon: 166.6360, name: "Wake I" },
+    "CYYC": { lat: 51.1139, lon: -114.0203, name: "Calgary" }, "CYEG": { lat: 53.3097, lon: -113.5797, name: "Edmonton" },
+    "CYQX": { lat: 48.9369, lon: -54.5681, name: "Gander" }, "CYYR": { lat: 53.3192, lon: -60.4258, name: "Goose Bay" },
+    "CYFB": { lat: 63.7564, lon: -68.5558, name: "Iqaluit" }, "CYUL": { lat: 45.4706, lon: -73.7408, name: "Montreal" },
+    "CYXS": { lat: 53.8894, lon: -122.6789, name: "Prince George" }, "CYYZ": { lat: 43.6772, lon: -79.6248, name: "Toronto" },
+    "CYVR": { lat: 49.1939, lon: -123.1844, name: "Vancouver" }, "CYXY": { lat: 60.7095, lon: -135.0673, name: "Whitehorse" },
+    "CYWG": { lat: 49.9100, lon: -97.2399, name: "Winnipeg" }, "CYZF": { lat: 62.4628, lon: -114.4403, name: "Yellowknife" },
+    "MMAA": { lat: 16.7571, lon: -99.7540, name: "Acapulco" }, "MMDO": { lat: 24.1242, lon: -104.5283, name: "Durango" },
+    "MMGL": { lat: 20.5218, lon: -103.3112, name: "Guadalajara" }, "MMHO": { lat: 29.0959, lon: -111.0479, name: "Hermosillo" },
+    "MMMZ": { lat: 23.1613, lon: -106.2661, name: "Mazatlan" }, "MMMX": { lat: 19.4361, lon: -99.0719, name: "Mexico City" },
+    "MMMY": { lat: 25.7785, lon: -100.1069, name: "Monterrey" }, "MMQT": { lat: 20.6172, lon: -100.1860, name: "Queretaro" },
+    "MMSM": { lat: 19.7490, lon: -98.9818, name: "Santa Lucia" }, "MMTC": { lat: 25.5683, lon: -103.4106, name: "Torreon" },
 
     // ヨーロッパ・ロシア・中東
-    "UDYZ": { lat: 40.1473, lon: 44.3959 }, "LOWL": { lat: 48.2332, lon: 14.1875 },
-    "LOWW": { lat: 48.1103, lon: 16.5697 }, "UBBB": { lat: 40.4675, lon: 50.0467 },
-    "EBBR": { lat: 50.9014, lon: 4.4844 }, "LBBG": { lat: 42.5696, lon: 27.5152 },
-    "EKCH": { lat: 55.6179, lon: 12.6560 }, "EFHK": { lat: 60.3172, lon: 24.9633 },
-    "LFPG": { lat: 49.0097, lon: 2.5479 }, "LFPO": { lat: 48.7253, lon: 2.3594 },
-    "UGTB": { lat: 41.6692, lon: 44.9547 }, "EDDK": { lat: 50.8659, lon: 7.1427 },
-    "EDDL": { lat: 51.2895, lon: 6.7668 }, "EDDF": { lat: 50.0333, lon: 8.5705 },
-    "EDDM": { lat: 48.3538, lon: 11.7861 }, "EDDN": { lat: 49.4987, lon: 11.0780 },
-    "LGAV": { lat: 37.9364, lon: 23.9445 }, "BIKF": { lat: 63.9850, lon: -22.6056 },
-    "EINN": { lat: 52.7020, lon: -8.9248 }, "LIMC": { lat: 45.6301, lon: 8.7231 },
-    "LIRF": { lat: 41.8003, lon: 12.2389 }, "LIMF": { lat: 45.2008, lon: 7.6496 },
-    "LIPZ": { lat: 45.5053, lon: 12.3519 }, "UAAA": { lat: 43.3521, lon: 77.0405 },
-    "UACC": { lat: 51.0222, lon: 71.4669 }, "UCFM": { lat: 43.0613, lon: 74.4776 },
-    "EHAM": { lat: 52.3086, lon: 4.7639 }, "ENBR": { lat: 60.2934, lon: 5.2181 },
-    "ENBO": { lat: 67.2692, lon: 14.3653 }, "EPWA": { lat: 52.1657, lon: 20.9671 },
-    "UNAA": { lat: 53.7400, lon: 91.3850 }, "UHMA": { lat: 64.7350, lon: 177.7417 },
-    "UIBB": { lat: 56.3703, lon: 101.6978 }, "UIAA": { lat: 52.0253, lon: 113.3056 },
-    "UIII": { lat: 52.2680, lon: 104.3890 }, "UHHH": { lat: 48.5280, lon: 135.1883 },
-    "UNKL": { lat: 56.1722, lon: 92.4933 }, "UHMM": { lat: 59.9108, lon: 150.7200 },
-    "UUDD": { lat: 55.4086, lon: 37.9061 }, "ULMM": { lat: 68.7817, lon: 32.7508 },
-    "UNNT": { lat: 55.0125, lon: 82.6507 }, "UHPP": { lat: 53.1678, lon: 158.4533 },
-    "UWWW": { lat: 53.5048, lon: 50.1637 }, "ULLI": { lat: 59.8003, lon: 30.2625 },
-    "USRR": { lat: 61.3436, lon: 73.4022 }, "UUYY": { lat: 61.6483, lon: 50.8447 },
-    "UIUU": { lat: 51.8078, lon: 107.4375 }, "UHWW": { lat: 43.3989, lon: 132.1481 },
-    "UEEE": { lat: 62.1764, lon: 129.7711 }, "USSS": { lat: 56.7431, lon: 60.8027 },
-    "UHSS": { lat: 46.8887, lon: 142.7175 }, "ESGG": { lat: 57.6628, lon: 12.2798 },
-    "ESSA": { lat: 59.6519, lon: 17.9186 }, "EGAA": { lat: 54.6575, lon: -6.2158 },
-    "EGPF": { lat: 55.8719, lon: -4.4331 }, "EGKK": { lat: 51.1481, lon: -0.1903 },
-    "EGLL": { lat: 51.4700, lon: -0.4543 }, "EGSS": { lat: 51.8850, lon: 0.2350 },
-    "UZTT": { lat: 41.2579, lon: 69.2812 }, "LTAC": { lat: 40.1281, lon: 32.9951 },
-    "LTAI": { lat: 36.8987, lon: 30.8005 }, "LTCE": { lat: 39.9556, lon: 41.1703 },
-    "LTBA": { lat: 40.9769, lon: 28.8146 }, "LTFM": { lat: 41.2753, lon: 28.7520 },
-    "LTBJ": { lat: 38.2924, lon: 27.1570 }
+    "UDYZ": { lat: 40.1473, lon: 44.3959, name: "Yerevan" }, "LOWL": { lat: 48.2332, lon: 14.1875, name: "Linz" },
+    "LOWW": { lat: 48.1103, lon: 16.5697, name: "Vienna" }, "UBBB": { lat: 40.4675, lon: 50.0467, name: "Baku" },
+    "EBBR": { lat: 50.9014, lon: 4.4844, name: "Brussels" }, "LBBG": { lat: 42.5696, lon: 27.5152, name: "Burgas" },
+    "EKCH": { lat: 55.6179, lon: 12.6560, name: "Copenhagen" }, "EFHK": { lat: 60.3172, lon: 24.9633, name: "Helsinki" },
+    "LFPG": { lat: 49.0097, lon: 2.5479, name: "Paris/Charles-de-Gaulle" }, "LFPO": { lat: 48.7253, lon: 2.3594, name: "Paris/Orly" },
+    "UGTB": { lat: 41.6692, lon: 44.9547, name: "Tbilisi" }, "EDDK": { lat: 50.8659, lon: 7.1427, name: "Cologne-Bonn" },
+    "EDDL": { lat: 51.2895, lon: 6.7668, name: "Duesseldorf" }, "EDDF": { lat: 50.0333, lon: 8.5705, name: "Frankfurt Main" },
+    "EDDM": { lat: 48.3538, lon: 11.7861, name: "Munich" }, "EDDN": { lat: 49.4987, lon: 11.0780, name: "Nuernberg" },
+    "LGAV": { lat: 37.9364, lon: 23.9445, name: "Athens" }, "BIKF": { lat: 63.9850, lon: -22.6056, name: "Keflavik" },
+    "EINN": { lat: 52.7020, lon: -8.9248, name: "Shannon" }, "LIMC": { lat: 45.6301, lon: 8.7231, name: "Milan" },
+    "LIRF": { lat: 41.8003, lon: 12.2389, name: "Rome" }, "LIMF": { lat: 45.2008, lon: 7.6496, name: "Torino" },
+    "LIPZ": { lat: 45.5053, lon: 12.3519, name: "Venice" }, "UAAA": { lat: 43.3521, lon: 77.0405, name: "Almaty" },
+    "UACC": { lat: 51.0222, lon: 71.4669, name: "Astana" }, "UCFM": { lat: 43.0613, lon: 74.4776, name: "Bishkek" },
+    "EHAM": { lat: 52.3086, lon: 4.7639, name: "Amsterdam" }, "ENBR": { lat: 60.2934, lon: 5.2181, name: "Bergen" },
+    "ENBO": { lat: 67.2692, lon: 14.3653, name: "Bodo" }, "EPWA": { lat: 52.1657, lon: 20.9671, name: "Warsaw" },
+    "UNAA": { lat: 53.7400, lon: 91.3850, name: "Abakan" }, "UHMA": { lat: 64.7350, lon: 177.7417, name: "Anadyr" },
+    "UIBB": { lat: 56.3703, lon: 101.6978, name: "Bratsk" }, "UIAA": { lat: 52.0253, lon: 113.3056, name: "Chita" },
+    "UIII": { lat: 52.2680, lon: 104.3890, name: "Irkutsk" }, "UHHH": { lat: 48.5280, lon: 135.1883, name: "Khabarovsk" },
+    "UNKL": { lat: 56.1722, lon: 92.4933, name: "Krasnoyarsk" }, "UHMM": { lat: 59.9108, lon: 150.7200, name: "Magadan" },
+    "UUDD": { lat: 55.4086, lon: 37.9061, name: "Moscow/Domodedovo" }, "ULMM": { lat: 68.7817, lon: 32.7508, name: "Murmansk" },
+    "UNNT": { lat: 55.0125, lon: 82.6507, name: "Novosibirsk" }, "UHPP": { lat: 53.1678, lon: 158.4533, name: "Petropavlovsk-Kamchatsky" },
+    "UWWW": { lat: 53.5048, lon: 50.1637, name: "Samara" }, "ULLI": { lat: 59.8003, lon: 30.2625, name: "St Petersburg" },
+    "USRR": { lat: 61.3436, lon: 73.4022, name: "Surgut" }, "UUYY": { lat: 61.6483, lon: 50.8447, name: "Syktyvkar" },
+    "UIUU": { lat: 51.8078, lon: 107.4375, name: "Ulan-Ude" }, "UHWW": { lat: 43.3989, lon: 132.1481, name: "Vladivostok" },
+    "UEEE": { lat: 62.1764, lon: 129.7711, name: "Yakutsk" }, "USSS": { lat: 56.7431, lon: 60.8027, name: "Yekaterinburg" },
+    "UHSS": { lat: 46.8887, lon: 142.7175, name: "Yuzhno-Sakhalinsk" }, "ESGG": { lat: 57.6628, lon: 12.2798, name: "Goteborg" },
+    "ESSA": { lat: 59.6519, lon: 17.9186, name: "Stockholm" }, "EGAA": { lat: 54.6575, lon: -6.2158, name: "Belfast" },
+    "EGPF": { lat: 55.8719, lon: -4.4331, name: "Glasgow" }, "EGKK": { lat: 51.1481, lon: -0.1903, name: "London/Gatwick" },
+    "EGLL": { lat: 51.4700, lon: -0.4543, name: "London/Heathrow" }, "EGSS": { lat: 51.8850, lon: 0.2350, name: "London/Stansted" },
+    "UZTT": { lat: 41.2579, lon: 69.2812, name: "Tashkent" }, "LTAC": { lat: 40.1281, lon: 32.9951, name: "Ankara" },
+    "LTAI": { lat: 36.8987, lon: 30.8005, name: "Antalya" }, "LTCE": { lat: 39.9556, lon: 41.1703, name: "Erzurum" },
+    "LTBA": { lat: 40.9769, lon: 28.8146, name: "Istanbul/Ataturk" }, "LTFM": { lat: 41.2753, lon: 28.7520, name: "Istanbul/Istanbul" },
+    "LTBJ": { lat: 38.2924, lon: 27.1570, name: "Izmir" }
 };
 
-// 787 Adequate Airports List
-const ADEQUATE_AIRPORTS_787 = [
-    // 日本
-    "RJCW", "RJCM", "RJCK", "RJCN", "RJEC", "RJCC", "RJCH", "RJSM", "RJSH", "RJSR", "RJSK", "RJSY", "RJSS", "RJSF", "RJAA", "RJTT", "RJTY", "RJTH", "RJAW", "RJSN", "RJNT", "RJNW", "RJNK", "RJGG", "RJOO", "RJBB", "RJBE", "RJOR", "RJOH", "RJOW", "RJOB", "RJOA", "RJOI", "RJDC", "RJOS", "RJOT", "RJOM", "RJOK", "RJFF", "RJFS", "RJFU", "RJFO", "RJFT", "RJFM", "RJFK", "ROAH", "RODN", "ROMY", "ROIG", "RORS",
-    // アジア
+const COMMON_INTL_787 = [
     "VGEG", "VGHS", "WBSB", "ZBAA", "ZYCC", "ZUCK", "ZYTL", "ZLDH", "ZGGG", "ZUGY", "ZSHC", "ZYHB", "ZBHH", "ZBLA", "ZPPP", "ZLLL", "ZGNN", "ZSQD", "ZJSY", "ZSSS", "ZSPD", "ZYTX", "ZGSZ", "ZBTJ", "ZWWW", "ZHHH", "ZSAM", "ZLXY", "VHHH", "VAAH", "VOBL", "VOMM", "VIDP", "VOHS", "VIJP", "VECC", "VABB", "VANP", "WADD", "WIHH", "WIII", "WICA", "WAAA", "WARR", "RKPK", "RKPC", "RKSS", "RKSI", "VMMC", "WMKJ", "WBKK", "WMKK", "WBGG", "WMKP", "ZMCK", "VYMD", "VYNT", "VYYY", "RPVM", "RPLL", "RPLC", "WSSS", "RCKH", "RCSS", "RCTP", "VTBD", "VTBS", "VTCC", "VTSP", "VTBU", "VVDN", "VVCI", "VVNB", "VVTS", "VVVD",
-    // オセアニア
     "YPAD", "YBBN", "YBRM", "YBCS", "YPDN", "YGEL", "YPLM", "YMML", "YPPH", "YPPD", "YSSY", "YBTL", "PKWA", "PKMJ", "NWWW", "NZAA", "NZCH", "AYPY",
-    // 北米・中南米
     "KAUS", "KBWI", "KBIL", "KBOS", "KCHS", "KORD", "KRFD", "KDFW", "KDEN", "KDTW", "KIAH", "KIND", "KLAS", "KLAX", "KMKE", "KMSP", "KEWR", "KJFK", "KOAK", "KONT", "KPHX", "KPDX", "KSLC", "KSAT", "KSFO", "KSJC", "KBFI", "KSEA", "KIAD", "PAED", "PANC", "PACD", "PAFA", "PAKN", "PASY", "PHNL", "PHOG", "PHKO", "PGUM", "PMDY", "PGSN", "PWAK", "CYYC", "CYEG", "CYQX", "CYYR", "CYFB", "CYUL", "CYXS", "CYYZ", "CYVR", "CYXY", "CYWG", "CYZF", "MMAA", "MMDO", "MMGL", "MMHO", "MMMZ", "MMMX", "MMMY", "MMQT", "MMSM", "MMTC",
-    // ヨーロッパ
-    "UDYZ", "LOWL", "LOWW", "UBBB", "EBBR", "LBBG", "EKCH", "EFHK", "LFPG", "LFPO", "UGTB", "EDDK", "EDDL", "EDDF", "EDDM", "EDDN", "LGAV", "BIKF", "EINN", "LIMC", "LIRF", "LIMF", "LIPZ", "UAAA", "UACC", "UCFM", "EHAM", "ENBR", "ENBO", "EPWA", "UNAA", "UHMA", "UIBB", "UIAA", "UIII", "UHHH", "UNKL", "UHMM", "UUDD", "ULMM", "UNNT", "UHPP", "UWWW", "ULLI", "USRR", "UUYY", "UIUU", "UHWW", "UEEE", "USSS", "UHSS", "ESGG", "ESSA", "EGAA", "EGPF", "EGKK", "EGLL", "EGSS", "UZTT",
-    // 中東
-    "LTAC", "LTAI", "LTCE", "LTBA", "LTFM", "LTBJ"
+    "UDYZ", "LOWL", "LOWW", "UBBB", "EBBR", "LBBG", "EKCH", "EFHK", "LFPG", "LFPO", "UGTB", "EDDK", "EDDL", "EDDF", "EDDM", "EDDN", "LGAV", "BIKF", "EINN", "LIMC", "LIRF", "LIMF", "LIPZ", "UAAA", "UACC", "UCFM", "EHAM", "ENBR", "ENBO", "EPWA", "UNAA", "UHMA", "UIBB", "UIAA", "UIII", "UHHH", "UNKL", "UHMM", "UUDD", "ULMM", "UNNT", "UHPP", "UWWW", "ULLI", "USRR", "UUYY", "UIUU", "UHWW", "UEEE", "USSS", "UHSS", "ESGG", "ESSA", "EGAA", "EGPF", "EGKK", "EGLL", "EGSS", "UZTT", "LTAC", "LTAI", "LTCE", "LTBA", "LTFM", "LTBJ"
 ];
 
-// 777 Adequate Airports List
-const ADEQUATE_AIRPORTS_777 = [
-    // 日本
-    "RJCW", "RJCM", "RJCK", "RJEC", "RJCC", "RJCH", "RJSM", "RJSK", "RJSS", "RJAA", "RJTT", "RJTY", "RJNK", "RJGG", "RJOO", "RJBB", "RJBE", "RJOA", "RJOM", "RJOK", "RJFF", "RJFO", "RJFM", "RJFK", "ROAH", "RODN", "RORS",
-    // アジア
+const COMMON_INTL_777 = [
     "VGEG", "VGHS", "WBSB", "ZBAA", "ZUCK", "ZYTL", "ZGGG", "ZPPP", "ZGNN", "ZSQD", "ZSSS", "ZSPD", "ZGSZ", "ZBTJ", "ZSAM", "ZLXY", "VHHH", "VAAH", "VOBL", "VOMM", "VIDP", "VOHS", "VIJP", "VECC", "VABB", "WADD", "WIHH", "WIII", "WICA", "WARR", "RKPK", "RKPC", "RKSS", "RKSI", "VMMC", "WMKJ", "WMKK", "WBGG", "WMKP", "VYNT", "VYYY", "RPVM", "RPLL", "RPLC", "WSSS", "RCKH", "RCTP", "VTBD", "VTBS", "VTCC", "VTSP", "VTBU", "VVDN", "VVCI", "VVNB", "VVTS", "VVVD",
-    // オセアニア
     "YPAD", "YBBN", "YPDN", "YMML", "YPPH", "YSSY", "NZAA", 
-    // 北米・中南米
     "KAUS", "KBWI", "KBOS", "KORD", "KRFD", "KDFW", "KDTW", "KIND", "KLAS", "KLAX", "KMKE", "KMSP", "KEWR", "KJFK", "KOAK", "KONT", "KPDX", "KSFO", "KSJC", "KBFI", "KSEA", "KIAD", "PAED", "PANC", "PHNL", "PHOG", "PHKO", "CYYC", "CYYZ", "CYVR", "MMAA", "MMGL", "MMQT", "MMSM",
-    // ヨーロッパ
     "LOWW", "EBBR", "LBBG", "EKCH", "EFHK", "LFPG", "LFPO", "EDDK", "EDDL", "EDDM", "LIRF", "LIMF", "LIPZ", "EHAM", "UHHH", "ESGG", "ESSA", "EGLL", "EGSS",
-    // 中東
     "LTAC", "LTAI", "LTBJ"
 ];
+
+// 型式別の厳密なAdequate Airports判定リスト (B787国内空港は主要空港に限定)
+const ADEQUATE_AIRPORTS = {
+    "788": ["RJCC", "RJSS", "RJAA", "RJTT", "RJNK", "RJGG", "RJOO", "RJBB", "RJFF", "ROAH", ...COMMON_INTL_787],
+    "789": ["RJCC", "RJSS", "RJAA", "RJTT", "RJNK", "RJGG", "RJOO", "RJBB", "RJFF", "ROAH", ...COMMON_INTL_787],
+    "781": ["RJCC", "RJSS", "RJAA", "RJTT", "RJNK", "RJGG", "RJOO", "RJBB", "RJFF", "ROAH", ...COMMON_INTL_787],
+    "772": ["RJCW", "RJCM", "RJCK", "RJEC", "RJCC", "RJCH", "RJSM", "RJSK", "RJSS", "RJAA", "RJTT", "RJTY", "RJNK", "RJGG", "RJOO", "RJBB", "RJOA", "RJOM", "RJOK", "RJFF", "RJFO", "RJFM", "RJFK", "ROAH", "RODN", "ROIG", "RORS", ...COMMON_INTL_777],
+    "773": ["RJCW", "RJCM", "RJCK", "RJEC", "RJCC", "RJCH", "RJSM", "RJSK", "RJSS", "RJAA", "RJTT", "RJTY", "RJNK", "RJGG", "RJBB", "RJBE", "RJOA", "RJOM", "RJOK", "RJFF", "RJFO", "RJFM", "RJFK", "ROAH", "RODN", "RORS", ...COMMON_INTL_777],
+    "77W": ["RJCW", "RJCM", "RJCK", "RJEC", "RJCC", "RJCH", "RJSM", "RJSK", "RJSS", "RJAA", "RJTT", "RJTY", "RJNK", "RJGG", "RJBB", "RJBE", "RJOA", "RJOM", "RJOK", "RJFF", "RJFO", "RJFM", "RJFK", "ROAH", "RODN", "RORS", ...COMMON_INTL_777],
+    "77F": ["RJCW", "RJCM", "RJCK", "RJEC", "RJCC", "RJAA", "RJTT", "RJTY", "RJGG", "RJOO", "RJBB", "RJOA", "RJOM", "RJOK", "RJFF", "RJFO", "RJFM", "RJFK", "ROAH", "RODN", "RORS", ...COMMON_INTL_777]
+};
+
+// 確実な機体記号マッピングリスト
+const REG_MAP = {
+  // 777-200
+  "JA713A": "772", "JA714A": "772", "JA715A": "772", "JA716A": "772", "JA717A": "772", "JA741A": "772", "JA742A": "772", "JA743A": "772", "JA744A": "772", "JA745A": "772",
+  // 777-300
+  "JA751A": "773", "JA752A": "773", "JA753A": "773", "JA754A": "773", "JA755A": "773",
+  // 777-300ER
+  "JA784A": "77W", "JA785A": "77W", "JA787A": "77W", "JA788A": "77W", "JA790A": "77W", "JA791A": "77W", "JA792A": "77W", "JA793A": "77W", "JA794A": "77W", "JA795A": "77W", "JA796A": "77W", "JA797A": "77W", "JA798A": "77W", "JA799A": "77W",
+  // 777F
+  "JA771F": "77F", "JA772F": "77F",
+  // 787-8
+  "JA801A": "788", "JA802A": "788", "JA803A": "788", "JA804A": "788", "JA805A": "788", "JA806A": "788", "JA807A": "788", "JA808A": "788", "JA809A": "788", "JA810A": "788", "JA811A": "788", "JA812A": "788", "JA813A": "788", "JA814A": "788", "JA815A": "788", "JA816A": "788", "JA817A": "788", "JA818A": "788", "JA819A": "788", "JA820A": "788", "JA821A": "788", "JA822A": "788", "JA823A": "788", "JA824A": "788", "JA825A": "788", "JA827A": "788", "JA828A": "788", "JA829A": "788", "JA831A": "788", "JA832A": "788", "JA834A": "788", "JA835A": "788", "JA838A": "788", "JA840A": "788", "JA874A": "788", "JA878A": "788",
+  // 787-9
+  "JA830A": "789", "JA833A": "789", "JA836A": "789", "JA837A": "789", "JA839A": "789", "JA871A": "789", "JA872A": "789", "JA873A": "789", "JA875A": "789", "JA876A": "789", "JA877A": "789", "JA879A": "789", "JA880A": "789", "JA882A": "789", "JA883A": "789", "JA884A": "789", "JA885A": "789", "JA886A": "789", "JA887A": "789", "JA888A": "789", "JA890A": "789", "JA891A": "789", "JA892A": "789", "JA893A": "789", "JA894A": "789", "JA895A": "789", "JA896A": "789", "JA897A": "789", "JA898A": "789", "JA899A": "789", "JA921A": "789", "JA922A": "789", "JA923A": "789", "JA924A": "789", "JA925A": "789", "JA926A": "789", "JA927A": "789", "JA928A": "789", "JA932A": "789", "JA933A": "789", "JA934A": "789", "JA935A": "789", "JA936A": "789", "JA937A": "789", "JA938A": "789",
+  // 787-10
+  "JA900A": "781", "JA901A": "781", "JA902A": "781", "JA981A": "781", "JA982A": "781", "JA983A": "781", "JA984A": "781", "JA985A": "781", "JA986A": "781", "JA988A": "781", "JA990A": "781"
+};
 
 const MAX_ALT_DATA = {
   "772": [ [320, 43100, 43100, 43100, 43100, 43100, 43100], [340, 43100, 43100, 43100, 43100, 43100, 43100], [360, 42100, 43100, 43100, 43100, 43000, 42300], [380, 41000, 43100, 43100, 42900, 42200, 41400], [400, 40000, 43100, 42300, 42100, 41300, 40500], [420, 39000, 43100, 41400, 41200, 40500, 39600], [440, 38000, 42900, 40500, 40400, 39600, 38700], [460, 37100, 42100, 39600, 39600, 38800, 37900], [480, 36300, 41300, 38800, 38700, 37900, 37100], [500, 35500, 40500, 37900, 37900, 37100, 36100], [520, 34800, 39600, 37000, 37100, 36200, 35200], [540, 34000, 38800, 36100, 36200, 35400, 34300], [560, 33600, 38000, 35200, 35400, 34500, 33500] ],
   "773": [ [340, 43100, 43100, 43100, 43100, 43100, 43100], [360, 42300, 43100, 43100, 43100, 43100, 43100], [380, 41200, 43100, 43100, 43100, 42900, 42200], [400, 40100, 43100, 42200, 42600, 42100, 41400], [420, 39000, 43100, 41400, 41800, 41300, 40600], [440, 38000, 43100, 40600, 41100, 40500, 39700], [460, 37200, 42500, 39800, 40300, 39700, 38900], [480, 36400, 41700, 39000, 39500, 39000, 38100], [500, 35700, 40900, 38200, 38800, 37400, 36400], [520, 35000, 40200, 37400, 38000, 37400, 36400], [540, 34200, 39400, 36600, 37200, 36600, 35600] ],
   "77W": [ [380, 42800, 42500, 40400, 43100, 43100, 43000], [400, 41800, 41900, 39700, 43100, 43100, 42400], [420, 40700, 41300, 39000, 42700, 42600, 41700], [440, 39600, 40700, 38300, 42200, 42000, 41100], [460, 38800, 40100, 37600, 41700, 41400, 40400], [480, 38000, 39400, 36900, 41100, 40800, 39700], [500, 37400, 38800, 36200, 40600, 40200, 39100], [520, 36800, 38200, 35500, 40100, 39600, 38400], [540, 36200, 37600, 34800, 39500, 39000, 37700], [560, 35600, 37000, 34100, 39000, 38400, 37100], [580, 34800, 36400, 33400, 38500, 37800, 36400], [600, 34200, 35800, 32700, 37900, 37200, 35700], [620, 33500, 35200, 32000, 37400, 36600, 35100], [640, 32800, 34500, 31300, 36900, 36000, 34400], [660, 32100, 33900, 30600, 36300, 35400, 33700], [680, 31500, 33300, 29900, 35800, 34800, 33100], [700, 30800, 32700, 29200, 35300, 34200, 32400], [720, 30200, 32100, 28500, 34700, 33600, 31700], [740, 29800, 31500, 27800, 34200, 33000, 31100], [760, 29200, 30900, 27100, 33700, 32400, 30400], [780, 28800, 30200, 26400, 33100, 31800, 28000] ],
   "77F": [ [380, 43100, 43100, 40800, 43100, 43100, 43100], [400, 41700, 42500, 39700, 43100, 43100, 43100], [420, 40600, 41600, 38800, 43100, 43100, 43100], [440, 39700, 40800, 37900, 43100, 43100, 43100], [460, 38700, 40000, 37100, 43100, 43100, 43100], [480, 37800, 39200, 36300, 43100, 43100, 42500], [500, 37000, 38500, 35600, 42800, 42300, 41700], [520, 36200, 37800, 34900, 42000, 41500, 40900], [540, 36000, 37200, 34200, 41300, 40800, 40200], [560, 35700, 36500, 33500, 40500, 40100, 39500], [580, 34900, 35900, 32900, 39800, 39400, 38800], [600, 34200, 35400, 32300, 39200, 38700, 38100], [620, 33500, 34800, 31800, 38500, 38000, 37400], [640, 32800, 34300, 31200, 37800, 37400, 36800], [660, 32100, 33700, 30700, 37200, 36700, 36100], [680, 31500, 33200, 30100, 36500, 36100, 35600], [700, 30800, 32700, 29600, 36000, 35600, 35000], [720, 30200, 32300, 29200, 35400, 35000, 34300], [740, 29600, 31800, 28700, 34800, 34300, 33600], [760, 29100, 31300, 28100, 34200, 33700, 32900], [780, 28500, 30700, 27600, 33600, 33100, 32300] ]
-};
-
-const REG_MAP = {
-  "JA713A": "772", "JA714A": "772", "JA715A": "772", "JA716A": "772", "JA717A": "772", "JA741A": "772", "JA742A": "772", "JA743A": "772", "JA744A": "772", "JA745A": "772",
-  "JA751A": "773", "JA752A": "773", "JA753A": "773", "JA754A": "773", "JA755A": "773",
-  "JA784A": "77W", "JA785A": "77W", "JA787A": "77W", "JA788A": "77W", "JA790A": "77W", "JA791A": "77W", "JA792A": "77W", "JA793A": "77W", "JA794A": "77W", "JA795A": "77W", "JA796A": "77W", "JA797A": "77W", "JA798A": "77W", "JA799A": "77W",
-  "JA771F": "77F", "JA772F": "77F"
 };
 
 const ICAO_TZ = {
@@ -342,9 +347,8 @@ const interpolateAlt = (weight, tableData, is15g, isaDev) => {
   return `FL${Math.round(maxAlt / 100)}`;
 };
 
-// --- Haversine formula to calculate distance between two coordinates in NM ---
 const getDistanceNM = (lat1, lon1, lat2, lon2) => {
-    const R = 3440.065; // Radius of the Earth in nautical miles
+    const R = 3440.065; 
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
     const a = 
@@ -355,11 +359,9 @@ const getDistanceNM = (lat1, lon1, lat2, lon2) => {
     return R * c;
 };
 
-// --- Parse Coordinate strings with robust format matching ---
 const parseCoordString = (coordStr) => {
     if (!coordStr) return null;
     
-    // Format 1: Explicit N/S Lat W/E Lon format: e.g., N49000W140000 (Very rare, but possible)
     const explicitMatch = coordStr.match(/^([NS])(\d{2})(\d{3})([EW])(\d{3})(\d{3})$/i);
     if (explicitMatch) {
         let lat = parseInt(explicitMatch[2], 10) + parseInt(explicitMatch[3], 10) / 600;
@@ -369,7 +371,6 @@ const parseCoordString = (coordStr) => {
         return { lat, lon };
     }
     
-    // Format 2: ARINC 424 shorthand (e.g., 49N40)
     const arincMatch = coordStr.match(/^(\d{2})([NSWE])(\d{2})$/i);
     if (arincMatch) {
         let latVal = parseInt(arincMatch[1], 10);
@@ -378,10 +379,10 @@ const parseCoordString = (coordStr) => {
         const hemi = arincMatch[2].toUpperCase();
         
         switch (hemi) {
-            case 'N': lat = latVal; lon = -lonVal; break; // North, West
-            case 'E': lat = latVal; lon = lonVal; break;  // North, East
-            case 'S': lat = -latVal; lon = lonVal; break; // South, East
-            case 'W': lat = -latVal; lon = -lonVal; break; // South, West
+            case 'N': lat = latVal; lon = -lonVal; break;
+            case 'E': lat = latVal; lon = lonVal; break;  
+            case 'S': lat = -latVal; lon = lonVal; break; 
+            case 'W': lat = -latVal; lon = -lonVal; break; 
             default: return null;
         }
         
@@ -390,24 +391,18 @@ const parseCoordString = (coordStr) => {
                lon -= 100;
             }
         }
-        
         return { lat, lon };
     }
 
-    // Format 3: Raw digits typical in flight plans (e.g. 23156E095246 or 26186E082342 or 51286W000310)
-    // Structure: [LatDeg][LatMin][LatDec][E/W][LonDeg][LonMin][LonDec] OR just N/S missing but East/West explicit in middle
     const rawMatch = coordStr.match(/^(\d{2})(\d{3})([NSWE])(\d{3})(\d{3})$/i);
     if (rawMatch) {
         let lat = parseInt(rawMatch[1], 10) + parseInt(rawMatch[2], 10) / 600;
         let lon = parseInt(rawMatch[4], 10) + parseInt(rawMatch[5], 10) / 600;
         const lonDir = rawMatch[3].toUpperCase();
         if (lonDir === 'W') lon = -lon;
-        
-        // Flight plan format like '26186E082342' usually implies North latitude unless specified otherwise
         return { lat, lon };
     }
 
-    // Format 4: Starting with N/S and middle E/W (e.g. N26186E082342)
     const fullLatLonMatch = coordStr.match(/^([NS])(\d{2})(\d{3})([EW])(\d{3})(\d{3})$/i);
     if (fullLatLonMatch) {
         let lat = parseInt(fullLatLonMatch[2], 10) + parseInt(fullLatLonMatch[3], 10) / 600;
@@ -422,9 +417,7 @@ const parseCoordString = (coordStr) => {
     return null;
 };
 
-// --- Find nearest adequate airports ---
 const findNearestAirports = (wpName, wpLatLon, acType) => {
-    // 1. Resolve coordinates
     let coords = parseCoordString(wpLatLon || wpName);
     if (!coords && ICAO_COORDS[wpName]) {
         coords = ICAO_COORDS[wpName];
@@ -432,25 +425,16 @@ const findNearestAirports = (wpName, wpLatLon, acType) => {
     
     if (!coords) return [];
 
-    // 2. Select Appropriate Adequate Airport List Based on Aircraft Type
-    let targetAirportsList = [];
-    if (/787/i.test(acType)) {
-        targetAirportsList = ADEQUATE_AIRPORTS_787;
-    } else if (/777/i.test(acType) || /77W/i.test(acType) || /77F/i.test(acType) || /773/i.test(acType) || /772/i.test(acType)) {
-        targetAirportsList = ADEQUATE_AIRPORTS_777;
-    } else {
-        return []; // If not 787 or 777, don't calculate
-    }
+    const targetAirportsList = ADEQUATE_AIRPORTS[acType];
+    if (!targetAirportsList || targetAirportsList.length === 0) return [];
 
-    // 3. Calculate distance to all airports in the targeted list
     const distances = targetAirportsList.map(icao => {
-        const aptCoords = ICAO_COORDS[icao];
-        if (!aptCoords) return null;
-        const dist = getDistanceNM(coords.lat, coords.lon, aptCoords.lat, aptCoords.lon);
-        return { icao, dist };
+        const aptData = ICAO_COORDS[icao];
+        if (!aptData) return null;
+        const dist = getDistanceNM(coords.lat, coords.lon, aptData.lat, aptData.lon);
+        return { icao, dist, name: aptData.name };
     }).filter(item => item !== null);
 
-    // 4. Sort by distance and return top 2
     distances.sort((a, b) => a.dist - b.dist);
     return distances.slice(0, 2);
 };
@@ -600,7 +584,6 @@ const DistCheckModal = ({ isOpen, onClose, flightData }) => {
             }
 
             const isExclude = wp.isOffRoute || /^(TOC|TOD|CLM|DEC|WPT|EEP\d*|ETP\d*|EXP\d*)$/i.test(wp.wp);
-            // Enhanced Lat/Lon matching for Dist Check
             const isLatLon = /^\d{2}[A-Z]\d{2}$|^\d{4}[A-Z]$|^\d{2}[NS]\d{2}[EW]$|^(\d{2})(\d{3})([NSWE])(\d{3})(\d{3})$/i.test(wp.wp) || wp.latLon;
 
             if (isExclude) {
@@ -924,6 +907,8 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
   const [lastFetchedBlockInMins, setLastFetchedBlockInMins] = useState(null);
   const [lastFetchedDestIcao, setLastFetchedDestIcao] = useState(null);
   const [parsedEtopsInfo, setParsedEtopsInfo] = useState(null);
+  
+  const [flightTimeStr, setFlightTimeStr] = useState("");
 
   const [currentUtcMins, setCurrentUtcMins] = useState(() => {
       const now = new Date();
@@ -943,17 +928,11 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
     const data = [];
     const takeoffMinutes = timeToMinutes(takeoffTime);
     
-    // 機材判定の精度向上 (JA8**A, JA9**A は確実にB787として処理)
-    let acType = REG_MAP[parsedReg] || "77W";
-    if (!REG_MAP[parsedReg]) {
-        if (parsedReg.startsWith("JA8") || parsedReg.startsWith("JA9")) acType = "787";
-        else if (parsedReg.startsWith("JA7")) acType = "77W";
-    }
-
+    // 確実な機番マッピングからの取得
+    const acType = REG_MAP[parsedReg] || "77W";
     const perfTable = MAX_ALT_DATA[acType] || MAX_ALT_DATA["77W"];
-    const is787 = /787/i.test(acType);
-    const is777 = /777/i.test(acType) || /77W/i.test(acType) || /77F/i.test(acType) || /773/i.test(acType) || /772/i.test(acType);
-    const isNearestAirportEligible = is787 || is777;
+    
+    const isNearestAirportEligible = !!ADEQUATE_AIRPORTS[acType];
 
     let currentDiff = 0;
     let totalBurnDiff = 0, lastValidWpIndex = -1;
@@ -1025,6 +1004,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
 
       const maxAlt = interpolateAlt(currentWeight, perfTable, is15gLimit, wpPlan.isaDev);
 
+      // Nearest Adequate Airports
       let nearestAirports = [];
       if (isNearestAirportEligible && (wpPlan.latLon || wpPlan.wp)) {
          nearestAirports = findNearestAirports(wpPlan.wp, wpPlan.latLon, acType);
@@ -1117,6 +1097,12 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
         if (navlogData.staH !== undefined && navlogData.staM !== undefined) {
             setParsedSta(`${String(navlogData.staH).padStart(2, '0')}${String(navlogData.staM).padStart(2, '0')}`);
         }
+        
+        if (navlogData.fltTimeH !== undefined && navlogData.fltTimeM !== undefined) {
+             setFlightTimeStr(`${String(navlogData.fltTimeH).padStart(2, '0')}:${String(navlogData.fltTimeM).padStart(2, '0')}`);
+        } else {
+             setFlightTimeStr("");
+        }
 
         if (navlogData.parsedEtopsInfo !== undefined) {
             setParsedEtopsInfo(navlogData.parsedEtopsInfo);
@@ -1175,6 +1161,15 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                 if (parsed.parsedSta) setParsedSta(parsed.parsedSta);
                 if (parsed.parsedDestIcao) setParsedDestIcao(parsed.parsedDestIcao);
                 if (parsed.parsedEtopsInfo !== undefined) setParsedEtopsInfo(parsed.parsedEtopsInfo);
+                
+                if (parsed.flightPlan && parsed.flightPlan.length > 0) {
+                    const destWp = parsed.flightPlan[parsed.flightPlan.length - 1];
+                    if (destWp.ctme > 0) {
+                        const h = Math.floor(destWp.ctme / 60);
+                        const m = destWp.ctme % 60;
+                        setFlightTimeStr(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+                    }
+                }
             }
         } catch(e) {}
     }
@@ -1664,19 +1659,20 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                 <div className="bg-blue-500/20 p-1 rounded border border-blue-500/30 shadow-inner">
                   <SafeIcon name="Map" className="w-3.5 h-3.5 text-blue-400"/>
                 </div>
-                <h1 className="text-sm sm:text-base font-black text-white uppercase tracking-wider leading-none drop-shadow-sm">
+                <h1 className="text-base sm:text-lg font-black text-white uppercase tracking-wider leading-none drop-shadow-sm">
                   {flightNo}
                 </h1>
             </div>
             
             <div className="flex gap-1.5 items-center font-mono flex-wrap">
-                <span className="text-[10px] sm:text-[11px] font-black text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded border border-cyan-500/30 tracking-wider">
+                <span className="text-[11px] sm:text-xs font-black text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded border border-cyan-500/30 tracking-wider">
                     {routeInfo}
                 </span>
-                <span className="text-[10px] sm:text-[11px] font-bold text-slate-300 bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5">{parsedReg}</span>
-                {parsedDate && <span className="text-[10px] sm:text-[11px] font-bold text-blue-300 bg-blue-900/40 border border-blue-500/40 rounded px-1.5 py-0.5">{parsedDate}</span>}
-                <span className="text-[10px] sm:text-[11px] font-bold text-slate-300 bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5">ZFW:{parsedPzfw}</span>
-                <span className="text-[10px] sm:text-[11px] font-bold text-slate-300 bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5">TAXI OUT/IN: {parsedTaxiOut}/{parsedTaxiIn}M</span>
+                {flightTimeStr && <span className="text-[11px] sm:text-xs font-bold text-slate-300 bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5">F/T: {flightTimeStr}</span>}
+                <span className="text-[11px] sm:text-xs font-bold text-slate-300 bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5">{parsedReg}</span>
+                {parsedDate && <span className="text-[11px] sm:text-xs font-bold text-blue-300 bg-blue-900/40 border border-blue-500/40 rounded px-1.5 py-0.5">{parsedDate}</span>}
+                <span className="text-[11px] sm:text-xs font-bold text-slate-300 bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5">ZFW:{parsedPzfw}</span>
+                <span className="text-[11px] sm:text-xs font-bold text-slate-300 bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5">TAXI OUT/IN: {parsedTaxiOut}/{parsedTaxiIn}M</span>
             </div>
           </div>
           
@@ -1685,19 +1681,19 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
             <div className="flex items-center gap-2 bg-[#0f172a] px-2 py-1.5 rounded-lg border border-slate-700 shadow-inner">
               
               <div className="flex flex-col items-center px-1">
-                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">STD(Z/L)</span>
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">STD(Z/L)</span>
                 <div className="flex items-center gap-1.5 h-4">
-                  <span className="text-xs font-mono font-extrabold text-slate-300 leading-none">
+                  <span className="text-[13px] font-mono font-extrabold text-slate-300 leading-none">
                     {navlogData && navlogData.stdH !== undefined && navlogData.stdM !== undefined ? `${String(navlogData.stdH).padStart(2, '0')}${String(navlogData.stdM).padStart(2, '0')}` : "----"}
                   </span>
-                  <span className="text-[11px] font-mono font-bold text-cyan-300/80 leading-none">({localStd || "----"})</span>
+                  <span className="text-xs font-mono font-bold text-cyan-300/80 leading-none">({localStd || "----"})</span>
                 </div>
               </div>
 
               <div className="w-px h-6 bg-slate-700"></div>
 
               <div className="flex flex-col items-center px-1">
-                <label className="text-[9px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">Takeoff(Z)</label>
+                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">Takeoff(Z)</label>
                 <input 
                   type="text" 
                   inputMode="numeric" 
@@ -1710,27 +1706,27 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                   maxLength={4} 
                   value={takeoffTime} 
                   onChange={(e) => setTakeoffTime(e.target.value.replace(/[^0-9]/g, ''))} 
-                  className="bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5 text-xs font-mono font-black text-white text-center w-14 h-5 focus:outline-none focus:border-blue-500 transition-colors" 
+                  className="bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5 text-[13px] font-mono font-black text-white text-center w-16 h-5 focus:outline-none focus:border-blue-500 transition-colors" 
                 />
               </div>
 
               <div className="w-px h-6 bg-slate-700"></div>
 
               <div className="flex flex-col items-center justify-center px-1 min-w-[90px]">
-                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">ETA (Z/L)</span>
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">ETA (Z/L)</span>
                 <div className="flex flex-col w-full gap-0.5">
                     <div className="flex items-center justify-between gap-1 w-full">
-                        <span className="text-[9px] text-slate-500 font-bold">LDG</span>
+                        <span className="text-[10px] text-slate-500 font-bold">LDG</span>
                         <div className="flex items-center gap-1">
-                            <span className="text-xs font-mono font-extrabold text-white leading-none">{calculatedData.estLandingTimeStr || "----"}</span>
-                            <span className="text-[10px] font-mono font-bold text-slate-300/80 leading-none">({localLdg || "----"})</span>
+                            <span className="text-[13px] font-mono font-extrabold text-white leading-none">{calculatedData.estLandingTimeStr || "----"}</span>
+                            <span className="text-[11px] font-mono font-bold text-slate-300/80 leading-none">({localLdg || "----"})</span>
                         </div>
                     </div>
                     <div className="flex items-center justify-between gap-1 w-full">
-                        <span className="text-[9px] text-slate-500 font-bold">BLK</span>
+                        <span className="text-[10px] text-slate-500 font-bold">BLK</span>
                         <div className="flex items-center gap-1">
-                            <span className="text-xs font-mono font-extrabold text-amber-400 leading-none">{calculatedData.estBlockInStr || "----"}</span>
-                            <span className="text-[10px] font-mono font-bold text-amber-200/80 leading-none">({localBlockIn || "----"})</span>
+                            <span className="text-[13px] font-mono font-extrabold text-amber-400 leading-none">{calculatedData.estBlockInStr || "----"}</span>
+                            <span className="text-[11px] font-mono font-bold text-amber-200/80 leading-none">({localBlockIn || "----"})</span>
                         </div>
                     </div>
                 </div>
@@ -1739,27 +1735,27 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
               <div className="w-px h-6 bg-slate-700"></div>
 
               <div className="flex flex-col items-center justify-center px-1 min-w-[80px]">
-                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">STA (Z/L)</span>
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">STA (Z/L)</span>
                 <div className="flex items-center gap-1 h-4">
-                  <span className="text-xs font-mono font-extrabold text-slate-300 leading-none">{parsedSta || "----"}</span>
-                  <span className="text-[11px] font-mono font-bold text-cyan-300/80 leading-none">({localSta || "----"})</span>
+                  <span className="text-[13px] font-mono font-extrabold text-slate-300 leading-none">{parsedSta || "----"}</span>
+                  <span className="text-xs font-mono font-bold text-cyan-300/80 leading-none">({localSta || "----"})</span>
                 </div>
               </div>
 
               <div className="w-px h-6 bg-slate-700"></div>
 
               <div className="flex flex-col items-center justify-center px-2 min-w-[130px] shrink-0">
-                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">{parsedDestIcao} WX</span>
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">{parsedDestIcao} WX</span>
                 <div className="flex items-center justify-center w-full">
                   {destWeather ? (
-                    <div className="flex items-center gap-1.5 cursor-help whitespace-nowrap" title={destWeather.text}>
-                      <span className="text-lg leading-none">{destWeather.icon}</span>
-                      <span className={`text-xs font-mono font-bold ${destWeather.color}`}>
-                        {destWeather.tempC}℃ <span className="text-[10px] opacity-80">({destWeather.tempF}℉)</span>
+                    <div className="flex items-center gap-1.5 whitespace-nowrap" title={destWeather.text}>
+                      <span className="text-xl leading-none">{destWeather.icon}</span>
+                      <span className={`text-[13px] font-mono font-bold ${destWeather.color}`}>
+                        {destWeather.tempC}℃ <span className="text-[11px] opacity-80">({destWeather.tempF}℉)</span>
                       </span>
                     </div>
                   ) : (
-                    <span className="text-xs font-mono font-bold text-slate-500">----</span>
+                    <span className="text-[13px] font-mono font-bold text-slate-500">----</span>
                   )}
                 </div>
               </div>
@@ -1768,8 +1764,8 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
 
             <div className="flex items-center gap-1.5 bg-[#0f172a] px-2 py-1.5 rounded-lg border border-slate-700 shadow-inner">
               <div className="flex flex-col items-center min-w-[45px] px-1">
-                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">TIME DIFF</span>
-                <span className={`text-xs font-mono font-extrabold leading-none flex items-center ${parseInt(calculatedData.latestAtoTimeDiffStr) > 0 ? 'text-red-400' : parseInt(calculatedData.latestAtoTimeDiffStr) < 0 ? 'text-green-400' : 'text-slate-200'}`}>
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">TIME DIFF</span>
+                <span className={`text-[13px] font-mono font-extrabold leading-none flex items-center ${parseInt(calculatedData.latestAtoTimeDiffStr) > 0 ? 'text-red-400' : parseInt(calculatedData.latestAtoTimeDiffStr) < 0 ? 'text-green-400' : 'text-slate-200'}`}>
                     {calculatedData.latestAtoTimeDiffStr || "±0"}
                 </span>
               </div>
@@ -1777,16 +1773,16 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
               <div className="w-px h-6 bg-slate-700"></div>
 
               <div className="flex flex-col items-center min-w-[60px] px-1">
-                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">FUEL DIFF</span>
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">FUEL DIFF</span>
                 <div className="flex items-center gap-1 h-4">
                   {calculatedData.lastValidWpIndex !== -1 ? (
-                    <span className={`text-xs font-mono font-extrabold leading-none ${calculatedData.totalBurnDiff >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    <span className={`text-[13px] font-mono font-extrabold leading-none ${calculatedData.totalBurnDiff >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                       {calculatedData.totalBurnDiff > 0 ? '+' : ''}{calculatedData.totalBurnDiff.toFixed(1)}
                     </span>
-                  ) : (<span className="text-slate-500 font-mono text-xs font-bold leading-none">--.-</span>)}
+                  ) : (<span className="text-slate-500 font-mono text-[13px] font-bold leading-none">--.-</span>)}
                   
                   <button onClick={() => setIsGraphOpen(true)} className="bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded px-1 flex items-center justify-center transition-colors h-4" title="Trend Graph">
-                    <span className="text-[10px] leading-none">📊</span>
+                    <span className="text-[11px] leading-none">📊</span>
                   </button>
                 </div>
               </div>
@@ -1794,22 +1790,22 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
               <div className="w-px h-6 bg-slate-700"></div>
               
               <div className="flex flex-col items-center px-1">
-                 <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">MAX ALT</span>
+                 <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">MAX ALT</span>
                  <div className="flex items-center bg-slate-900 rounded border border-slate-700 cursor-pointer overflow-hidden shadow-inner h-4" onClick={() => setIs15gLimit(!is15gLimit)}>
-                    <div className={`px-1.5 h-full flex items-center text-[9px] font-black ${!is15gLimit ? 'bg-blue-600 text-white' : 'text-slate-500'}`}>1.3G</div>
-                    <div className={`px-1.5 h-full flex items-center text-[9px] font-black ${is15gLimit ? 'bg-red-600 text-white' : 'text-slate-500'}`}>1.5G</div>
+                    <div className={`px-1.5 h-full flex items-center text-[10px] font-black ${!is15gLimit ? 'bg-blue-600 text-white' : 'text-slate-500'}`}>1.3G</div>
+                    <div className={`px-1.5 h-full flex items-center text-[10px] font-black ${is15gLimit ? 'bg-red-600 text-white' : 'text-slate-500'}`}>1.5G</div>
                  </div>
               </div>
             </div>
 
             <div className="flex items-center gap-1.5 ml-auto sm:ml-0">
-                <button onClick={scrollToCurrentFix} className="bg-slate-700 hover:bg-indigo-600 border border-indigo-500/50 text-indigo-300 hover:text-white px-2 py-1.5 rounded text-[10px] font-black tracking-wider shadow-sm transition-colors flex items-center gap-1">
+                <button onClick={scrollToCurrentFix} className="bg-slate-700 hover:bg-indigo-600 border border-indigo-500/50 text-indigo-300 hover:text-white px-2 py-1.5 rounded text-[11px] font-black tracking-wider shadow-sm transition-colors flex items-center gap-1">
                     <SafeIcon name="MapPin" className="w-3 h-3" /> NOW
                 </button>
-                <button onClick={() => setIsDistCheckOpen(true)} className="bg-slate-700 hover:bg-sky-600 border border-sky-500/50 text-sky-300 hover:text-white px-2 py-1.5 rounded text-[10px] font-black tracking-wider shadow-sm transition-colors flex items-center gap-1">
+                <button onClick={() => setIsDistCheckOpen(true)} className="bg-slate-700 hover:bg-sky-600 border border-sky-500/50 text-sky-300 hover:text-white px-2 py-1.5 rounded text-[11px] font-black tracking-wider shadow-sm transition-colors flex items-center gap-1">
                     <SafeIcon name="Ruler" className="w-3 h-3" /> DIST CK
                 </button>
-                <button onClick={() => setIsSyncModalOpen(true)} className="bg-slate-700 hover:bg-emerald-600 border border-emerald-500/50 text-emerald-300 hover:text-white px-2 py-1.5 rounded text-[10px] font-black tracking-wider shadow-sm transition-colors flex items-center gap-1">
+                <button onClick={() => setIsSyncModalOpen(true)} className="bg-slate-700 hover:bg-emerald-600 border border-emerald-500/50 text-emerald-300 hover:text-white px-2 py-1.5 rounded text-[11px] font-black tracking-wider shadow-sm transition-colors flex items-center gap-1">
                     <SafeIcon name="RefreshCw" className="w-3 h-3" /> SYNC
                 </button>
             </div>
@@ -1818,7 +1814,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
         </div>
 
         {/* ETOPS Info Row */}
-        <div className="max-w-[1400px] mx-auto mt-2 flex flex-wrap items-center gap-1.5 text-[11px] font-mono font-bold bg-slate-800/50 px-2 py-1 rounded border border-slate-700/50">
+        <div className="max-w-[1400px] mx-auto mt-2 flex flex-wrap items-center gap-1.5 text-[12px] font-mono font-bold bg-slate-800/50 px-2 py-1 rounded border border-slate-700/50">
             <span className="text-slate-400">ETOPS:</span>
             {parsedEtopsInfo && parsedEtopsInfo.data ? (
                 <div className="flex flex-wrap gap-1.5 items-center">
@@ -1842,22 +1838,22 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                         return (
                             <React.Fragment key={idx}>
                                 <div className={`flex items-center gap-1.5 border px-2 py-0.5 rounded shadow-inner transition-colors duration-300 ${isActive ? 'bg-sky-800 border-sky-500 text-white' : 'bg-slate-900/90 border-slate-700 text-slate-300'}`}>
-                                    <span className={`${isActive ? 'text-white' : 'text-sky-300'} font-extrabold text-xs`}>{data.airport}</span>
+                                    <span className={`${isActive ? 'text-white' : 'text-sky-300'} font-extrabold text-[13px]`}>{data.airport}</span>
                                     <div className="flex items-center gap-0.5">
-                                        <span className={`${isActive ? 'text-sky-200' : 'text-slate-500'} text-[9px] font-semibold`}>ET</span>
-                                        <span className={`${isActive ? 'text-white' : 'text-slate-200'} font-bold text-[11px]`}>{revisedEt}</span>
+                                        <span className={`${isActive ? 'text-sky-200' : 'text-slate-500'} text-[10px] font-semibold`}>ET</span>
+                                        <span className={`${isActive ? 'text-white' : 'text-slate-200'} font-bold text-[12px]`}>{revisedEt}</span>
                                     </div>
                                     <div className="flex items-center gap-0.5">
-                                        <span className={`${isActive ? 'text-sky-200' : 'text-slate-500'} text-[9px] font-semibold`}>LT</span>
-                                        <span className={`${isActive ? 'text-white' : 'text-slate-200'} font-bold text-[11px]`}>{revisedLt}</span>
+                                        <span className={`${isActive ? 'text-sky-200' : 'text-slate-500'} text-[10px] font-semibold`}>LT</span>
+                                        <span className={`${isActive ? 'text-white' : 'text-slate-200'} font-bold text-[12px]`}>{revisedLt}</span>
                                     </div>
                                 </div>
                                 {idx < parsedEtopsInfo.data.length - 1 && (
                                     <div className="flex items-center gap-1 px-0.5">
                                         <SafeIcon name="ChevronRight" className="w-3 h-3 text-slate-600" />
                                         <div className="flex bg-slate-900/80 border border-slate-700 rounded px-1.5 py-0.5 items-center gap-1">
-                                            <span className="text-[8px] text-amber-500/80 font-bold">ETP</span>
-                                            <span className="text-[10px] text-amber-400 font-mono font-bold leading-none">{etpStr}</span>
+                                            <span className="text-[9px] text-amber-500/80 font-bold">ETP</span>
+                                            <span className="text-[11px] text-amber-400 font-mono font-bold leading-none">{etpStr}</span>
                                         </div>
                                         <SafeIcon name="ChevronRight" className="w-3 h-3 text-slate-600" />
                                     </div>
@@ -1874,22 +1870,22 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
 
       <div className="flex-1 w-full relative overflow-hidden bg-slate-900/40 touch-pinch-zoom">
         <div className="absolute inset-0 overflow-auto custom-scrollbar p-1 flex justify-center touch-auto" style={{ touchAction: 'pan-x pan-y pinch-zoom' }}>
-            <div className="w-full max-w-[1400px] min-w-[800px] pb-16 px-1">
+            <div className="w-full max-w-[1400px] min-w-[850px] pb-16 px-1">
               
               <div className="sticky top-0 z-30 bg-[#0f172a] border-b border-slate-700 shadow-md rounded-t-lg">
-                <div className="flex p-1 font-black text-slate-400 text-[10px] text-center items-center leading-tight">
-                  <div className="w-[90px] text-left pl-1 shrink-0">WAYPOINT</div>
-                  <div className="w-[45px] text-cyan-400 shrink-0">GS<br/><span className="text-[8px] text-cyan-500">TAS</span></div>
+                <div className="flex p-1.5 font-black text-slate-400 text-[11px] text-center items-center leading-tight">
+                  <div className="w-[130px] shrink-0 text-center">WAYPOINT</div>
+                  <div className="w-[45px] text-cyan-400 shrink-0">GS<br/><span className="text-[9px] text-cyan-500">TAS</span></div>
                   <div className="w-[50px] text-slate-400 flex flex-col items-center justify-center shrink-0">
                     <span>CTME</span>
-                    <span className="text-[8px] text-slate-500">RTME</span>
+                    <span className="text-[9px] text-slate-500">RTME</span>
                   </div>
                   <div className="w-[65px] text-blue-300 shrink-0">ETO(Rev)<br/>ATO</div>
                   <div className="w-[40px] shrink-0">DIFF</div>
-                  <div className="w-[50px] text-slate-500 shrink-0">PLN FOB</div>
-                  <div className="w-[60px] text-green-300 shrink-0">RMG<br/><span className="text-[7.5px]">DIFF</span></div>
-                  <div className="flex-1">ACT (ALT / TMP / WIND)</div>
-                  <div className="w-[65px] text-purple-300 shrink-0">MAX ALT<br/><span className="text-[7.5px] text-slate-500">WT</span></div>
+                  <div className="w-[55px] text-slate-500 shrink-0">PLN FOB</div>
+                  <div className="w-[60px] text-green-300 shrink-0">RMG<br/><span className="text-[8.5px]">DIFF</span></div>
+                  <div className="flex-1 min-w-[190px]">ACT (ALT / TMP / WIND)</div>
+                  <div className="w-[70px] text-purple-300 shrink-0">MAX ALT<br/><span className="text-[8.5px] text-slate-500">WT</span></div>
                   <div className="w-[40px] shrink-0">MEMO</div>
                 </div>
               </div>
@@ -1904,9 +1900,9 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                   return (
                   <div key={idx} ref={el => rowRefs.current[idx] = el} className={finalRowClass}>
                     
-                    <div className="flex flex-col w-[90px] shrink-0 items-start justify-center">
+                    <div className="w-[130px] shrink-0 flex flex-col items-center justify-center">
                         <div 
-                            className="w-full font-mono text-sm sm:text-[15px] font-black text-left pl-1 text-slate-200 truncate flex items-center gap-1 select-none cursor-pointer"
+                            className="w-full font-mono text-[15px] sm:text-[16px] font-black text-center text-slate-200 truncate flex items-center justify-center gap-1 select-none cursor-pointer"
                             onPointerDown={(e) => handlePointerDown(e, row.wp)}
                             onPointerUp={handlePointerUpOrLeave}
                             onPointerLeave={handlePointerUpOrLeave}
@@ -1916,32 +1912,39 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                         >
                             {row.wp}
                             {isAlertActive && (
-                                <SafeIcon name="BellRing" className={`w-3.5 h-3.5 ${isTriggered ? 'text-rose-400 animate-bounce' : 'text-sky-400'}`} />
+                                <SafeIcon name="BellRing" className={`w-4 h-4 ${isTriggered ? 'text-rose-400 animate-bounce' : 'text-sky-400'}`} />
                             )}
                         </div>
                         {calculatedData.isNearestAirportEligible && row.nearestAirports && row.nearestAirports.length > 0 && (
-                            <div className="w-full flex gap-1 pl-1 mt-0.5" title="Nearest Adequate Airports">
+                            <div className="w-full flex flex-nowrap justify-center gap-1 mt-0.5 relative">
                                 {row.nearestAirports.map(apt => (
-                                    <span key={apt.icao} className="text-[8px] bg-slate-800 text-sky-300 font-bold px-1 py-0.5 rounded border border-slate-700 flex items-center gap-0.5 tracking-tighter">
-                                        {apt.icao} <span className="text-[8px] text-slate-300 font-bold ml-0.5">{Math.round(apt.dist)}</span>
-                                    </span>
+                                    <div key={apt.icao} className="relative group/apt flex items-center">
+                                        <span className="text-[10px] sm:text-[11px] bg-slate-800 text-sky-300 font-bold px-1.5 py-0.5 rounded border border-slate-700 flex items-center gap-1 tracking-tighter cursor-default whitespace-nowrap">
+                                            {apt.icao} <span className="text-[10px] sm:text-[11px] text-slate-300 font-bold ml-0.5">{Math.round(apt.dist)}</span>
+                                        </span>
+                                        {apt.name && (
+                                            <div className="absolute bottom-full mb-1.5 left-1/2 -translate-x-1/2 hidden group-hover/apt:block group-active/apt:block bg-slate-700/95 border border-slate-500 text-white text-[12px] font-normal px-2 py-1 rounded shadow-xl whitespace-nowrap z-50 pointer-events-none">
+                                                {apt.name}
+                                            </div>
+                                        )}
+                                    </div>
                                 ))}
                             </div>
                         )}
                     </div>
                     
                     <div className="w-[45px] shrink-0 flex flex-col items-center justify-center leading-none py-0.5 font-mono">
-                        <span className="text-[13px] text-cyan-300 font-bold">{row.gs || '-'}</span>
-                        <span className="text-[11px] text-cyan-500/80 font-medium mt-0.5">{row.tas || '-'}</span>
+                        <span className="text-[14px] text-cyan-300 font-bold">{row.gs || '-'}</span>
+                        <span className="text-xs text-cyan-500/80 font-medium mt-0.5">{row.tas || '-'}</span>
                     </div>
 
                     <div className="w-[50px] shrink-0 flex flex-col items-center justify-center leading-none py-0.5 font-mono">
-                        <span className="text-xs text-slate-300 font-bold">{formatTimePlus(row.ctme)}</span>
-                        <span className="text-[10px] text-slate-500 font-medium mt-0.5">{formatTimePlus(row.rtme)}</span>
+                        <span className="text-[13px] text-slate-300 font-bold">{formatTimePlus(row.ctme)}</span>
+                        <span className="text-[11px] text-slate-500 font-medium mt-0.5">{formatTimePlus(row.rtme)}</span>
                     </div>
                     
                     <div className="w-[65px] shrink-0 flex flex-col px-0.5 gap-1 items-center">
-                      <span className="text-blue-400 font-mono text-[14px] font-extrabold leading-none">{row.revisedEtoStr || "----"}</span>
+                      <span className="text-blue-400 font-mono text-[15px] font-extrabold leading-none">{row.revisedEtoStr || "----"}</span>
                       <input 
                           type="text" 
                           inputMode="numeric" 
@@ -1959,13 +1962,13 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                                   setTimeout(() => scrollToCurrentFix(), 300);
                               }
                           }}
-                          className={`w-full max-w-[65px] mx-auto bg-[#05070a] border rounded py-1 text-center font-mono text-xs font-bold focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors ${row.ato ? 'border-blue-500/50 text-white' : 'border-slate-700 text-slate-400'}`} 
+                          className={`w-full max-w-[65px] mx-auto bg-[#05070a] border rounded py-1 text-center font-mono text-[13px] font-bold focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors ${row.ato ? 'border-blue-500/50 text-white' : 'border-slate-700 text-slate-400'}`} 
                       />
                     </div>
                     
-                    <div className={`w-[40px] shrink-0 font-mono text-[11px] font-bold ${parseInt(row.timeDiffStr) > 0 ? 'text-red-400' : parseInt(row.timeDiffStr) < 0 ? 'text-green-400' : 'text-slate-400'}`}>{row.timeDiffStr}</div>
+                    <div className={`w-[40px] shrink-0 font-mono text-xs font-bold ${parseInt(row.timeDiffStr) > 0 ? 'text-red-400' : parseInt(row.timeDiffStr) < 0 ? 'text-green-400' : 'text-slate-400'}`}>{row.timeDiffStr}</div>
 
-                    <div className="w-[50px] shrink-0 font-mono text-[13px] text-slate-400 font-bold">{row.fob ? row.fob.toFixed(1) : ''}</div>
+                    <div className="w-[55px] shrink-0 font-mono text-[14px] text-slate-400 font-bold">{row.fob ? row.fob.toFixed(1) : ''}</div>
 
                     <div className="w-[60px] shrink-0 flex flex-col px-0.5 gap-1 items-center">
                       <input 
@@ -1978,16 +1981,16 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                           placeholder="RMG" 
                           value={row.afob} 
                           onChange={(e) => handleUpdateActual(row.wp, 'afob', e.target.value.replace(/[^0-9.]/g, ''))} 
-                          className={`w-full bg-[#05070a] border rounded py-1 text-center font-mono text-xs font-bold focus:outline-none focus:ring-1 focus:ring-green-500 transition-colors ${row.afob ? 'border-green-500/50 text-white' : 'border-slate-700 text-slate-400'}`} 
+                          className={`w-full bg-[#05070a] border rounded py-1 text-center font-mono text-[13px] font-bold focus:outline-none focus:ring-1 focus:ring-green-500 transition-colors ${row.afob ? 'border-green-500/50 text-white' : 'border-slate-700 text-slate-400'}`} 
                       />
-                      <span className={`font-mono text-[9px] leading-none ${row.fuelDiff > 0 ? 'text-green-400 font-bold' : row.fuelDiff < 0 ? 'text-red-400 font-bold' : 'text-transparent'}`}>
+                      <span className={`font-mono text-[10px] leading-none ${row.fuelDiff > 0 ? 'text-green-400 font-bold' : row.fuelDiff < 0 ? 'text-red-400 font-bold' : 'text-transparent'}`}>
                           {row.fuelDiff !== null ? (`${row.fuelDiff > 0 ? '+' : ''}${row.fuelDiff.toFixed(1)}`) : '-'}
                       </span>
                     </div>
 
-                    <div className="flex-1 grid grid-cols-3 gap-2 px-2">
+                    <div className="flex-1 min-w-[190px] grid grid-cols-3 gap-1 px-1 mt-2.5">
                         <div className="flex flex-col items-center justify-center w-full relative">
-                            <span className="absolute -top-3 text-[9px] text-slate-500 font-mono leading-none">{row.plnAlt || ""}</span>
+                            <span className="absolute -top-3.5 text-[10px] text-slate-500 font-mono leading-none">{row.plnAlt || ""}</span>
                             <input 
                               type="text" 
                               lang="en"
@@ -1997,11 +2000,11 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                               placeholder="ACT" 
                               value={row.actAlt} 
                               onChange={(e) => handleUpdateActual(row.wp, 'actAlt', e.target.value.toUpperCase())} 
-                              className="w-full bg-[#05070a] border border-slate-700 rounded text-center text-xs font-mono font-bold py-1 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-inner" 
+                              className="w-full bg-[#05070a] border border-slate-700 rounded text-center text-[13px] font-mono font-bold py-1 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-inner" 
                             />
                         </div>
                         <div className="flex flex-col items-center justify-center w-full relative">
-                            <span className="absolute -top-3 text-[9px] text-slate-500 font-mono leading-none">{row.plnTmp || ""}</span>
+                            <span className="absolute -top-3.5 text-[10px] text-slate-500 font-mono leading-none">{row.plnTmp || ""}</span>
                             <input 
                               type="text" 
                               lang="en"
@@ -2011,11 +2014,11 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                               placeholder="ACT" 
                               value={row.actTmp} 
                               onChange={(e) => handleUpdateActual(row.wp, 'actTmp', e.target.value)} 
-                              className="w-full bg-[#05070a] border border-slate-700 rounded text-center text-xs font-mono font-bold py-1 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-inner" 
+                              className="w-full bg-[#05070a] border border-slate-700 rounded text-center text-[13px] font-mono font-bold py-1 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-inner" 
                             />
                         </div>
                         <div className="flex flex-col items-center justify-center w-full relative">
-                            <span className="absolute -top-3 text-[9px] text-slate-500 font-mono leading-none">{row.plnWind || ""}</span>
+                            <span className="absolute -top-3.5 text-[10px] text-slate-500 font-mono leading-none">{row.plnWind || ""}</span>
                             <input 
                               type="text" 
                               lang="en"
@@ -2025,17 +2028,17 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                               placeholder="ACT" 
                               value={row.actWind} 
                               onChange={(e) => handleUpdateActual(row.wp, 'actWind', e.target.value)} 
-                              className="w-full bg-[#05070a] border border-slate-700 rounded text-center text-xs font-mono font-bold py-1 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-inner" 
+                              className="w-full bg-[#05070a] border border-slate-700 rounded text-center text-[13px] font-mono font-bold py-1 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-inner" 
                             />
                         </div>
                     </div>
 
-                    <div className="w-[65px] shrink-0 flex flex-col items-center justify-center leading-none">
-                        <span className="text-[7px] text-purple-400 font-mono font-bold leading-none mb-0.5 whitespace-nowrap">
+                    <div className="w-[70px] shrink-0 flex flex-col items-center justify-center leading-none">
+                        <span className="text-[8px] text-purple-400 font-mono font-bold leading-none mb-0.5 whitespace-nowrap">
                               {row.isaDev !== undefined && !isNaN(row.isaDev) ? `ISA${row.isaDev >= 0 ? '+' : ''}${row.isaDev}` : ""}
                         </span>
-                        <span className="font-mono text-[14px] font-black text-purple-400">{row.maxAlt}</span>
-                        <span className="text-[9px] text-slate-500 font-mono mt-1">W:{row.currentWeight}</span>
+                        <span className="font-mono text-[15px] font-black text-purple-400">{row.maxAlt}</span>
+                        <span className="text-[10px] text-slate-500 font-mono mt-1">W:{row.currentWeight}</span>
                     </div>
 
                     <div className="w-[40px] shrink-0 flex justify-center items-center">
@@ -2044,7 +2047,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                             className={`p-1.5 rounded transition-colors border shadow-sm flex items-center justify-center ${row.memo ? 'bg-amber-600 border-amber-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white hover:bg-slate-700'}`}
                             title={row.memo ? "Edit Memo" : "Add Memo"}
                         >
-                            <span className="text-xs leading-none">📝</span>
+                            <span className="text-[13px] leading-none">📝</span>
                         </button>
                     </div>
 
