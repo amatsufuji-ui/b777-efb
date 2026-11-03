@@ -5544,3 +5544,261 @@ export const etopsData = {
     "i": []
   }
 };
+
+export const WMO_CODES = {
+    0: { title: "快晴", icon: "☀️", color: "text-amber-400" },
+    1: { title: "ほぼ晴れ", icon: "🌤️", color: "text-amber-300" },
+    2: { title: "時々曇り", icon: "⛅", color: "text-sky-300" },
+    3: { title: "くもり", icon: "☁️", color: "text-slate-300" },
+    45: { title: "霧", icon: "🌫️", color: "text-slate-400" },
+    48: { title: "着氷性の霧", icon: "🌫️", color: "text-slate-400" },
+    51: { title: "霧雨(弱)", icon: "🌧️", color: "text-blue-300" },
+    53: { title: "霧雨(中)", icon: "🌧️", color: "text-blue-400" },
+    55: { title: "霧雨(強)", icon: "🌧️", color: "text-blue-500" },
+    61: { title: "小雨", icon: "☔", color: "text-blue-300" },
+    63: { title: "雨", icon: "☔", color: "text-blue-400" },
+    65: { title: "激しい雨", icon: "☔", color: "text-blue-500" },
+    71: { title: "粉雪", icon: "❄️", color: "text-indigo-200" },
+    73: { title: "降雪", icon: "❄️", color: "text-indigo-300" },
+    75: { title: "大雪", icon: "❄️", color: "text-indigo-400" },
+    80: { title: "にわか雨(弱)", icon: "🌦️", color: "text-sky-400" },
+    81: { title: "にわか雨(中)", icon: "🌦️", color: "text-blue-400" },
+    82: { title: "豪雨", icon: "⛈️", color: "text-blue-600" },
+    95: { title: "雷雨", icon: "⛈️", color: "text-yellow-400" },
+    96: { title: "雷・ひょう", icon: "⛈️", color: "text-amber-400" }
+};
+
+export const ICAO_COORDS = {
+    // 日本
+    "RJCW": { lat: 45.4022, lon: 141.6922 }, "RJCM": { lat: 43.8806, lon: 144.1642 },
+    "RJCK": { lat: 43.0408, lon: 144.1931 }, "RJCN": { lat: 43.5775, lon: 144.9606 },
+    "RJEC": { lat: 43.6708, lon: 142.4475 }, "RJCC": { lat: 42.7752, lon: 141.6925 },
+    "RJCH": { lat: 41.7700, lon: 140.8222 }, "RJSM": { lat: 40.7039, lon: 141.3683 },
+    "RJSH": { lat: 40.5564, lon: 141.4675 }, "RJSR": { lat: 40.1925, lon: 140.3703 },
+    "RJSK": { lat: 39.6156, lon: 140.2186 }, "RJSY": { lat: 38.8122, lon: 139.7867 },
+    "RJSS": { lat: 38.1397, lon: 140.9169 }, "RJSF": { lat: 37.2272, lon: 140.4283 },
+    "RJAA": { lat: 35.7647, lon: 140.3863 }, "RJTT": { lat: 35.5494, lon: 139.7798 },
+    "RJTY": { lat: 35.7486, lon: 139.3486 }, "RJTH": { lat: 33.1150, lon: 139.7861 },
+    "RJAW": { lat: 24.7839, lon: 141.3225 }, "RJSN": { lat: 37.9542, lon: 139.1172 },
+    "RJNT": { lat: 36.6486, lon: 137.1875 }, "RJNW": { lat: 37.2933, lon: 136.9617 },
+    "RJNK": { lat: 36.3933, lon: 136.4072 }, "RJGG": { lat: 34.8583, lon: 136.8053 },
+    "RJOO": { lat: 34.7855, lon: 135.4382 }, "RJBB": { lat: 34.4347, lon: 135.2442 },
+    "RJBE": { lat: 34.6328, lon: 135.2239 }, "RJOR": { lat: 35.5300, lon: 134.1658 },
+    "RJOH": { lat: 35.4922, lon: 133.2361 }, "RJOW": { lat: 34.6761, lon: 131.7900 },
+    "RJOB": { lat: 34.7575, lon: 133.8553 }, "RJOA": { lat: 34.4361, lon: 132.9194 },
+    "RJOI": { lat: 34.1439, lon: 132.2356 }, "RJDC": { lat: 33.9300, lon: 131.2772 },
+    "RJOS": { lat: 34.1328, lon: 134.6064 }, "RJOT": { lat: 34.2142, lon: 134.0156 },
+    "RJOM": { lat: 33.8272, lon: 132.6997 }, "RJOK": { lat: 33.5461, lon: 133.6694 },
+    "RJFF": { lat: 33.5859, lon: 130.4506 }, "RJFS": { lat: 33.1497, lon: 130.3022 },
+    "RJFU": { lat: 32.9169, lon: 129.9136 }, "RJFO": { lat: 33.4333, lon: 131.7333 },
+    "RJFT": { lat: 32.8378, lon: 130.8550 }, "RJFM": { lat: 31.8772, lon: 131.4486 },
+    "RJFK": { lat: 31.8033, lon: 130.7194 }, "ROAH": { lat: 26.1958, lon: 127.6458 },
+    "RODN": { lat: 26.3556, lon: 127.7675 }, "ROMY": { lat: 24.7828, lon: 125.2950 },
+    "ROIG": { lat: 24.3964, lon: 124.2450 }, "RORS": { lat: 24.8267, lon: 125.1447 },
+    
+    // アジア
+    "VGEG": { lat: 22.2496, lon: 91.8133, name: "Chattogram" }, "VGHS": { lat: 23.8433, lon: 90.4011, name: "Dhaka" },
+    "WBSB": { lat: 4.9442, lon: 114.9283, name: "Bandar Seri Begawan" }, "ZBAA": { lat: 40.0799, lon: 116.6031, name: "北京" },
+    "ZYCC": { lat: 43.9961, lon: 125.6853, name: "長春" }, "ZUCK": { lat: 29.7192, lon: 106.6417, name: "重慶" },
+    "ZYTL": { lat: 38.9657, lon: 121.5386, name: "大連" }, "ZLDH": { lat: 40.1625, lon: 94.8094, name: "敦煌" },
+    "ZGGG": { lat: 23.3924, lon: 113.2988, name: "広州" }, "ZUGY": { lat: 26.5386, lon: 106.8008, name: "貴陽" },
+    "ZSHC": { lat: 30.2295, lon: 120.4345, name: "杭州" }, "ZYHB": { lat: 45.6234, lon: 126.2503, name: "ハルピン" },
+    "ZBHH": { lat: 40.8516, lon: 111.8242, name: "フフホト" }, "ZBLA": { lat: 49.2052, lon: 119.8252, name: "フルンボイル" },
+    "ZPPP": { lat: 25.1019, lon: 102.9292, name: "昆明" }, "ZLLL": { lat: 36.5152, lon: 103.6214, name: "蘭州" },
+    "ZGNN": { lat: 22.6083, lon: 108.1725, name: "南寧" }, "ZSQD": { lat: 36.2661, lon: 120.3744, name: "青島" },
+    "ZJSY": { lat: 18.3029, lon: 109.4123, name: "三亜" }, "ZSSS": { lat: 31.1979, lon: 121.3363, name: "上海/虹橋" },
+    "ZSPD": { lat: 31.1443, lon: 121.8083, name: "上海/浦東" }, "ZYTX": { lat: 41.6396, lon: 123.4833, name: "瀋陽" },
+    "ZGSZ": { lat: 22.6393, lon: 113.8107, name: "深セン" }, "ZBTJ": { lat: 39.1244, lon: 117.3462, name: "天津" },
+    "ZWWW": { lat: 43.9071, lon: 87.4743, name: "ウルムチ" }, "ZHHH": { lat: 30.7701, lon: 114.2081, name: "武漢" },
+    "ZSAM": { lat: 24.5440, lon: 118.1277, name: "厦門" }, "ZLXY": { lat: 34.4471, lon: 108.7516, name: "西安" },
+    "VHHH": { lat: 22.3080, lon: 113.9185, name: "香港" }, "VAAH": { lat: 23.0772, lon: 72.6347, name: "Ahmedabad" },
+    "VOBL": { lat: 13.1986, lon: 77.7066, name: "Bengaluru" }, "VOMM": { lat: 12.9941, lon: 80.1709, name: "Chennai" },
+    "VIDP": { lat: 28.5562, lon: 77.1000, name: "Delhi" }, "VOHS": { lat: 17.2403, lon: 78.4294, name: "Hyderabad" },
+    "VIJP": { lat: 26.8242, lon: 75.8011, name: "Jaipur" }, "VECC": { lat: 22.6546, lon: 88.4467, name: "Kolkata" },
+    "VABB": { lat: 19.0896, lon: 72.8656, name: "Mumbai" }, "VANP": { lat: 21.0922, lon: 79.0472, name: "Nagpur" },
+    "WADD": { lat: -8.7481, lon: 115.1671, name: "Bali" }, "WIHH": { lat: -6.2653, lon: 106.8856, name: "Jakarta/Halim Perdanakusuma" },
+    "WIII": { lat: -6.1256, lon: 106.6558, name: "Jakarta/Soekarno-Hatta" }, "WICA": { lat: -6.6666, lon: 108.1750, name: "Majalengka" },
+    "WAAA": { lat: -5.0616, lon: 119.5540, name: "Maros" }, "WARR": { lat: -7.3798, lon: 112.7870, name: "Surabaya" },
+    "RKPK": { lat: 35.1795, lon: 128.9382, name: "Busan" }, "RKPC": { lat: 33.5113, lon: 126.4930, name: "Jeju" },
+    "RKSS": { lat: 37.5583, lon: 126.7906, name: "Seoul/Gimpo" }, "RKSI": { lat: 37.4602, lon: 126.4407, name: "Seoul/Incheon" },
+    "VMMC": { lat: 22.1495, lon: 113.5915, name: "マカオ" }, "WMKJ": { lat: 1.6413, lon: 103.6696, name: "Johor Bahru" },
+    "WBKK": { lat: 5.9372, lon: 116.0515, name: "Kota Kinabalu" }, "WMKK": { lat: 2.7456, lon: 101.7099, name: "Kuala Lumpur" },
+    "WBGG": { lat: 1.4842, lon: 110.3470, name: "Kuching" }, "WMKP": { lat: 5.2971, lon: 100.2769, name: "Penang" },
+    "ZMCK": { lat: 47.6494, lon: 106.8209, name: "Ulaanbaatar" }, "VYMD": { lat: 21.7011, lon: 95.9772, name: "Mandalay" },
+    "VYNT": { lat: 19.6247, lon: 96.2003, name: "Naypyitaw" }, "VYYY": { lat: 16.9022, lon: 96.1332, name: "Yangon" },
+    "RPVM": { lat: 10.3075, lon: 123.9794, name: "Lapu-Lapu" }, "RPLL": { lat: 14.5086, lon: 121.0194, name: "Manila" },
+    "RPLC": { lat: 15.1858, lon: 120.5596, name: "Pampanga" }, "WSSS": { lat: 1.3644, lon: 103.9915, name: "Singapore" },
+    "RCKH": { lat: 22.5771, lon: 120.3500, name: "高雄" }, "RCSS": { lat: 25.0697, lon: 121.5520, name: "台北/松山" },
+    "RCTP": { lat: 25.0777, lon: 121.2328, name: "台北/台湾桃園" }, "VTBD": { lat: 13.9125, lon: 100.6067, name: "Bangkok/Don Mueang" },
+    "VTBS": { lat: 13.6900, lon: 100.7501, name: "Bangkok/Suvarnabhumi" }, "VTCC": { lat: 18.7668, lon: 98.9626, name: "Chiang Mai" },
+    "VTSP": { lat: 8.1132, lon: 98.3169, name: "Phuket" }, "VTBU": { lat: 12.6798, lon: 101.0051, name: "Rayong" },
+    "VVDN": { lat: 16.0439, lon: 108.1994, name: "Da Nang" }, "VVCI": { lat: 20.8193, lon: 106.7269, name: "Hai Phong" },
+    "VVNB": { lat: 21.2212, lon: 105.8072, name: "Hanoi" }, "VVTS": { lat: 10.8188, lon: 106.6520, name: "Ho Chi Minh" },
+    "VVVD": { lat: 21.1170, lon: 107.4243, name: "Quang Ninh" },
+
+    // オセアニア
+    "YPAD": { lat: -34.9450, lon: 138.5306, name: "Adelaide" }, "YBBN": { lat: -27.3842, lon: 153.1175, name: "Brisbane" },
+    "YBRM": { lat: -17.9490, lon: 122.2270, name: "Broome" }, "YBCS": { lat: -16.8858, lon: 145.7553, name: "Cairns" },
+    "YPDN": { lat: -12.4082, lon: 130.8783, name: "Darwin" }, "YGEL": { lat: -28.7961, lon: 114.7065, name: "Geraldton" },
+    "YPLM": { lat: -22.2356, lon: 114.0886, name: "Learmonth" }, "YMML": { lat: -37.6690, lon: 144.8410, name: "Melbourne" },
+    "YPPH": { lat: -31.9403, lon: 115.9668, name: "Perth" }, "YPPD": { lat: -20.3776, lon: 118.6253, name: "Port Hedland" },
+    "YSSY": { lat: -33.9461, lon: 151.1772, name: "Sydney" }, "YBTL": { lat: -19.2525, lon: 146.7653, name: "Townsville" },
+    "PKWA": { lat: 8.7199, lon: 167.7340, name: "Kwajalein Atoll" }, "PKMJ": { lat: 7.0645, lon: 171.2720, name: "Majuro Atoll" },
+    "NWWW": { lat: -22.0146, lon: 166.2128, name: "Noumea" }, "NZAA": { lat: -37.0082, lon: 174.7850, name: "Auckland" },
+    "NZCH": { lat: -43.4894, lon: 172.5322, name: "Christchurch" }, "AYPY": { lat: -9.4434, lon: 147.2200, name: "Port Moresby" },
+
+    // 北米・中南米
+    "KAUS": { lat: 30.1945, lon: -97.6699, name: "Austin" }, "KBWI": { lat: 39.1754, lon: -76.6683, name: "Baltimore" },
+    "KBIL": { lat: 45.8077, lon: -108.5429, name: "Billings" }, "KBOS": { lat: 42.3643, lon: -71.0052, name: "Boston" },
+    "KCHS": { lat: 32.8986, lon: -80.0405, name: "Charleston" }, "KORD": { lat: 41.9742, lon: -87.9073, name: "Chicago/O'hare" },
+    "KRFD": { lat: 42.1954, lon: -89.0972, name: "Chicago/Rockford" }, "KDFW": { lat: 32.8968, lon: -97.0380, name: "Dallas-Ft Worth" },
+    "KDEN": { lat: 39.8584, lon: -104.6670, name: "Denver" }, "KDTW": { lat: 42.2121, lon: -83.3533, name: "Detroit" },
+    "KIAH": { lat: 29.9805, lon: -95.3397, name: "Houston" }, "KIND": { lat: 39.7173, lon: -86.2944, name: "Indianapolis" },
+    "KLAS": { lat: 36.0801, lon: -115.1522, name: "Las Vegas" }, "KLAX": { lat: 33.9416, lon: -118.4085, name: "Los Angeles" },
+    "KMKE": { lat: 42.9472, lon: -87.8966, name: "Milwaukee" }, "KMSP": { lat: 44.8805, lon: -93.2169, name: "Minneapolis" },
+    "KEWR": { lat: 40.6895, lon: -74.1745, name: "Newark" }, "KJFK": { lat: 40.6413, lon: -73.7781, name: "New York" },
+    "KOAK": { lat: 37.7213, lon: -122.2207, name: "Oakland" }, "KONT": { lat: 34.0560, lon: -117.6012, name: "Ontario" },
+    "KPHX": { lat: 33.4342, lon: -112.0080, name: "Phoenix" }, "KPDX": { lat: 45.5887, lon: -122.5975, name: "Portland" },
+    "KSLC": { lat: 40.7884, lon: -111.9778, name: "Salt Lake City" }, "KSAT": { lat: 29.5337, lon: -98.4698, name: "San Antonio" },
+    "KSFO": { lat: 37.6213, lon: -122.3790, name: "San Francisco" }, "KSJC": { lat: 37.3626, lon: -121.9290, name: "San Jose" },
+    "KBFI": { lat: 47.5300, lon: -122.3019, name: "Seattle/Boeing King CO" }, "KSEA": { lat: 47.4489, lon: -122.3090, name: "Seattle/Seattle-Tacoma" },
+    "KIAD": { lat: 38.9445, lon: -77.4558, name: "Washington, D.C." }, "PAED": { lat: 61.2509, lon: -149.7992, name: "Anchorage/Elmendorf AFB" },
+    "PANC": { lat: 61.1744, lon: -149.9963, name: "Anchorage/Ted Stevens" }, "PACD": { lat: 55.2056, lon: -162.7239, name: "Cold Bay" },
+    "PAFA": { lat: 64.8151, lon: -147.8564, name: "Fairbanks" }, "PAKN": { lat: 58.6768, lon: -156.6492, name: "King Salmon" },
+    "PASY": { lat: 52.7123, lon: 174.1136, name: "Shemya I" }, "PHNL": { lat: 21.3187, lon: -157.9225, name: "Honolulu" },
+    "PHOG": { lat: 20.8986, lon: -156.4305, name: "Kahului" }, "PHKO": { lat: 19.7388, lon: -156.0456, name: "Kailua-Kona" },
+    "PGUM": { lat: 13.4835, lon: 144.7960, name: "Guam" }, "PMDY": { lat: 28.2015, lon: -177.3800, name: "Midway Atoll" },
+    "PGSN": { lat: 15.1188, lon: 145.7292, name: "Saipan I" }, "PWAK": { lat: 19.2821, lon: 166.6360, name: "Wake I" },
+    "CYYC": { lat: 51.1139, lon: -114.0203, name: "Calgary" }, "CYEG": { lat: 53.3097, lon: -113.5797, name: "Edmonton" },
+    "CYQX": { lat: 48.9369, lon: -54.5681, name: "Gander" }, "CYYR": { lat: 53.3192, lon: -60.4258, name: "Goose Bay" },
+    "CYFB": { lat: 63.7564, lon: -68.5558, name: "Iqaluit" }, "CYUL": { lat: 45.4706, lon: -73.7408, name: "Montreal" },
+    "CYXS": { lat: 53.8894, lon: -122.6789, name: "Prince George" }, "CYYZ": { lat: 43.6772, lon: -79.6248, name: "Toronto" },
+    "CYVR": { lat: 49.1939, lon: -123.1844, name: "Vancouver" }, "CYXY": { lat: 60.7095, lon: -135.0673, name: "Whitehorse" },
+    "CYWG": { lat: 49.9100, lon: -97.2399, name: "Winnipeg" }, "CYZF": { lat: 62.4628, lon: -114.4403, name: "Yellowknife" },
+    "MMAA": { lat: 16.7571, lon: -99.7540, name: "Acapulco" }, "MMDO": { lat: 24.1242, lon: -104.5283, name: "Durango" },
+    "MMGL": { lat: 20.5218, lon: -103.3112, name: "Guadalajara" }, "MMHO": { lat: 29.0959, lon: -111.0479, name: "Hermosillo" },
+    "MMMZ": { lat: 23.1613, lon: -106.2661, name: "Mazatlan" }, "MMMX": { lat: 19.4361, lon: -99.0719, name: "Mexico City" },
+    "MMMY": { lat: 25.7785, lon: -100.1069, name: "Monterrey" }, "MMQT": { lat: 20.6172, lon: -100.1860, name: "Queretaro" },
+    "MMSM": { lat: 19.7490, lon: -98.9818, name: "Santa Lucia" }, "MMTC": { lat: 25.5683, lon: -103.4106, name: "Torreon" },
+
+    // ヨーロッパ・ロシア・中東
+    "UDYZ": { lat: 40.1473, lon: 44.3959, name: "Yerevan" }, "LOWL": { lat: 48.2332, lon: 14.1875, name: "Linz" },
+    "LOWW": { lat: 48.1103, lon: 16.5697, name: "Vienna" }, "UBBB": { lat: 40.4675, lon: 50.0467, name: "Baku" },
+    "EBBR": { lat: 50.9014, lon: 4.4844, name: "Brussels" }, "LBBG": { lat: 42.5696, lon: 27.5152, name: "Burgas" },
+    "EKCH": { lat: 55.6179, lon: 12.6560, name: "Copenhagen" }, "EFHK": { lat: 60.3172, lon: 24.9633, name: "Helsinki" },
+    "LFPG": { lat: 49.0097, lon: 2.5479, name: "Paris/Charles-de-Gaulle" }, "LFPO": { lat: 48.7253, lon: 2.3594, name: "Paris/Orly" },
+    "UGTB": { lat: 41.6692, lon: 44.9547, name: "Tbilisi" }, "EDDK": { lat: 50.8659, lon: 7.1427, name: "Cologne-Bonn" },
+    "EDDL": { lat: 51.2895, lon: 6.7668, name: "Duesseldorf" }, "EDDF": { lat: 50.0333, lon: 8.5705, name: "Frankfurt Main" },
+    "EDDM": { lat: 48.3538, lon: 11.7861, name: "Munich" }, "EDDN": { lat: 49.4987, lon: 11.0780, name: "Nuernberg" },
+    "LGAV": { lat: 37.9364, lon: 23.9445, name: "Athens" }, "BIKF": { lat: 63.9850, lon: -22.6056, name: "Keflavik" },
+    "EINN": { lat: 52.7020, lon: -8.9248, name: "Shannon" }, "LIMC": { lat: 45.6301, lon: 8.7231, name: "Milan" },
+    "LIRF": { lat: 41.8003, lon: 12.2389, name: "Rome" }, "LIMF": { lat: 45.2008, lon: 7.6496, name: "Torino" },
+    "LIPZ": { lat: 45.5053, lon: 12.3519, name: "Venice" }, "UAAA": { lat: 43.3521, lon: 77.0405, name: "Almaty" },
+    "UACC": { lat: 51.0222, lon: 71.4669, name: "Astana" }, "UCFM": { lat: 43.0613, lon: 74.4776, name: "Bishkek" },
+    "EHAM": { lat: 52.3086, lon: 4.7639, name: "Amsterdam" }, "ENBR": { lat: 60.2934, lon: 5.2181, name: "Bergen" },
+    "ENBO": { lat: 67.2692, lon: 14.3653, name: "Bodo" }, "EPWA": { lat: 52.1657, lon: 20.9671, name: "Warsaw" },
+    "UNAA": { lat: 53.7400, lon: 91.3850, name: "Abakan" }, "UHMA": { lat: 64.7350, lon: 177.7417, name: "Anadyr" },
+    "UIBB": { lat: 56.3703, lon: 101.6978, name: "Bratsk" }, "UIAA": { lat: 52.0253, lon: 113.3056, name: "Chita" },
+    "UIII": { lat: 52.2680, lon: 104.3890, name: "Irkutsk" }, "UHHH": { lat: 48.5280, lon: 135.1883, name: "Khabarovsk" },
+    "UNKL": { lat: 56.1722, lon: 92.4933, name: "Krasnoyarsk" }, "UHMM": { lat: 59.9108, lon: 150.7200, name: "Magadan" },
+    "UUDD": { lat: 55.4086, lon: 37.9061, name: "Moscow/Domodedovo" }, "ULMM": { lat: 68.7817, lon: 32.7508, name: "Murmansk" },
+    "UNNT": { lat: 55.0125, lon: 82.6507, name: "Novosibirsk" }, "UHPP": { lat: 53.1678, lon: 158.4533, name: "Petropavlovsk-Kamchatsky" },
+    "UWWW": { lat: 53.5048, lon: 50.1637, name: "Samara" }, "ULLI": { lat: 59.8003, lon: 30.2625, name: "St Petersburg" },
+    "USRR": { lat: 61.3436, lon: 73.4022, name: "Surgut" }, "UUYY": { lat: 61.6483, lon: 50.8447, name: "Syktyvkar" },
+    "UIUU": { lat: 51.8078, lon: 107.4375, name: "Ulan-Ude" }, "UHWW": { lat: 43.3989, lon: 132.1481, name: "Vladivostok" },
+    "UEEE": { lat: 62.1764, lon: 129.7711, name: "Yakutsk" }, "USSS": { lat: 56.7431, lon: 60.8027, name: "Yekaterinburg" },
+    "UHSS": { lat: 46.8887, lon: 142.7175, name: "Yuzhno-Sakhalinsk" }, "ESGG": { lat: 57.6628, lon: 12.2798, name: "Goteborg" },
+    "ESSA": { lat: 59.6519, lon: 17.9186, name: "Stockholm" }, "EGAA": { lat: 54.6575, lon: -6.2158, name: "Belfast" },
+    "EGPF": { lat: 55.8719, lon: -4.4331, name: "Glasgow" }, "EGKK": { lat: 51.1481, lon: -0.1903, name: "London/Gatwick" },
+    "EGLL": { lat: 51.4700, lon: -0.4543, name: "London/Heathrow" }, "EGSS": { lat: 51.8850, lon: 0.2350, name: "London/Stansted" },
+    "UZTT": { lat: 41.2579, lon: 69.2812, name: "Tashkent" }, "LTAC": { lat: 40.1281, lon: 32.9951, name: "Ankara" },
+    "LTAI": { lat: 36.8987, lon: 30.8005, name: "Antalya" }, "LTCE": { lat: 39.9556, lon: 41.1703, name: "Erzurum" },
+    "LTBA": { lat: 40.9769, lon: 28.8146, name: "Istanbul/Ataturk" }, "LTFM": { lat: 41.2753, lon: 28.7520, name: "Istanbul/Istanbul" },
+    "LTBJ": { lat: 38.2924, lon: 27.1570, name: "Izmir" }
+};
+
+export const COMMON_INTL_787 = [
+    "VGEG", "VGHS", "WBSB", "ZBAA", "ZYCC", "ZUCK", "ZYTL", "ZLDH", "ZGGG", "ZUGY", "ZSHC", "ZYHB", "ZBHH", "ZBLA", "ZPPP", "ZLLL", "ZGNN", "ZSQD", "ZJSY", "ZSSS", "ZSPD", "ZYTX", "ZGSZ", "ZBTJ", "ZWWW", "ZHHH", "ZSAM", "ZLXY", "VHHH", "VAAH", "VOBL", "VOMM", "VIDP", "VOHS", "VIJP", "VECC", "VABB", "VANP", "WADD", "WIHH", "WIII", "WICA", "WAAA", "WARR", "RKPK", "RKPC", "RKSS", "RKSI", "VMMC", "WMKJ", "WBKK", "WMKK", "WBGG", "WMKP", "ZMCK", "VYMD", "VYNT", "VYYY", "RPVM", "RPLL", "RPLC", "WSSS", "RCKH", "RCSS", "RCTP", "VTBD", "VTBS", "VTCC", "VTSP", "VTBU", "VVDN", "VVCI", "VVNB", "VVTS", "VVVD",
+    "YPAD", "YBBN", "YBRM", "YBCS", "YPDN", "YGEL", "YPLM", "YMML", "YPPH", "YPPD", "YSSY", "YBTL", "PKWA", "PKMJ", "NWWW", "NZAA", "NZCH", "AYPY",
+    "KAUS", "KBWI", "KBIL", "KBOS", "KCHS", "KORD", "KRFD", "KDFW", "KDEN", "KDTW", "KIAH", "KIND", "KLAS", "KLAX", "KMKE", "KMSP", "KEWR", "KJFK", "KOAK", "KONT", "KPHX", "KPDX", "KSLC", "KSAT", "KSFO", "KSJC", "KBFI", "KSEA", "KIAD", "PAED", "PANC", "PACD", "PAFA", "PAKN", "PASY", "PHNL", "PHOG", "PHKO", "PGUM", "PMDY", "PGSN", "PWAK", "CYYC", "CYEG", "CYQX", "CYYR", "CYFB", "CYUL", "CYXS", "CYYZ", "CYVR", "CYXY", "CYWG", "CYZF", "MMAA", "MMDO", "MMGL", "MMHO", "MMMZ", "MMMX", "MMMY", "MMQT", "MMSM", "MMTC",
+    "UDYZ", "LOWL", "LOWW", "UBBB", "EBBR", "LBBG", "EKCH", "EFHK", "LFPG", "LFPO", "UGTB", "EDDK", "EDDL", "EDDF", "EDDM", "EDDN", "LGAV", "BIKF", "EINN", "LIMC", "LIRF", "LIMF", "LIPZ", "UAAA", "UACC", "UCFM", "EHAM", "ENBR", "ENBO", "EPWA", "UNAA", "UHMA", "UIBB", "UIAA", "UIII", "UHHH", "UNKL", "UHMM", "UUDD", "ULMM", "UNNT", "UHPP", "UWWW", "ULLI", "USRR", "UUYY", "UIUU", "UHWW", "UEEE", "USSS", "UHSS", "ESGG", "ESSA", "EGAA", "EGPF", "EGKK", "EGLL", "EGSS", "UZTT", "LTAC", "LTAI", "LTCE", "LTBA", "LTFM", "LTBJ"
+];
+
+export const COMMON_INTL_777 = [
+    "VGEG", "VGHS", "WBSB", "ZBAA", "ZUCK", "ZYTL", "ZGGG", "ZPPP", "ZGNN", "ZSQD", "ZSSS", "ZSPD", "ZGSZ", "ZBTJ", "ZSAM", "ZLXY", "VHHH", "VAAH", "VOBL", "VOMM", "VIDP", "VOHS", "VIJP", "VECC", "VABB", "WADD", "WIHH", "WIII", "WICA", "WARR", "RKPK", "RKPC", "RKSS", "RKSI", "VMMC", "WMKJ", "WMKK", "WBGG", "WMKP", "VYNT", "VYYY", "RPVM", "RPLL", "RPLC", "WSSS", "RCKH", "RCTP", "VTBD", "VTBS", "VTCC", "VTSP", "VTBU", "VVDN", "VVCI", "VVNB", "VVTS", "VVVD",
+    "YPAD", "YBBN", "YPDN", "YMML", "YPPH", "YSSY", "NZAA", 
+    "KAUS", "KBWI", "KBOS", "KORD", "KRFD", "KDFW", "KDTW", "KIND", "KLAS", "KLAX", "KMKE", "KMSP", "KEWR", "KJFK", "KOAK", "KONT", "KPDX", "KSFO", "KSJC", "KBFI", "KSEA", "KIAD", "PAED", "PANC", "PHNL", "PHOG", "PHKO", "CYYC", "CYYZ", "CYVR", "MMAA", "MMGL", "MMQT", "MMSM",
+    "LOWW", "EBBR", "LBBG", "EKCH", "EFHK", "LFPG", "LFPO", "EDDK", "EDDL", "EDDM", "LIRF", "LIMF", "LIPZ", "EHAM", "UHHH", "ESGG", "ESSA", "EGLL", "EGSS",
+    "LTAC", "LTAI", "LTBJ"
+];
+
+export const ADEQUATE_AIRPORTS = {
+    "788": ["RJCC", "RJSS", "RJAA", "RJTT", "RJNK", "RJGG", "RJOO", "RJBB", "RJFF", "ROAH", ...COMMON_INTL_787],
+    "789": ["RJCC", "RJSS", "RJAA", "RJTT", "RJNK", "RJGG", "RJOO", "RJBB", "RJFF", "ROAH", ...COMMON_INTL_787],
+    "781": ["RJCC", "RJSS", "RJAA", "RJTT", "RJNK", "RJGG", "RJOO", "RJBB", "RJFF", "ROAH", ...COMMON_INTL_787],
+    "772": ["RJCW", "RJCM", "RJCK", "RJEC", "RJCC", "RJCH", "RJSM", "RJSK", "RJSS", "RJAA", "RJTT", "RJTY", "RJNK", "RJGG", "RJOO", "RJBB", "RJOA", "RJOM", "RJOK", "RJFF", "RJFO", "RJFM", "RJFK", "ROAH", "RODN", "ROIG", "RORS", ...COMMON_INTL_777],
+    "773": ["RJCW", "RJCM", "RJCK", "RJEC", "RJCC", "RJCH", "RJSM", "RJSK", "RJSS", "RJAA", "RJTT", "RJTY", "RJNK", "RJGG", "RJBB", "RJBE", "RJOA", "RJOM", "RJOK", "RJFF", "RJFO", "RJFM", "RJFK", "ROAH", "RODN", "RORS", ...COMMON_INTL_777],
+    "77W": ["RJCW", "RJCM", "RJCK", "RJEC", "RJCC", "RJCH", "RJSM", "RJSK", "RJSS", "RJAA", "RJTT", "RJTY", "RJNK", "RJGG", "RJBB", "RJBE", "RJOA", "RJOM", "RJOK", "RJFF", "RJFO", "RJFM", "RJFK", "ROAH", "RODN", "RORS", ...COMMON_INTL_777],
+    "77F": ["RJCW", "RJCM", "RJCK", "RJEC", "RJCC", "RJAA", "RJTT", "RJTY", "RJGG", "RJOO", "RJBB", "RJOA", "RJOM", "RJOK", "RJFF", "RJFO", "RJFM", "RJFK", "ROAH", "RODN", "RORS", ...COMMON_INTL_777]
+};
+
+export const REG_MAP = {
+  // 777-200
+  "JA713A": "772", "JA714A": "772", "JA715A": "772", "JA716A": "772", "JA717A": "772", "JA741A": "772", "JA742A": "772", "JA743A": "772", "JA744A": "772", "JA745A": "772",
+  // 777-300
+  "JA751A": "773", "JA752A": "773", "JA753A": "773", "JA754A": "773", "JA755A": "773",
+  // 777-300ER
+  "JA784A": "77W", "JA785A": "77W", "JA787A": "77W", "JA788A": "77W", "JA790A": "77W", "JA791A": "77W", "JA792A": "77W", "JA793A": "77W", "JA794A": "77W", "JA795A": "77W", "JA796A": "77W", "JA797A": "77W", "JA798A": "77W", "JA799A": "77W",
+  // 777F
+  "JA771F": "77F", "JA772F": "77F",
+  // 787-8
+  "JA801A": "788", "JA802A": "788", "JA803A": "788", "JA804A": "788", "JA805A": "788", "JA806A": "788", "JA807A": "788", "JA808A": "788", "JA809A": "788", "JA810A": "788", "JA811A": "788", "JA812A": "788", "JA813A": "788", "JA814A": "788", "JA815A": "788", "JA816A": "788", "JA817A": "788", "JA818A": "788", "JA819A": "788", "JA820A": "788", "JA821A": "788", "JA822A": "788", "JA823A": "788", "JA824A": "788", "JA825A": "788", "JA827A": "788", "JA828A": "788", "JA829A": "788", "JA831A": "788", "JA832A": "788", "JA834A": "788", "JA835A": "788", "JA838A": "788", "JA840A": "788", "JA874A": "788", "JA878A": "788",
+  // 787-9
+  "JA830A": "789", "JA833A": "789", "JA836A": "789", "JA837A": "789", "JA839A": "789", "JA871A": "789", "JA872A": "789", "JA873A": "789", "JA875A": "789", "JA876A": "789", "JA877A": "789", "JA879A": "789", "JA880A": "789", "JA882A": "789", "JA883A": "789", "JA884A": "789", "JA885A": "789", "JA886A": "789", "JA887A": "789", "JA888A": "789", "JA890A": "789", "JA891A": "789", "JA892A": "789", "JA893A": "789", "JA894A": "789", "JA895A": "789", "JA896A": "789", "JA897A": "789", "JA898A": "789", "JA899A": "789", "JA921A": "789", "JA922A": "789", "JA923A": "789", "JA924A": "789", "JA925A": "789", "JA926A": "789", "JA927A": "789", "JA928A": "789", "JA932A": "789", "JA933A": "789", "JA934A": "789", "JA935A": "789", "JA936A": "789", "JA937A": "789", "JA938A": "789",
+  // 787-10
+  "JA900A": "781", "JA901A": "781", "JA902A": "781", "JA981A": "781", "JA982A": "781", "JA983A": "781", "JA984A": "781", "JA985A": "781", "JA986A": "781", "JA988A": "781", "JA990A": "781"
+};
+
+export const MAX_ALT_DATA = {
+  "772": [ [320, 43100, 43100, 43100, 43100, 43100, 43100], [340, 43100, 43100, 43100, 43100, 43100, 43100], [360, 42100, 43100, 43100, 43100, 43000, 42300], [380, 41000, 43100, 43100, 42900, 42200, 41400], [400, 40000, 43100, 42300, 42100, 41300, 40500], [420, 39000, 43100, 41400, 41200, 40500, 39600], [440, 38000, 42900, 40500, 40400, 39600, 38700], [460, 37100, 42100, 39600, 39600, 38800, 37900], [480, 36300, 41300, 38800, 38700, 37900, 37100], [500, 35500, 40500, 37900, 37900, 37100, 36100], [520, 34800, 39600, 37000, 37100, 36200, 35200], [540, 34000, 38800, 36100, 36200, 35400, 34300], [560, 33600, 38000, 35200, 35400, 34500, 33500] ],
+  "773": [ [340, 43100, 43100, 43100, 43100, 43100, 43100], [360, 42300, 43100, 43100, 43100, 43100, 43100], [380, 41200, 43100, 43100, 43100, 42900, 42200], [400, 40100, 43100, 42200, 42600, 42100, 41400], [420, 39000, 43100, 41400, 41800, 41300, 40600], [440, 38000, 43100, 40600, 41100, 40500, 39700], [460, 37200, 42500, 39800, 40300, 39700, 38900], [480, 36400, 41700, 39000, 39500, 39000, 38100], [500, 35700, 40900, 38200, 38800, 37400, 36400], [520, 35000, 40200, 37400, 38000, 37400, 36400], [540, 34200, 39400, 36600, 37200, 36600, 35600] ],
+  "77W": [ [380, 42800, 42500, 40400, 43100, 43100, 43000], [400, 41800, 41900, 39700, 43100, 43100, 42400], [420, 40700, 41300, 39000, 42700, 42600, 41700], [440, 39600, 40700, 38300, 42200, 42000, 41100], [460, 38800, 40100, 37600, 41700, 41400, 40400], [480, 38000, 39400, 36900, 41100, 40800, 39700], [500, 37400, 38800, 36200, 40600, 40200, 39100], [520, 36800, 38200, 35500, 40100, 39600, 38400], [540, 36200, 37600, 34800, 39500, 39000, 37700], [560, 35600, 37000, 34100, 39000, 38400, 37100], [580, 34800, 36400, 33400, 38500, 37800, 36400], [600, 34200, 35800, 32700, 37900, 37200, 35700], [620, 33500, 35200, 32000, 37400, 36600, 35100], [640, 32800, 34500, 31300, 36900, 36000, 34400], [660, 32100, 33900, 30600, 36300, 35400, 33700], [680, 31500, 33300, 29900, 35800, 34800, 33100], [700, 30800, 32700, 29200, 35300, 34200, 32400], [720, 30200, 32100, 28500, 34700, 33600, 31700], [740, 29800, 31500, 27800, 34200, 33000, 31100], [760, 29200, 30900, 27100, 33700, 32400, 30400], [780, 28800, 30200, 26400, 33100, 31800, 28000] ],
+  "77F": [ [380, 43100, 43100, 40800, 43100, 43100, 43100], [400, 41700, 42500, 39700, 43100, 43100, 43100], [420, 40600, 41600, 38800, 43100, 43100, 43100], [440, 39700, 40800, 37900, 43100, 43100, 43100], [460, 38700, 40000, 37100, 43100, 43100, 43100], [480, 37800, 39200, 36300, 43100, 43100, 42500], [500, 37000, 38500, 35600, 42800, 42300, 41700], [520, 36200, 37800, 34900, 42000, 41500, 40900], [540, 36000, 37200, 34200, 41300, 40800, 40200], [560, 35700, 36500, 33500, 40500, 40100, 39500], [580, 34900, 35900, 32900, 39800, 39400, 38800], [600, 34200, 35400, 32300, 39200, 38700, 38100], [620, 33500, 34800, 31800, 38500, 38000, 37400], [640, 32800, 34300, 31200, 37800, 37400, 36800], [660, 32100, 33700, 30700, 37200, 36700, 36100], [680, 31500, 33200, 30100, 36500, 36100, 35600], [700, 30800, 32700, 29600, 36000, 35600, 35000], [720, 30200, 32300, 29200, 35400, 35000, 34300], [740, 29600, 31800, 28700, 34800, 34300, 33600], [760, 29100, 31300, 28100, 34200, 33700, 32900], [780, 28500, 30700, 27600, 33600, 33100, 32300] ]
+};
+
+export const ICAO_TZ = {
+    // 日本
+    "RJTT": "Asia/Tokyo", "RJAA": "Asia/Tokyo", "RJCC": "Asia/Tokyo", "RJBB": "Asia/Tokyo", "RJOO": "Asia/Tokyo", "RJGG": "Asia/Tokyo",
+    "ROAH": "Asia/Tokyo", "RJFF": "Asia/Tokyo", "ROIG": "Asia/Tokyo", "ROMY": "Asia/Tokyo", "RJFT": "Asia/Tokyo", "RJFO": "Asia/Tokyo",
+    "RJFM": "Asia/Tokyo", "RJFK": "Asia/Tokyo", "RJFU": "Asia/Tokyo", "RJSS": "Asia/Tokyo", "RJSA": "Asia/Tokyo", "RJSK": "Asia/Tokyo",
+    "RJCH": "Asia/Tokyo", "RJNK": "Asia/Tokyo", "RJNT": "Asia/Tokyo", "RJOM": "Asia/Tokyo", "RJOT": "Asia/Tokyo", "RJOA": "Asia/Tokyo",
+    "RJOC": "Asia/Tokyo", "RJCB": "Asia/Tokyo",
+
+    // 北米・中南米
+    "KJFK": "America/New_York", "KEWR": "America/New_York", "KORD": "America/Chicago", 
+    "KLAX": "America/Los_Angeles", "KSFO": "America/Los_Angeles", "KSJC": "America/Los_Angeles",
+    "KSEA": "America/Los_Angeles", "KIAH": "America/Chicago", "KIAD": "America/New_York",
+    "PANC": "America/Anchorage", "PHNL": "Pacific/Honolulu", "CYVR": "America/Vancouver", "MMMX": "America/Mexico_City",
+    
+    // ヨーロッパ
+    "LFPG": "Europe/Paris", "EGLL": "Europe/London", "EDDF": "Europe/Berlin", "EDDM": "Europe/Berlin",
+    "EBBR": "Europe/Brussels", "LOWW": "Europe/Vienna", "LIMC": "Europe/Rome", "ESSA": "Europe/Stockholm", "LTFM": "Europe/Istanbul",
+
+    // アジア・オセアニア
+    "YSSY": "Australia/Sydney", "YPPH": "Australia/Perth", "VHHH": "Asia/Hong_Kong",
+    "WSSS": "Asia/Singapore", "VTBS": "Asia/Bangkok", "RCTP": "Asia/Taipei", "RCSS": "Asia/Taipei",
+    "RKSI": "Asia/Seoul", "RKSS": "Asia/Seoul",
+    "ZBAA": "Asia/Shanghai", "ZBAD": "Asia/Shanghai", "ZSPD": "Asia/Shanghai", "ZSSS": "Asia/Shanghai", "ZGGG": "Asia/Shanghai",
+    "ZBTJ": "Asia/Shanghai", "ZSQD": "Asia/Shanghai", "ZYTX": "Asia/Shanghai", "ZSQZ": "Asia/Shanghai",
+    "WMKK": "Asia/Kuala_Lumpur", "WIII": "Asia/Jakarta", "RPLL": "Asia/Manila",
+    "VVTS": "Asia/Ho_Chi_Minh", "VVNB": "Asia/Ho_Chi_Minh",
+    "VABB": "Asia/Kolkata", "VIDP": "Asia/Kolkata", "VOMM": "Asia/Kolkata",
+    "YMML": "Australia/Melbourne", "NZAA": "Pacific/Auckland", "OMDB": "Asia/Dubai", "OTHH": "Asia/Dubai"
+};
+
+export const DEFAULT_FLIGHT_PLAN_DATA = [
+  { wp: "RJTT", ctme: 0, rtme: 741, fob: 242.2, plnAlt: "", plnTmp: "", plnWind: "", tas: "", gs: "", isaDev: 0, dist: 0, isOffRoute: false },
+  { wp: "TOC", ctme: 16, rtme: 725, fob: 237.2, plnAlt: "FL310", plnTmp: "-47", plnWind: "280/040", tas: "480", gs: "520", isaDev: 17, dist: 80, isOffRoute: false },
+  { wp: "POROT", ctme: 24, rtme: 717, fob: 224.9, plnAlt: "FL310", plnTmp: "-26", plnWind: "314/015", tas: "482", gs: "502", isaDev: 17, dist: 65, isOffRoute: false },
+  { wp: "KJFK", ctme: 741, rtme: 0, fob: 26.0, plnAlt: "FL041", plnTmp: "", plnWind: "", tas: "", gs: "", isaDev: 0, dist: 120, isOffRoute: false }
+];
