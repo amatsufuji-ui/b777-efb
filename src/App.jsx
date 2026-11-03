@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import * as LucideIcons from 'lucide-react';
 
-const APP_VERSION = "12.6"; 
+const APP_VERSION = "12.7"; 
 
 import { RAW_CSV_DATA, aircraftRegistrationList, BUDDYCOM_LINKS } from './data/flightData';
 import { aircraftPerformanceData, defaultCruiseWeights, defaultLandingWeights, modelKeyMap, AIRCRAFT_DIMENSIONS, SEAT_DATA, CRUISE_PERF_DATA, VREF_DATA, HOLD_SPD_DATA_RAW, MANEUVER_1_3G_MACH_DATA, TARGET_PITCH_N1_DATA_RAW, LANDING_DIST_DATA_RAW, B777_WIND_LIMITS, MAX_MAN_DATA } from './data/perfData';
@@ -24,6 +24,39 @@ import { WeatherRadarView } from './components/WeatherRadarView';
 
 // IMPORTANT: TOLView MUST be exported as 'export default TOLView;' from './components/TOLView'
 import TOLView from './components/TOLView';
+
+// =========================================================================
+// 緯度経度・距離計算ヘルパー関数 (App.jsx用)
+// =========================================================================
+const parseWaypointToLatLng = (wpObj) => {
+  if (!wpObj) return null;
+  const wpName = typeof wpObj === 'string' ? wpObj : wpObj.wp;
+  const latLonStr = typeof wpObj === 'string' ? null : wpObj.latLon;
+
+  if (latLonStr) {
+      const noDotMatch = latLonStr.match(/^([NS])(\d{2})(\d{3})([EW])(\d{3})(\d{3})$/i);
+      if (noDotMatch) {
+          let lat = parseInt(noDotMatch[2], 10) + parseInt(noDotMatch[3], 10) / 600;
+          if (noDotMatch[1].toUpperCase() === 'S') lat = -lat;
+          let lon = parseInt(noDotMatch[5], 10) + parseInt(noDotMatch[6], 10) / 600;
+          if (noDotMatch[4].toUpperCase() === 'W') lon = -lon;
+          return { lat, lon, name: wpName, isAirport: false };
+      }
+  }
+  return null;
+};
+
+const getDistanceNM = (lat1, lon1, lat2, lon2) => {
+  const R = 3440.065; 
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+};
 
 const LoadDataModal = ({ isOpen, onClose, onFileClick, onPaste, isParsing }) => {
     const [text, setText] = useState("");
@@ -345,7 +378,16 @@ export default function App() {
   };
 
   const parseNavlogPDFText = (text) => {
-    text = text.replace(/\u0391/g, 'A').replace(/\u039D/g, 'N');
+    // OCR等によるギリシャ文字の誤変換を一括してラテン文字に修正 (FIRやWPの抽出漏れ防止)
+    text = text.replace(/[\u0391-\u03A9]/g, char => {
+        const greekToLatin = {
+            '\u0391': 'A', '\u0392': 'B', '\u0393': 'G', '\u0394': 'D', '\u0395': 'E', '\u0396': 'Z', '\u0397': 'H', '\u0398': 'Q',
+            '\u0399': 'I', '\u039A': 'K', '\u039B': 'L', '\u039C': 'M', '\u039D': 'N', '\u039E': 'X', '\u039F': 'O', '\u03A0': 'P',
+            '\u03A1': 'P', // OCR usually confuses Rho with P
+            '\u03A3': 'S', '\u03A4': 'T', '\u03A5': 'Y', '\u03A6': 'F', '\u03A7': 'X', '\u03A8': 'Y', '\u03A9': 'W'
+        };
+        return greekToLatin[char] || char;
+    });
     
     let newPlan = [];
     
@@ -765,11 +807,42 @@ export default function App() {
 
     const fullRouteStr = newPlan.map(p => p.wp).join(' ');
 
+    if (depIcao && newPlan.length > 0 && newPlan[0].latLon) {
+        const depCoord = parseWaypointToLatLng(newPlan[0]);
+        const nextWpCoord = newPlan.length > 1 ? parseWaypointToLatLng(newPlan[1]) : null;
+        if (depCoord && nextWpCoord && depCoord.name === depIcao) {
+            const dist = getDistanceNM(depCoord.lat, depCoord.lon, nextWpCoord.lat, nextWpCoord.lon);
+            if (dist > 3000) {
+                 console.warn("出発空港の誤抽出を検知しました:", depIcao);
+                 newPlan.shift();
+                 depIcao = newPlan.length > 0 ? newPlan[0].wp : null;
+            }
+        }
+    }
+
+    // FIR（飛行情報区）の境界通過時間を抽出 (Item 18 の EET/ セクション)
+    let eetList = [];
+    const eetSectionMatch = text.match(/EET\/([\s\S]*?)(?=\s-[A-Z]{3}|\r?\n\r?\n|RMK\/|SEL\/|CODE\/|REG\/|OPR\/|$)/);
+    if (eetSectionMatch) {
+        const eetText = eetSectionMatch[1];
+        const regex = /([A-Z]{4})(\d{4})/g;
+        let match;
+        while ((match = regex.exec(eetText)) !== null) {
+            const fir = match[1];
+            const timeStr = match[2];
+            // 時間(HHMM)をCTMEと比較しやすくするため分単位に変換
+            const mins = parseInt(timeStr.substring(0, 2), 10) * 60 + parseInt(timeStr.substring(2, 4), 10);
+            eetList.push({ fir, timeStr, mins });
+        }
+        // 時間順にソート
+        eetList.sort((a, b) => a.mins - b.mins);
+    }
+
     return { 
         newPlan, fNo, flightIdRaw, flightId: flightIdRaw, rInfo, depIcao, destIcao, dest: destIcao, pReg, pPzfw, pTaxiOut, pTaxiIn, pDate, 
         ptow, pldw, alt, isa, toElev, ldElev, fltTimeH, fltTimeM, stdH, stdM, staH, staM, pCrewCount,
         fullRouteStr, route: fullRouteStr, etopsAltns: extractedEtopsAltns, isEtops207, loadId: Date.now(), parsedEtopsInfo,
-        isTaxiFallback 
+        isTaxiFallback, eetList
     };
   };
 

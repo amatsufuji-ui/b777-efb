@@ -645,6 +645,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
   const [parsedSta, setParsedSta] = useState("");
   const [parsedDestIcao, setParsedDestIcao] = useState("KJFK");
   const [is15gLimit, setIs15gLimit] = useState(false);
+  const [parsedEetList, setParsedEetList] = useState([]);
 
   const [localStd, setLocalStd] = useState("");
   const [localSta, setLocalSta] = useState("");
@@ -857,6 +858,12 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
         } else {
             setParsedEtopsInfo(null);
         }
+        
+        if (navlogData.eetList !== undefined) {
+            setParsedEetList(navlogData.eetList);
+        } else {
+            setParsedEetList([]);
+        }
 
         hasAutoScrolled.current = false;
         
@@ -909,6 +916,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                 if (parsed.parsedSta) setParsedSta(parsed.parsedSta);
                 if (parsed.parsedDestIcao) setParsedDestIcao(parsed.parsedDestIcao);
                 if (parsed.parsedEtopsInfo !== undefined) setParsedEtopsInfo(parsed.parsedEtopsInfo);
+                if (parsed.parsedEetList) setParsedEetList(parsed.parsedEetList);
                 
                 if (parsed.flightPlan && parsed.flightPlan.length > 0) {
                     const destWp = parsed.flightPlan[parsed.flightPlan.length - 1];
@@ -925,10 +933,10 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
 
   useEffect(() => {
     try {
-        const backup = { flightPlan, actuals, flightNo, routeInfo, parsedDepIcao, parsedReg, parsedPzfw, parsedTaxiOut, parsedTaxiIn, parsedDate, parsedSta, parsedDestIcao, takeoffTime, parsedEtopsInfo, activeAlerts, triggeredAlerts };
+        const backup = { flightPlan, actuals, flightNo, routeInfo, parsedDepIcao, parsedReg, parsedPzfw, parsedTaxiOut, parsedTaxiIn, parsedDate, parsedSta, parsedDestIcao, takeoffTime, parsedEtopsInfo, activeAlerts, triggeredAlerts, parsedEetList };
         localStorage.setItem('navlogFlightDataBackup', JSON.stringify(backup));
     } catch (e) {}
-  }, [flightPlan, actuals, flightNo, routeInfo, parsedDepIcao, parsedReg, parsedPzfw, parsedTaxiOut, parsedTaxiIn, parsedDate, parsedSta, parsedDestIcao, takeoffTime, parsedEtopsInfo, activeAlerts, triggeredAlerts]);
+  }, [flightPlan, actuals, flightNo, routeInfo, parsedDepIcao, parsedReg, parsedPzfw, parsedTaxiOut, parsedTaxiIn, parsedDate, parsedSta, parsedDestIcao, takeoffTime, parsedEtopsInfo, activeAlerts, triggeredAlerts, parsedEetList]);
 
   const toggleAlert = (wp) => {
       if (window.navigator && window.navigator.vibrate) window.navigator.vibrate(50);
@@ -1618,23 +1626,23 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
 
       <div className="flex-1 w-full relative overflow-hidden bg-slate-900/40 touch-pinch-zoom">
         <div className="absolute inset-0 overflow-auto custom-scrollbar p-1 flex justify-center touch-auto" style={{ touchAction: 'pan-x pan-y pinch-zoom' }}>
-            <div className="w-full max-w-[1400px] min-w-[750px] pb-16 px-1">
+            <div className="w-full max-w-[1400px] min-w-[760px] pb-16 px-1">
               
               <div className="sticky top-0 z-30 bg-[#0f172a] border-b border-slate-700 shadow-md rounded-t-lg">
                 <div className="flex p-1.5 font-black text-slate-400 text-[11px] text-center items-center leading-tight justify-between">
-                  <div className="w-[150px] shrink-0 text-center">WAYPOINT</div>
+                  <div className="w-[175px] shrink-0 text-center">WAYPOINT</div>
                   <div className="w-[42px] text-cyan-400 shrink-0">GS<br/><span className="text-[9px] text-cyan-500">TAS</span></div>
                   <div className="w-[48px] text-slate-400 flex flex-col items-center justify-center shrink-0">
                     <span>CTME</span>
                     <span className="text-[9px] text-slate-500">RTME</span>
                   </div>
-                  <div className="w-[65px] text-blue-300 shrink-0">ETO(Rev)<br/>ATO</div>
-                  <div className="w-[33px] shrink-0">DIFF</div>
-                  <div className="w-[52px] text-slate-500 shrink-0">PLN FOB</div>
-                  <div className="w-[60px] text-green-300 shrink-0">RMG<br/><span className="text-[8.5px]">DIFF</span></div>
-                  <div className="flex-1 flex justify-center min-w-[160px] max-w-[200px]">ACT(ALT/TMP/WND)</div>
-                  <div className="w-[65px] text-purple-300 shrink-0">MAX ALT<br/><span className="text-[8.5px] text-slate-500">WT</span></div>
-                  <div className="w-[36px] shrink-0">MEMO</div>
+                  <div className="w-[62px] text-blue-300 shrink-0">ETO(Rev)<br/>ATO</div>
+                  <div className="w-[24px] shrink-0 text-center">DIFF</div>
+                  <div className="w-[48px] text-slate-500 shrink-0">PLN FOB</div>
+                  <div className="w-[56px] text-green-300 shrink-0">RMG<br/><span className="text-[8.5px]">DIFF</span></div>
+                  <div className="flex-1 flex justify-center min-w-[155px] max-w-[200px]">ACT(ALT/TMP/WND)</div>
+                  <div className="w-[60px] text-purple-300 shrink-0">MAX ALT<br/><span className="text-[8.5px] text-slate-500">WT</span></div>
+                  <div className="w-[32px] shrink-0">MEMO</div>
                 </div>
               </div>
               
@@ -1644,11 +1652,22 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                   const isAlertActive = activeAlerts[row.wp];
                   const baseRowClass = "flex py-1.5 px-1 items-center hover:bg-slate-800/60 transition-colors group text-center gap-x-1 box-border justify-between";
                   const finalRowClass = isTriggered ? `${baseRowClass} bg-rose-900/30 shadow-[inset_4px_0_0_rgba(244,63,94,1)]` : baseRowClass;
+                  
+                  const prevCtme = idx > 0 ? calculatedData.flightData[idx - 1].ctme : -1;
+                  const crossedFirs = parsedEetList.filter(fir => fir.mins > prevCtme && fir.mins <= row.ctme);
 
                   return (
-                  <div key={idx} ref={el => rowRefs.current[idx] = el} className={finalRowClass}>
+                  <React.Fragment key={idx}>
+                    {crossedFirs.map((fir, fIdx) => (
+                        <div key={`fir-${idx}-${fIdx}`} className="flex py-1.5 px-2 items-center bg-sky-900/20 border-y border-sky-800/40 justify-center w-full shadow-inner">
+                            <span className="text-[11px] font-bold text-sky-300 tracking-[0.2em] uppercase">
+                                Entering {fir.fir} FIR (EET {fir.timeStr.substring(0,2)}:{fir.timeStr.substring(2,4)})
+                            </span>
+                        </div>
+                    ))}
+                    <div ref={el => rowRefs.current[idx] = el} className={finalRowClass}>
                     
-                    <div className="w-[150px] shrink-0 flex flex-col items-center justify-center">
+                    <div className="w-[175px] shrink-0 flex flex-col items-center justify-center">
                         <div 
                             className="w-full font-mono text-[15px] sm:text-[16px] font-black text-center text-slate-200 truncate flex items-center justify-center gap-1 select-none cursor-pointer px-1"
                             onPointerDown={(e) => handlePointerDown(e, row.wp)}
@@ -1691,7 +1710,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                         <span className="text-[11px] text-slate-500 font-medium mt-0.5">{formatTimePlus(row.rtme)}</span>
                     </div>
                     
-                    <div className="w-[65px] shrink-0 flex flex-col px-0.5 gap-1 items-center">
+                    <div className="w-[62px] shrink-0 flex flex-col px-0.5 gap-1 items-center">
                       <span className="text-blue-400 font-mono text-[15px] font-extrabold leading-none">{row.revisedEtoStr || "----"}</span>
                       <input 
                           type="text" 
@@ -1714,11 +1733,11 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                       />
                     </div>
                     
-                    <div className={`w-[33px] shrink-0 font-mono text-xs font-bold ${parseInt(row.timeDiffStr) > 0 ? 'text-red-400' : parseInt(row.timeDiffStr) < 0 ? 'text-green-400' : 'text-slate-400'}`}>{row.timeDiffStr}</div>
+                    <div className={`w-[24px] shrink-0 font-mono text-[11px] text-center font-bold ${parseInt(row.timeDiffStr) > 0 ? 'text-red-400' : parseInt(row.timeDiffStr) < 0 ? 'text-green-400' : 'text-slate-400'}`}>{row.timeDiffStr}</div>
 
-                    <div className="w-[52px] shrink-0 font-mono text-[14px] text-slate-400 font-bold">{row.fob ? row.fob.toFixed(1) : ''}</div>
+                    <div className="w-[48px] shrink-0 font-mono text-[14px] text-slate-400 font-bold">{row.fob ? row.fob.toFixed(1) : ''}</div>
 
-                    <div className="w-[60px] shrink-0 flex flex-col px-0.5 gap-1 items-center">
+                    <div className="w-[56px] shrink-0 flex flex-col px-0.5 gap-1 items-center">
                       <input 
                           type="text" 
                           inputMode="decimal" 
@@ -1736,7 +1755,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                       </span>
                     </div>
 
-                    <div className="flex-1 flex justify-center gap-1 px-1 mt-2.5 min-w-[160px] max-w-[200px]">
+                    <div className="flex-1 flex justify-center gap-1 px-1 mt-2.5 min-w-[155px] max-w-[200px]">
                         <div className="flex flex-col items-center justify-center w-[45px] relative shrink-0">
                             <span className="absolute -top-3.5 text-[10px] text-slate-500 font-mono leading-none">{row.plnAlt || ""}</span>
                             <input 
@@ -1781,7 +1800,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                         </div>
                     </div>
 
-                    <div className="w-[65px] shrink-0 flex flex-col items-center justify-center leading-none">
+                    <div className="w-[60px] shrink-0 flex flex-col items-center justify-center leading-none">
                         <span className="text-[8px] text-purple-400 font-mono font-bold leading-none mb-0.5 whitespace-nowrap">
                               {row.isaDev !== undefined && !isNaN(row.isaDev) ? `ISA${row.isaDev >= 0 ? '+' : ''}${row.isaDev}` : ""}
                         </span>
@@ -1789,7 +1808,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                         <span className="text-[10px] text-slate-500 font-mono mt-1">W:{row.currentWeight}</span>
                     </div>
 
-                    <div className="w-[36px] shrink-0 flex justify-center items-center">
+                    <div className="w-[32px] shrink-0 flex justify-center items-center">
                         <button 
                             onClick={() => setMemoModal({ isOpen: true, wp: row.wp, text: row.memo })}
                             className={`p-1.5 rounded transition-colors border shadow-sm flex items-center justify-center ${row.memo ? 'bg-amber-600 border-amber-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white hover:bg-slate-700'}`}
@@ -1800,6 +1819,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                     </div>
 
                   </div>
+                  </React.Fragment>
                 )})}
               </div>
             </div>
