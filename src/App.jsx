@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import * as LucideIcons from 'lucide-react';
 
-const APP_VERSION = "12.8"; 
+const APP_VERSION = "12.7"; 
 
 import { RAW_CSV_DATA, aircraftRegistrationList, BUDDYCOM_LINKS } from './data/flightData';
 import { aircraftPerformanceData, defaultCruiseWeights, defaultLandingWeights, modelKeyMap, AIRCRAFT_DIMENSIONS, SEAT_DATA, CRUISE_PERF_DATA, VREF_DATA, HOLD_SPD_DATA_RAW, MANEUVER_1_3G_MACH_DATA, TARGET_PITCH_N1_DATA_RAW, LANDING_DIST_DATA_RAW, B777_WIND_LIMITS, MAX_MAN_DATA } from './data/perfData';
@@ -42,7 +42,47 @@ const parseWaypointToLatLng = (wpObj) => {
           if (noDotMatch[4].toUpperCase() === 'W') lon = -lon;
           return { lat, lon, name: wpName, isAirport: false };
       }
+      const dotMatch = latLonStr.match(/^([NS])(\d{2})(\d{2}(?:\.\d+)?)([EW])(\d{2,3})(\d{2}(?:\.\d+)?)$/);
+      if (dotMatch) {
+          let lat = parseInt(dotMatch[2], 10) + parseFloat(dotMatch[3]) / 60;
+          if (dotMatch[1] === 'S') lat = -lat;
+          let lon = parseInt(dotMatch[5], 10) + parseFloat(dotMatch[6]) / 60;
+          if (dotMatch[4] === 'W') lon = -lon;
+          return { lat, lon, name: wpName, isAirport: false };
+      }
   }
+
+  const arincMatch1 = wpName.match(/^(\d{2})([NSWE])(\d{2})$/);
+  if (arincMatch1) {
+      let lat = parseInt(arincMatch1[1], 10);
+      let lon = parseInt(arincMatch1[3], 10);
+      const dir = arincMatch1[2];
+      if (dir === 'N') { lon = -(lon + 100); } else if (dir === 'E') { lon = lon + 100; } else if (dir === 'W') { lat = -lat; lon = -(lon + 100); } else if (dir === 'S') { lat = -lat; lon = lon + 100; }
+      return { lat, lon, name: wpName, isAirport: false };
+  }
+
+  const arincMatch2 = wpName.match(/^(\d{4})([NSWE])$/);
+  if (arincMatch2) {
+      let lat = parseInt(arincMatch2[1].substring(0,2), 10);
+      let lon = parseInt(arincMatch2[1].substring(2,4), 10);
+      const dir = arincMatch2[2];
+      if (dir === 'N') lon = -lon; else if (dir === 'E') lon = lon; else if (dir === 'W') { lat = -lat; lon = -lon; } else if (dir === 'S') { lat = -lat; lon = lon; } 
+      return { lat, lon, name: wpName, isAirport: false };
+  }
+
+  const coordMatch = wpName.match(/^([NS])(\d{4,5})([EW])(\d{4,5})$/);
+  if (coordMatch) {
+      let lat = parseInt(coordMatch[2], 10) / 100;
+      let lon = parseInt(coordMatch[4], 10) / 100;
+      if (coordMatch[1] === 'S') lat = -lat;
+      if (coordMatch[3] === 'W') lon = -lon;
+      return { lat, lon, name: wpName, isAirport: false };
+  }
+  
+  if (wpName.length === 4 && wpName.match(/^[A-Z]{4}$/)) {
+      return { lat: 0, lon: 0, name: wpName, isAirport: true, unknown: true };
+  }
+
   return null;
 };
 
@@ -173,25 +213,18 @@ export default function App() {
     if (navigator.onLine && 'serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(registrations => {
             for (let registration of registrations) {
-                // 1. Force an update check
                 registration.update().then(() => {
-                    // 2. Check if there's already a waiting worker (an update was downloaded previously)
                     if (registration.waiting) {
-                        // Tell the waiting worker to activate immediately
                         registration.waiting.postMessage({ type: 'SKIP_WAITING' });
                     }
                 }).catch(err => console.log('SW update check failed:', err));
 
-                // 3. Listen for new workers being installed
                 registration.onupdatefound = () => {
                     const installingWorker = registration.installing;
                     if (installingWorker) {
                         installingWorker.onstatechange = () => {
                             if (installingWorker.state === 'installed') {
-                                // A new service worker is installed and waiting
                                 if (navigator.serviceWorker.controller) {
-                                    // There is an existing controller, meaning this is an update
-                                    // Automatically force the new worker to activate
                                     installingWorker.postMessage({ type: 'SKIP_WAITING' });
                                 }
                             }
@@ -201,7 +234,6 @@ export default function App() {
             }
         });
 
-        // 4. Listen for the controllerchange event to reload the page once the new worker takes over
         let refreshing = false;
         navigator.serviceWorker.addEventListener('controllerchange', () => {
             if (!refreshing) {
@@ -378,12 +410,11 @@ export default function App() {
   };
 
   const parseNavlogPDFText = (text) => {
-    // OCR等によるギリシャ文字の誤変換を一括してラテン文字に修正 (FIRやWPの抽出漏れ防止)
     text = text.replace(/[\u0391-\u03A9]/g, char => {
         const greekToLatin = {
             '\u0391': 'A', '\u0392': 'B', '\u0393': 'G', '\u0394': 'D', '\u0395': 'E', '\u0396': 'Z', '\u0397': 'H', '\u0398': 'Q',
             '\u0399': 'I', '\u039A': 'K', '\u039B': 'L', '\u039C': 'M', '\u039D': 'N', '\u039E': 'X', '\u039F': 'O', '\u03A0': 'P',
-            '\u03A1': 'P', // OCR usually confuses Rho with P
+            '\u03A1': 'P',
             '\u03A3': 'S', '\u03A4': 'T', '\u03A5': 'Y', '\u03A6': 'F', '\u03A7': 'X', '\u03A8': 'Y', '\u03A9': 'W'
         };
         return greekToLatin[char] || char;
@@ -402,7 +433,7 @@ export default function App() {
     
     const routeMatch = text.match(/([A-Z]{4})\s*-\s*([A-Z]{4})/);
     const rInfo = routeMatch ? `${routeMatch[1]} - ${routeMatch[2]}` : "UNKNOWN";
-    const depIcao = routeMatch ? routeMatch[1] : null;
+    let depIcao = routeMatch ? routeMatch[1] : null;
     const destIcao = routeMatch ? routeMatch[2] : null;
     const regMatch = text.match(/(JA\d{3}[A-Z]?)/);
     const pReg = regMatch ? regMatch[1] : "JA796A";
@@ -495,7 +526,6 @@ export default function App() {
     const dateMatch = text.match(/\b(\d{2}[A-Z]{3}\d{2})\b/);
     const pDate = dateMatch ? dateMatch[1] : "";
 
-    // Extract Crew Count for TOLView
     let pCrewCount = 2;
     const crewMatch = text.match(/CREW\s+(\d{2})\//);
     if (crewMatch) {
@@ -820,7 +850,6 @@ export default function App() {
         }
     }
 
-    // FIR（飛行情報区）の境界通過時間を抽出 (Item 18 の EET/ セクション)
     let eetList = [];
     const eetSectionMatch = text.match(/EET\/([\s\S]*?)(?=\s-[A-Z]{3}|\r?\n\r?\n|RMK\/|SEL\/|CODE\/|REG\/|OPR\/|$)/);
     if (eetSectionMatch) {
@@ -830,11 +859,9 @@ export default function App() {
         while ((match = regex.exec(eetText)) !== null) {
             const fir = match[1];
             const timeStr = match[2];
-            // 時間(HHMM)をCTMEと比較しやすくするため分単位に変換
             const mins = parseInt(timeStr.substring(0, 2), 10) * 60 + parseInt(timeStr.substring(2, 4), 10);
             eetList.push({ fir, timeStr, mins });
         }
-        // 時間順にソート
         eetList.sort((a, b) => a.mins - b.mins);
     }
 

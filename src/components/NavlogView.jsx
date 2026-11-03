@@ -1654,7 +1654,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                   const finalRowClass = isTriggered ? `${baseRowClass} bg-rose-900/30 shadow-[inset_4px_0_0_rgba(244,63,94,1)]` : baseRowClass;
                   
                   const prevCtme = idx > 0 ? calculatedData.flightData[idx - 1].ctme : -1;
-                  const crossedFirs = parsedEetList.filter(fir => fir.mins > prevCtme && fir.mins <= row.ctme);
+                  const crossedFirs = parsedEetList.filter(fir => fir.mins >= prevCtme && fir.mins < row.ctme);
 
                   return (
                   <React.Fragment key={idx}>
