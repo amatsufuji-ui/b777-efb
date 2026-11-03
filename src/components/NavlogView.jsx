@@ -1618,23 +1618,23 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
 
       <div className="flex-1 w-full relative overflow-hidden bg-slate-900/40 touch-pinch-zoom">
         <div className="absolute inset-0 overflow-auto custom-scrollbar p-1 flex justify-center touch-auto" style={{ touchAction: 'pan-x pan-y pinch-zoom' }}>
-            <div className="w-full max-w-[1400px] min-w-[760px] pb-16 px-1">
+            <div className="w-full max-w-[1400px] min-w-[750px] pb-16 px-1">
               
               <div className="sticky top-0 z-30 bg-[#0f172a] border-b border-slate-700 shadow-md rounded-t-lg">
                 <div className="flex p-1.5 font-black text-slate-400 text-[11px] text-center items-center leading-tight justify-between">
-                  <div className="w-[125px] shrink-0 text-center">WAYPOINT</div>
-                  <div className="w-[45px] text-cyan-400 shrink-0">GS<br/><span className="text-[9px] text-cyan-500">TAS</span></div>
-                  <div className="w-[50px] text-slate-400 flex flex-col items-center justify-center shrink-0">
+                  <div className="w-[150px] shrink-0 text-center">WAYPOINT</div>
+                  <div className="w-[42px] text-cyan-400 shrink-0">GS<br/><span className="text-[9px] text-cyan-500">TAS</span></div>
+                  <div className="w-[48px] text-slate-400 flex flex-col items-center justify-center shrink-0">
                     <span>CTME</span>
                     <span className="text-[9px] text-slate-500">RTME</span>
                   </div>
                   <div className="w-[65px] text-blue-300 shrink-0">ETO(Rev)<br/>ATO</div>
-                  <div className="w-[40px] shrink-0">DIFF</div>
-                  <div className="w-[55px] text-slate-500 shrink-0">PLN FOB</div>
+                  <div className="w-[33px] shrink-0">DIFF</div>
+                  <div className="w-[52px] text-slate-500 shrink-0">PLN FOB</div>
                   <div className="w-[60px] text-green-300 shrink-0">RMG<br/><span className="text-[8.5px]">DIFF</span></div>
-                  <div className="flex-1 flex justify-center min-w-[170px] max-w-[220px]">ACT(ALT/TMP/WND)</div>
-                  <div className="w-[70px] text-purple-300 shrink-0">MAX ALT<br/><span className="text-[8.5px] text-slate-500">WT</span></div>
-                  <div className="w-[40px] shrink-0">MEMO</div>
+                  <div className="flex-1 flex justify-center min-w-[160px] max-w-[200px]">ACT(ALT/TMP/WND)</div>
+                  <div className="w-[65px] text-purple-300 shrink-0">MAX ALT<br/><span className="text-[8.5px] text-slate-500">WT</span></div>
+                  <div className="w-[36px] shrink-0">MEMO</div>
                 </div>
               </div>
               
@@ -1648,7 +1648,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                   return (
                   <div key={idx} ref={el => rowRefs.current[idx] = el} className={finalRowClass}>
                     
-                    <div className="w-[125px] shrink-0 flex flex-col items-center justify-center">
+                    <div className="w-[150px] shrink-0 flex flex-col items-center justify-center">
                         <div 
                             className="w-full font-mono text-[15px] sm:text-[16px] font-black text-center text-slate-200 truncate flex items-center justify-center gap-1 select-none cursor-pointer px-1"
                             onPointerDown={(e) => handlePointerDown(e, row.wp)}
@@ -1681,12 +1681,12 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                         )}
                     </div>
                     
-                    <div className="w-[45px] shrink-0 flex flex-col items-center justify-center leading-none py-0.5 font-mono">
+                    <div className="w-[42px] shrink-0 flex flex-col items-center justify-center leading-none py-0.5 font-mono">
                         <span className="text-[14px] text-cyan-300 font-bold">{row.gs || '-'}</span>
                         <span className="text-xs text-cyan-500/80 font-medium mt-0.5">{row.tas || '-'}</span>
                     </div>
 
-                    <div className="w-[50px] shrink-0 flex flex-col items-center justify-center leading-none py-0.5 font-mono">
+                    <div className="w-[48px] shrink-0 flex flex-col items-center justify-center leading-none py-0.5 font-mono">
                         <span className="text-[13px] text-slate-300 font-bold">{formatTimePlus(row.ctme)}</span>
                         <span className="text-[11px] text-slate-500 font-medium mt-0.5">{formatTimePlus(row.rtme)}</span>
                     </div>
@@ -1714,9 +1714,9 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                       />
                     </div>
                     
-                    <div className={`w-[40px] shrink-0 font-mono text-xs font-bold ${parseInt(row.timeDiffStr) > 0 ? 'text-red-400' : parseInt(row.timeDiffStr) < 0 ? 'text-green-400' : 'text-slate-400'}`}>{row.timeDiffStr}</div>
+                    <div className={`w-[33px] shrink-0 font-mono text-xs font-bold ${parseInt(row.timeDiffStr) > 0 ? 'text-red-400' : parseInt(row.timeDiffStr) < 0 ? 'text-green-400' : 'text-slate-400'}`}>{row.timeDiffStr}</div>
 
-                    <div className="w-[55px] shrink-0 font-mono text-[14px] text-slate-400 font-bold">{row.fob ? row.fob.toFixed(1) : ''}</div>
+                    <div className="w-[52px] shrink-0 font-mono text-[14px] text-slate-400 font-bold">{row.fob ? row.fob.toFixed(1) : ''}</div>
 
                     <div className="w-[60px] shrink-0 flex flex-col px-0.5 gap-1 items-center">
                       <input 
@@ -1736,7 +1736,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                       </span>
                     </div>
 
-                    <div className="flex-1 flex justify-center gap-1 px-1 mt-2.5 min-w-[170px] max-w-[220px]">
+                    <div className="flex-1 flex justify-center gap-1 px-1 mt-2.5 min-w-[160px] max-w-[200px]">
                         <div className="flex flex-col items-center justify-center w-[45px] relative shrink-0">
                             <span className="absolute -top-3.5 text-[10px] text-slate-500 font-mono leading-none">{row.plnAlt || ""}</span>
                             <input 
@@ -1781,7 +1781,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                         </div>
                     </div>
 
-                    <div className="w-[70px] shrink-0 flex flex-col items-center justify-center leading-none">
+                    <div className="w-[65px] shrink-0 flex flex-col items-center justify-center leading-none">
                         <span className="text-[8px] text-purple-400 font-mono font-bold leading-none mb-0.5 whitespace-nowrap">
                               {row.isaDev !== undefined && !isNaN(row.isaDev) ? `ISA${row.isaDev >= 0 ? '+' : ''}${row.isaDev}` : ""}
                         </span>
@@ -1789,7 +1789,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                         <span className="text-[10px] text-slate-500 font-mono mt-1">W:{row.currentWeight}</span>
                     </div>
 
-                    <div className="w-[40px] shrink-0 flex justify-center items-center">
+                    <div className="w-[36px] shrink-0 flex justify-center items-center">
                         <button 
                             onClick={() => setMemoModal({ isOpen: true, wp: row.wp, text: row.memo })}
                             className={`p-1.5 rounded transition-colors border shadow-sm flex items-center justify-center ${row.memo ? 'bg-amber-600 border-amber-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white hover:bg-slate-700'}`}
