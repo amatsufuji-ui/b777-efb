@@ -30,7 +30,8 @@ const FIR_NAMES = {
     "LOVV": "Vienna", "LHCC": "Budapest", "LRBB": "Bucharest", "LBSR": "Sofia",
     "LTBB": "Istanbul", "LTAA": "Ankara", "UGGG": "Tbilisi", "UBBA": "Baku",
     "UATT": "Aktobe", "UZTR": "Tashkent", "UAII": "Shymkent", "UAAA": "Almaty",
-    "ZLHW": "Lanzhou", "ZBPE": "Beijing"
+    "ZLHW": "Lanzhou", "ZBPE": "Beijing",
+    "EBUR": "Brussels", "EDUU": "Rhein", "EDYY": "Maastricht", "LKAA": "Praha", "LZBB": "Bratislava"
 };
 
 const getLocalTimeZone = (icao) => {
