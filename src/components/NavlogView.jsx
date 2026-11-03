@@ -11,6 +11,28 @@ import {
     DEFAULT_FLIGHT_PLAN_DATA 
 } from '../data/flightData';
 
+// 主要FIRの名称マッピング (必要に応じて追加してください)
+const FIR_NAMES = {
+    "RJJJ": "Fukuoka", "RJTG": "Tokyo", "ROIG": "Naha", "RKRR": "Incheon", "ZBAA": "Beijing", 
+    "ZSHA": "Shanghai", "ZGZU": "Guangzhou", "ZJSA": "Sanya", "ZCZC": "Wuhan", "ZHWZ": "Zhanjiang",
+    "ZWUQ": "Urumqi", "ZYSH": "Shenyang", "ZPKM": "Kunming", "VHHH": "Hong Kong", "RCAA": "Taipei",
+    "RPHI": "Manila", "VVHM": "Ho Chi Minh", "VVNB": "Hanoi", "VTBB": "Bangkok", "WMFC": "Kuala Lumpur",
+    "WSJC": "Singapore", "WIIF": "Jakarta", "WAAF": "Ujung Pandang", "VDEF": "Phnom Penh",
+    "VLVT": "Vientiane", "VYYF": "Yangon", "VGFR": "Dhaka", "VECF": "Kolkata", "VIDF": "Delhi",
+    "VABF": "Mumbai", "VOMF": "Chennai", "OPKR": "Karachi", "OPLR": "Lahore", "OAKX": "Kabul",
+    "UHHH": "Khabarovsk", "UHMM": "Magadan", "UHPP": "Petropavlovsk-Kamchatsky", "UHWW": "Vladivostok",
+    "PAZA": "Anchorage", "KZOA": "Oakland", "KZSEA": "Seattle", "KZLA": "Los Angeles",
+    "KZNY": "New York", "KZAU": "Chicago", "KZMA": "Miami", "KZHU": "Houston", "KZBW": "Boston",
+    "CZEG": "Edmonton", "CZVR": "Vancouver", "CZYZ": "Toronto", "CZUL": "Montreal", "CZQX": "Gander",
+    "EGGX": "Shanwick", "EGTT": "London", "LFFF": "Paris", "EDVV": "Hannover", "EHAA": "Amsterdam",
+    "LIRR": "Rome", "LECM": "Madrid", "YBBB": "Brisbane", "YMMM": "Melbourne", "NZZO": "Auckland Oceanic",
+    "NFFF": "Nadi", "PHZH": "Honolulu", "NTTT": "Tahiti", "KZDC": "Washington", "KZFW": "Fort Worth",
+    "LOVV": "Vienna", "LHCC": "Budapest", "LRBB": "Bucharest", "LBSR": "Sofia",
+    "LTBB": "Istanbul", "LTAA": "Ankara", "UGGG": "Tbilisi", "UBBA": "Baku",
+    "UATT": "Aktobe", "UZTR": "Tashkent", "UAII": "Shymkent", "UAAA": "Almaty",
+    "ZLHW": "Lanzhou", "ZBPE": "Beijing"
+};
+
 const getLocalTimeZone = (icao) => {
     if (!icao) return "UTC";
     if (icao.startsWith("RJ") || icao.startsWith("RO")) return "Asia/Tokyo";
@@ -722,12 +744,14 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
       const wpActual = actuals[wpPlan.wp] || {};
       
       let revisedEtoStr = "";
+      let revisedEtoMins = null; 
       let timeDiffStr = "";
+      let originalEtoMins = (takeoffMinutes !== null ? takeoffMinutes : 0) + wpPlan.ctme;
+      let appliedDiff = currentDiff;
 
       if (takeoffMinutes !== null) {
-          const originalEtoMins = takeoffMinutes + wpPlan.ctme;
-          
           const calculatedEtoMins = originalEtoMins + currentDiff;
+          revisedEtoMins = calculatedEtoMins;
           revisedEtoStr = minutesToTime(calculatedEtoMins);
 
           if (wpActual.ato) {
@@ -738,6 +762,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                   
                   timeDiffStr = formatTimeDiff(diff);
                   currentDiff = diff; 
+                  revisedEtoMins = atoMins; // ATOがある場合はATOを通過時間としてEET計算のベースにする
               }
           }
       }
@@ -753,21 +778,20 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
 
       const maxAlt = interpolateAlt(currentWeight, perfTable, is15gLimit, wpPlan.isaDev);
 
-      // Nearest Adequate Airports
       let nearestAirports = [];
       if (isNearestAirportEligible && (wpPlan.latLon || wpPlan.wp)) {
          nearestAirports = findNearestAirports(wpPlan.wp, wpPlan.latLon, acType);
       }
 
       data.push({
-        ...wpPlan, revisedEtoStr, ato: wpActual.ato || "", timeDiffStr, afob: wpActual.afob || "", memo: wpActual.memo || "",
+        ...wpPlan, revisedEtoStr, revisedEtoMins, ato: wpActual.ato || "", timeDiffStr, afob: wpActual.afob || "", memo: wpActual.memo || "",
         fuelDiff, maxAlt, currentWeight: currentWeight.toFixed(1), actAlt: wpActual.actAlt || "",
         actTmp: wpActual.actTmp || "", actWind: wpActual.actWind || "",
-        nearestAirports
+        nearestAirports, originalEtoMins, appliedDiff
       });
     }
 
-    return { flightData: data, totalBurnDiff, lastValidWpIndex, estLandingTimeStr: minutesToTime(estLandingTimeMins), estBlockInStr: minutesToTime(estBlockInMins), estBlockInMins, estLandingTimeMins, latestAtoTimeDiffStr: formatTimeDiff(latestAtoTimeDiff), latestAtoTimeDiff, isNearestAirportEligible };
+    return { flightData: data, totalBurnDiff, lastValidWpIndex, estLandingTimeStr: minutesToTime(estLandingTimeMins), estBlockInStr: minutesToTime(estBlockInMins), estBlockInMins, estLandingTimeMins, latestAtoTimeDiffStr: formatTimeDiff(latestAtoTimeDiff), latestAtoTimeDiff, isNearestAirportEligible, takeoffMinutes };
   }, [takeoffTime, actuals, flightPlan, parsedPzfw, parsedReg, is15gLimit, parsedTaxiIn]);
 
   const etopsTimeDiff = useMemo(() => {
@@ -1653,18 +1677,33 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                   const baseRowClass = "flex py-1.5 px-1 items-center hover:bg-slate-800/60 transition-colors group text-center gap-x-1 box-border justify-between";
                   const finalRowClass = isTriggered ? `${baseRowClass} bg-rose-900/30 shadow-[inset_4px_0_0_rgba(244,63,94,1)]` : baseRowClass;
                   
-                  const prevCtme = idx > 0 ? calculatedData.flightData[idx - 1].ctme : -1;
-                  const crossedFirs = parsedEetList.filter(fir => fir.mins >= prevCtme && fir.mins < row.ctme);
+                  const toMins = calculatedData.takeoffMinutes !== null ? calculatedData.takeoffMinutes : 0;
+                  // FIR通過位置の判定には、ATOの入力でブレないようにオリジナルの計画時間(originalEtoMins)を使用します。
+                  const prevOriginalEto = idx > 0 ? calculatedData.flightData[idx - 1].originalEtoMins : -1;
+                  const currentOriginalEto = row.originalEtoMins;
+                  
+                  const crossedFirs = parsedEetList.filter(fir => {
+                      const firOriginalEto = toMins + fir.mins;
+                      // WAYPOINTとEETが同じ時間の場合はWAYPOINTの上に表示するため <= で判定
+                      return firOriginalEto > prevOriginalEto && firOriginalEto <= currentOriginalEto;
+                  });
 
                   return (
                   <React.Fragment key={idx}>
-                    {crossedFirs.map((fir, fIdx) => (
+                    {crossedFirs.map((fir, fIdx) => {
+                        // 過去に入力されたATOの差分(appliedDiff)を加味してFIRの通過時刻(ETO)を算出
+                        const revisedFirMins = (toMins + fir.mins + (row.appliedDiff || 0) + 1440 * 10) % 1440;
+                        const revisedFirStr = minutesToTime(revisedFirMins);
+                        const firName = FIR_NAMES[fir.fir];
+                        const displayName = firName ? `${fir.fir}(${firName})` : fir.fir;
+                        return (
                         <div key={`fir-${idx}-${fIdx}`} className="flex py-1.5 px-2 items-center bg-sky-900/20 border-y border-sky-800/40 justify-center w-full shadow-inner">
                             <span className="text-[11px] font-bold text-sky-300 tracking-[0.2em] uppercase">
-                                Entering {fir.fir} FIR (EET {fir.timeStr.substring(0,2)}:{fir.timeStr.substring(2,4)})
+                                Entering {displayName} FIR (EET {fir.timeStr.substring(0,2)}:{fir.timeStr.substring(2,4)} / ETO {revisedFirStr})
                             </span>
                         </div>
-                    ))}
+                        );
+                    })}
                     <div ref={el => rowRefs.current[idx] = el} className={finalRowClass}>
                     
                     <div className="w-[175px] shrink-0 flex flex-col items-center justify-center">
@@ -1690,7 +1729,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                                             {apt.icao} <span className="text-slate-300 font-bold">{Math.round(apt.dist)}</span>
                                         </span>
                                         {apt.name && (
-                                            <div className="absolute bottom-full mb-1.5 left-1/2 -translate-x-1/2 hidden group-hover/apt:block group-active/apt:block bg-slate-700/95 border border-slate-500 text-white text-[12px] font-normal px-2 py-1 rounded shadow-xl whitespace-nowrap z-50 pointer-events-none">
+                                            <div className="absolute bottom-full mb-1.5 left-1/2 -translate-x-1/2 hidden group-hover/apt:block group-active/apt:block bg-slate-700/95 border border-slate-50 text-white text-[12px] font-normal px-2 py-1 rounded shadow-xl whitespace-nowrap z-50 pointer-events-none">
                                                 {apt.name}
                                             </div>
                                         )}

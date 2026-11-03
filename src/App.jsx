@@ -42,44 +42,44 @@ const parseWaypointToLatLng = (wpObj) => {
           if (noDotMatch[4].toUpperCase() === 'W') lon = -lon;
           return { lat, lon, name: wpName, isAirport: false };
       }
-      const dotMatch = latLonStr.match(/^([NS])(\d{2})(\d{2}(?:\.\d+)?)([EW])(\d{2,3})(\d{2}(?:\.\d+)?)$/);
+      const dotMatch = latLonStr.match(/^([NS])(\d{2})(\d{2}(?:\.\d+)?)([EW])(\d{2,3})(\d{2}(?:\.\d+)?)$/i);
       if (dotMatch) {
           let lat = parseInt(dotMatch[2], 10) + parseFloat(dotMatch[3]) / 60;
-          if (dotMatch[1] === 'S') lat = -lat;
+          if (dotMatch[1].toUpperCase() === 'S') lat = -lat;
           let lon = parseInt(dotMatch[5], 10) + parseFloat(dotMatch[6]) / 60;
-          if (dotMatch[4] === 'W') lon = -lon;
+          if (dotMatch[4].toUpperCase() === 'W') lon = -lon;
           return { lat, lon, name: wpName, isAirport: false };
       }
   }
 
-  const arincMatch1 = wpName.match(/^(\d{2})([NSWE])(\d{2})$/);
+  const arincMatch1 = wpName.match(/^(\d{2})([NSWE])(\d{2})$/i);
   if (arincMatch1) {
       let lat = parseInt(arincMatch1[1], 10);
       let lon = parseInt(arincMatch1[3], 10);
-      const dir = arincMatch1[2];
+      const dir = arincMatch1[2].toUpperCase();
       if (dir === 'N') { lon = -(lon + 100); } else if (dir === 'E') { lon = lon + 100; } else if (dir === 'W') { lat = -lat; lon = -(lon + 100); } else if (dir === 'S') { lat = -lat; lon = lon + 100; }
       return { lat, lon, name: wpName, isAirport: false };
   }
 
-  const arincMatch2 = wpName.match(/^(\d{4})([NSWE])$/);
+  const arincMatch2 = wpName.match(/^(\d{4})([NSWE])$/i);
   if (arincMatch2) {
       let lat = parseInt(arincMatch2[1].substring(0,2), 10);
       let lon = parseInt(arincMatch2[1].substring(2,4), 10);
-      const dir = arincMatch2[2];
+      const dir = arincMatch2[2].toUpperCase();
       if (dir === 'N') lon = -lon; else if (dir === 'E') lon = lon; else if (dir === 'W') { lat = -lat; lon = -lon; } else if (dir === 'S') { lat = -lat; lon = lon; } 
       return { lat, lon, name: wpName, isAirport: false };
   }
 
-  const coordMatch = wpName.match(/^([NS])(\d{4,5})([EW])(\d{4,5})$/);
+  const coordMatch = wpName.match(/^([NS])(\d{4,5})([EW])(\d{4,5})$/i);
   if (coordMatch) {
       let lat = parseInt(coordMatch[2], 10) / 100;
       let lon = parseInt(coordMatch[4], 10) / 100;
-      if (coordMatch[1] === 'S') lat = -lat;
-      if (coordMatch[3] === 'W') lon = -lon;
+      if (coordMatch[1].toUpperCase() === 'S') lat = -lat;
+      if (coordMatch[3].toUpperCase() === 'W') lon = -lon;
       return { lat, lon, name: wpName, isAirport: false };
   }
   
-  if (wpName.length === 4 && wpName.match(/^[A-Z]{4}$/)) {
+  if (wpName.length === 4 && wpName.match(/^[A-Z]{4}$/i)) {
       return { lat: 0, lon: 0, name: wpName, isAirport: true, unknown: true };
   }
 
@@ -422,7 +422,7 @@ export default function App() {
     
     let newPlan = [];
     
-    const fNoMatch = text.match(/(?:ANA|JAL|NCA|NH|JL)(\d{2,4}[A-Z]?)/);
+    const fNoMatch = text.match(/(?:ANA|JAL|NCA|NH|JL)(\d{2,4}[A-Z]?)/i);
     let fNo = fNoMatch ? fNoMatch[0] : "UNKNOWN";
     let flightIdRaw = fNoMatch ? fNoMatch[1] : "";
     flightIdRaw = flightIdRaw.replace(/^0+/, '');
@@ -431,11 +431,11 @@ export default function App() {
       fNo = fNo.replace(/\d{2,4}/, flightIdRaw);
     }
     
-    const routeMatch = text.match(/([A-Z]{4})\s*-\s*([A-Z]{4})/);
+    const routeMatch = text.match(/([A-Z]{4})\s*-\s*([A-Z]{4})/i);
     const rInfo = routeMatch ? `${routeMatch[1]} - ${routeMatch[2]}` : "UNKNOWN";
-    let depIcao = routeMatch ? routeMatch[1] : null;
+    let depIcao = routeMatch ? routeMatch[1] : null; 
     const destIcao = routeMatch ? routeMatch[2] : null;
-    const regMatch = text.match(/(JA\d{3}[A-Z]?)/);
+    const regMatch = text.match(/(JA\d{3}[A-Z]?)/i);
     const pReg = regMatch ? regMatch[1] : "JA796A";
 
     const isEtops207 = /ETOPS\s*\/\s*207|207MIN\s+ETOPS/i.test(text);
@@ -444,26 +444,26 @@ export default function App() {
     let pTaxiOut = 20, pTaxiIn = 5;
     let isTaxiFallback = false;
 
-    const zfwMatch = text.match(/(?:ZFW|PZFW)\s+([0-9,.]+)/);
+    const zfwMatch = text.match(/(?:ZFW|PZFW)\s+([0-9,.]+)/i);
     if (zfwMatch) {
       let v = parseFloat(zfwMatch[1].replace(/,/g, ''));
       if (v > 2000) v = v / 1000;
       pPzfw = v;
     }
-    const ptowMatch = text.match(/(?:PTOW|TOW)\s+([0-9,.]+)/);
+    const ptowMatch = text.match(/(?:PTOW|TOW)\s+([0-9,.]+)/i);
     if (ptowMatch) {
       let v = parseFloat(ptowMatch[1].replace(/,/g, ''));
       if (v > 2000) v = Math.round(v / 1000);
       ptow = v;
     }
-    const pldwMatch = text.match(/(?:PLDW|LDW|LAW)\s+([0-9,.]+)/);
+    const pldwMatch = text.match(/(?:PLDW|LDW|LAW)\s+([0-9,.]+)/i);
     if (pldwMatch) {
       let v = parseFloat(pldwMatch[1].replace(/,/g, ''));
       if (v > 2000) v = Math.round(v / 1000);
       pldw = v;
     }
 
-    const crzMatch = text.match(/(?:CRZ|LVL)\s+(?:SYS\s+)?(?:FL)?(\d{3})/);
+    const crzMatch = text.match(/(?:CRZ|LVL)\s+(?:SYS\s+)?(?:FL)?(\d{3})/i);
     if (crzMatch) alt = parseInt(crzMatch[1], 10) * 100;
     
     const isaMatch = text.match(/ISA\s*([PM+-])\s*(\d{1,2})/i);
@@ -473,7 +473,7 @@ export default function App() {
       isa = val;
     }
     
-    const elevRegex = /ELEV\s+(\d{1,4})/g;
+    const elevRegex = /ELEV\s+(\d{1,4})/gi;
     let elevMatch;
     let elevs = [];
     while ((elevMatch = elevRegex.exec(text)) !== null) {
@@ -494,7 +494,7 @@ export default function App() {
       fltTimeM = parseInt(ftMatch[2], 10);
     }
 
-    const stdMatch = text.match(/STD\s+(\d{2})\.?(\d{2})/);
+    const stdMatch = text.match(/STD\s+(\d{2})\.?(\d{2})/i);
     if (stdMatch) {
       stdH = parseInt(stdMatch[1], 10);
       stdM = parseInt(stdMatch[2], 10);
@@ -523,11 +523,11 @@ export default function App() {
         }
     }
 
-    const dateMatch = text.match(/\b(\d{2}[A-Z]{3}\d{2})\b/);
+    const dateMatch = text.match(/\b(\d{2}[A-Z]{3}\d{2})\b/i);
     const pDate = dateMatch ? dateMatch[1] : "";
 
     let pCrewCount = 2;
-    const crewMatch = text.match(/CREW\s+(\d{2})\//);
+    const crewMatch = text.match(/CREW\s+(\d{2})\//i);
     if (crewMatch) {
       pCrewCount = parseInt(crewMatch[1], 10);
     }
@@ -692,11 +692,11 @@ export default function App() {
 
         let cleanToken = token.replace(/^-+/, '').replace(/-+$/, '');
         
-        const latMatch = cleanToken.match(/^[NS]\d{4,6}(?:\.\d+)?$/);
+        const latMatch = cleanToken.match(/^[NS]\d{4,6}(?:\.\d+)?$/i);
         if (latMatch) {
             pendingLat = cleanToken;
         }
-        const lonMatch = cleanToken.match(/^[EW]\d{4,7}(?:\.\d+)?$/);
+        const lonMatch = cleanToken.match(/^[EW]\d{4,7}(?:\.\d+)?$/i);
         if (lonMatch) {
             if (pendingLat) {
                 pendingLatLon = pendingLat + cleanToken;
@@ -707,7 +707,7 @@ export default function App() {
             pendingLat = null;
             continue;
         }
-        const latLonMatch = cleanToken.match(/^[NS]\d{4,6}(?:\.\d+)?[EW]\d{4,7}(?:\.\d+)?$/);
+        const latLonMatch = cleanToken.match(/^[NS]\d{4,6}(?:\.\d+)?[EW]\d{4,7}(?:\.\d+)?$/i);
         if (latLonMatch) {
             pendingLatLon = cleanToken;
             if (newPlan.length > 0 && !newPlan[newPlan.length - 1].latLon) {
@@ -728,10 +728,10 @@ export default function App() {
             isOffRoute = true;
         }
 
-        const isCoord = /^[NS]\d{4,5}[EW]\d{4,6}$/.test(cleanToken);
-        const isAlphaWp = /^[A-Z][A-Z0-9]{1,5}$/.test(cleanToken) && !ignoreList.has(cleanToken);
-        const isArincWp = /^\d{2}[NSWE]\d{2}$/.test(cleanToken);
-        const isShorthandCoord = /^\d{2}[A-Z]\d{2}$|^\d{4}[A-Z]$|^\d{2}[NS]\d{2}[EW]$/.test(cleanToken);
+        const isCoord = /^[NS]\d{4,5}[EW]\d{4,6}$/i.test(cleanToken);
+        const isAlphaWp = /^[A-Z][A-Z0-9]{1,5}$/i.test(cleanToken) && !ignoreList.has(cleanToken);
+        const isArincWp = /^\d{2}[NSWE]\d{2}$/i.test(cleanToken);
+        const isShorthandCoord = /^\d{2}[A-Z]\d{2}$|^\d{4}[A-Z]$|^\d{2}[NS]\d{2}[EW]$/i.test(cleanToken);
         const isSpecialWp = ["TOC", "TOD"].includes(cleanToken);
 
         if (!isCoord && (isAlphaWp || isArincWp || isShorthandCoord || isSpecialWp)) {
@@ -851,7 +851,7 @@ export default function App() {
     }
 
     let eetList = [];
-    const eetSectionMatch = text.match(/EET\/([\s\S]*?)(?=\s-[A-Z]{3}|\r?\n\r?\n|RMK\/|SEL\/|CODE\/|REG\/|OPR\/|$)/);
+    const eetSectionMatch = text.match(/EET\/([\s\S]*?)(?=\s-[A-Z]{3}|\r?\n\r?\n|RMK\/|SEL\/|CODE\/|REG\/|OPR\/|$)/i);
     if (eetSectionMatch) {
         const eetText = eetSectionMatch[1];
         const regex = /([A-Z]{4})(\d{4})/g;
