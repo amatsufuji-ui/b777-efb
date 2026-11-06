@@ -634,29 +634,6 @@ const TimerSuggestModal = ({ data, onClose }) => {
     );
 };
 
-// IndexedDBからPDFデータを取得するヘルパー
-const getPdfFromDB = () => {
-    return new Promise((resolve) => {
-        try {
-            const request = indexedDB.open('7pt_pdf_db', 1);
-            request.onupgradeneeded = (e) => {
-                e.target.result.createObjectStore('pdf_store');
-            };
-            request.onsuccess = (e) => {
-                const db = e.target.result;
-                const tx = db.transaction('pdf_store', 'readonly');
-                const store = tx.objectStore('pdf_store');
-                const getReq = store.get('latest_pdf');
-                getReq.onsuccess = () => resolve(getReq.result);
-                getReq.onerror = () => resolve(null);
-            };
-            request.onerror = () => resolve(null);
-        } catch (err) {
-            resolve(null);
-        }
-    });
-};
-
 export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, navlogData }) => {
   const [takeoffTime, setTakeoffTime] = useState('');
   const [actuals, setActuals] = useState({});
@@ -1442,14 +1419,13 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
               if (!actualData.ato && !actualData.afob && !actualData.actAlt && !actualData.actTmp && !actualData.actWind) continue;
 
               // 分割認識されたWaypoint名にも対応するため前方一致で探す
-              const wpPos = textPositions.find(p => p.str.startsWith(wp));
+              const wpPos = textPositions.find(p => p.str.startsWith(wp) && p.x < 150);
               if (wpPos && pages[wpPos.page]) {
                   const page = pages[wpPos.page];
                   
-                  // ▼ATO, ALT, RMG, TMP, WIND の順で配置
                   if (actualData.ato) {
                       page.drawText(actualData.ato, {
-                          x: wpPos.x + 80, // ★ATO: 左寄りに調整
+                          x: wpPos.x + 55, // ★ATO: 左側に配置
                           y: wpPos.y - 2,
                           size: 9,
                           font: helveticaFont,
@@ -1458,7 +1434,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                   }
                   if (actualData.actAlt) {
                       page.drawText(actualData.actAlt, {
-                          x: wpPos.x + 120, // ★ACT ALT: ATOの右
+                          x: wpPos.x + 130, // ★ACT ALT: ATOの右
                           y: wpPos.y - 2,
                           size: 9,
                           font: helveticaFont,
@@ -1467,7 +1443,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                   }
                   if (actualData.afob) {
                       page.drawText(actualData.afob, {
-                          x: wpPos.x + 155, // ★RMG(AFOB): ALTの右
+                          x: wpPos.x + 175, // ★RMG(AFOB): ALTの右
                           y: wpPos.y - 2,
                           size: 9,
                           font: helveticaFont,
@@ -1476,7 +1452,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                   }
                   if (actualData.actTmp) {
                       page.drawText(actualData.actTmp, {
-                          x: wpPos.x + 190, // ★ACT TMP: RMGの右
+                          x: wpPos.x + 215, // ★ACT TMP: RMGの右
                           y: wpPos.y - 2,
                           size: 9,
                           font: helveticaFont,
@@ -1485,7 +1461,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                   }
                   if (actualData.actWind) {
                       page.drawText(actualData.actWind, {
-                          x: wpPos.x + 235, // ★ACT WND: TMPの右
+                          x: wpPos.x + 255, // ★ACT WND: TMPの右
                           y: wpPos.y - 2,
                           size: 9,
                           font: helveticaFont,
