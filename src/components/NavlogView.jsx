@@ -11,7 +11,7 @@ import {
     DEFAULT_FLIGHT_PLAN_DATA 
 } from '../data/flightData';
 
-// 主要FIRの名称マッピング (必要に応じて追加してください)
+// 主要FIRの名称マッピング
 const FIR_NAMES = {
     "RJJJ": "Fukuoka", "RJTG": "Tokyo", "ROIG": "Naha", "RKRR": "Incheon", "ZBAA": "Beijing", 
     "ZSHA": "Shanghai", "ZGZU": "Guangzhou", "ZJSA": "Sanya", "ZCZC": "Wuhan", "ZHWZ": "Zhanjiang",
@@ -634,7 +634,6 @@ const TimerSuggestModal = ({ data, onClose }) => {
     );
 };
 
-
 export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, navlogData }) => {
   const [takeoffTime, setTakeoffTime] = useState('');
   const [actuals, setActuals] = useState({});
@@ -655,6 +654,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
   const rowRefs = useRef([]);
   const hasAutoScrolled = useRef(false);
   const lastLoadId = useRef(null);
+  const pdfExportInputRef = useRef(null); 
 
   const [flightPlan, setFlightPlan] = useState(DEFAULT_FLIGHT_PLAN_DATA);
   const [flightNo, setFlightNo] = useState("ANA0110");
@@ -1391,6 +1391,171 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
     }
   }, [navlogData?.loadId]);
 
+  // ▼ PDF出力処理の実体
+  const processAndDownloadPdf = async (originalBytes, textPositions) => {
+      try {
+          window.dispatchEvent(new CustomEvent('show-toast', { detail: 'PDFを作成しています...' }));
+
+          if (!window.PDFLib) {
+              const script = document.createElement('script');
+              script.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js";
+              await new Promise((res, rej) => { script.onload = res; script.onerror = rej; document.head.appendChild(script); });
+          }
+
+          const { PDFDocument, rgb, StandardFonts } = window.PDFLib;
+          
+          // 万が一 Uint8Array でないものが渡ってきた場合の安全処理
+          const safeBytes = originalBytes instanceof Uint8Array 
+              ? originalBytes 
+              : new Uint8Array(originalBytes);
+
+          const pdfDoc = await PDFDocument.load(safeBytes);
+          
+          // クラッシュ防止のため標準フォントを指定して書き込む
+          const helveticaFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+          const pages = pdfDoc.getPages();
+
+          for (const [wp, actualData] of Object.entries(actuals)) {
+              if (!actualData.ato && !actualData.afob && !actualData.actAlt && !actualData.actTmp && !actualData.actWind) continue;
+
+              // 分割認識されたWaypoint名にも対応するため前方一致で探す
+              const wpPos = textPositions.find(p => p.str.startsWith(wp));
+              if (wpPos && pages[wpPos.page]) {
+                  const page = pages[wpPos.page];
+                  
+                  if (actualData.ato) {
+                      page.drawText(actualData.ato, {
+                          x: wpPos.x + 100, // ★ATO: 少し左へ調整
+                          y: wpPos.y - 2,
+                          size: 9,
+                          font: helveticaFont,
+                          color: rgb(0, 0.4, 0.8) // 青色
+                      });
+                  }
+                  if (actualData.actAlt) {
+                      page.drawText(actualData.actAlt, {
+                          x: wpPos.x + 160, // ★ACT ALT
+                          y: wpPos.y - 2,
+                          size: 9,
+                          font: helveticaFont,
+                          color: rgb(0.6, 0.2, 0.8) // 紫色
+                      });
+                  }
+                  if (actualData.afob) {
+                      page.drawText(actualData.afob, {
+                          x: wpPos.x + 190, // ★RMG(AFOB)
+                          y: wpPos.y - 2,
+                          size: 9,
+                          font: helveticaFont,
+                          color: rgb(0, 0.6, 0) // 緑色
+                      });
+                  }
+                  if (actualData.actTmp) {
+                      page.drawText(actualData.actTmp, {
+                          x: wpPos.x + 230, // ★ACT TMP
+                          y: wpPos.y - 2,
+                          size: 9,
+                          font: helveticaFont,
+                          color: rgb(0.6, 0.2, 0.8) // 紫色
+                      });
+                  }
+                  if (actualData.actWind) {
+                      page.drawText(actualData.actWind, {
+                          x: wpPos.x + 250, // ★ACT WND
+                          y: wpPos.y - 2,
+                          size: 9,
+                          font: helveticaFont,
+                          color: rgb(0.6, 0.2, 0.8) // 紫色
+                      });
+                  }
+              }
+          }
+
+          const pdfOutputBytes = await pdfDoc.save();
+          const blob = new Blob([pdfOutputBytes], { type: 'application/pdf' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `${flightNo}_Navlog_Actual.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          
+          window.dispatchEvent(new CustomEvent('show-toast', { detail: 'PDFの出力が完了しました' }));
+      } catch (error) {
+          console.error(error);
+          window.dispatchEvent(new CustomEvent('show-toast', { detail: `PDFの出力に失敗: ${error.message}` }));
+      }
+  };
+
+  // ▼ 手動ファイル選択（フェールセーフ）
+  const handleManualPdfSelect = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+          const buffer = event.target.result;
+          
+          // pdf.jsで中身が奪われる(Detach)のを防ぐためバッファを複製して分離する
+          const pdfjsArray = new Uint8Array(buffer.slice(0)); 
+          const originalArray = new Uint8Array(buffer.slice(0)); 
+          
+          if (!window.pdfjsLib) {
+              const script = document.createElement('script');
+              script.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+              await new Promise((res, rej) => { script.onload = res; script.onerror = rej; document.head.appendChild(script); });
+              window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+          }
+          
+          const loadingTask = window.pdfjsLib.getDocument({
+              data: pdfjsArray,
+              cMapUrl: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/",
+              cMapPacked: true
+          });
+          const pdf = await loadingTask.promise;
+          
+          let textPositions = []; 
+          for (let i = 1; i <= pdf.numPages; i++) {
+              const page = await pdf.getPage(i);
+              const content = await page.getTextContent();
+              content.items.forEach(item => {
+                  if (item && typeof item.str === 'string' && item.str.trim().length >= 3 && item.transform) {
+                      textPositions.push({
+                          str: item.str.trim(),
+                          page: i - 1,
+                          x: item.transform[4],
+                          y: item.transform[5]
+                      });
+                  }
+              });
+          }
+          
+          await processAndDownloadPdf(originalArray, textPositions);
+          if (pdfExportInputRef.current) pdfExportInputRef.current.value = '';
+      };
+      reader.readAsArrayBuffer(file);
+  };
+
+  // ▼ EXPORTボタンクリック
+  const handleExportPDF = async () => {
+      window.dispatchEvent(new CustomEvent('show-toast', { detail: 'PDF作成準備中...' }));
+      
+      const targetPdfBytes = navlogData?.originalPdfBytes;
+      
+      if (!targetPdfBytes || targetPdfBytes.length === 0) {
+          // メモリから消えていた場合はファイルダイアログを開かせる
+          if (pdfExportInputRef.current) {
+              window.dispatchEvent(new CustomEvent('show-toast', { detail: '元データが見つかりません。ベースとなるPDFファイルを再度選択してください。' }));
+              pdfExportInputRef.current.click(); 
+          }
+          return;
+      }
+      
+      await processAndDownloadPdf(targetPdfBytes, navlogData.textPositions);
+  };
+
   return (
     <div className="flex flex-col h-full w-full absolute inset-0 bg-[#05070a] text-[#cbd5e1] font-sans overflow-hidden rounded-xl border border-slate-700/50">
       
@@ -1431,6 +1596,9 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
         data={timerPopupData}
         onClose={() => setTimerPopupData(null)}
       />
+
+      {/* 隠しインプット: メモリからPDFデータが消えていた場合の手動選択用 */}
+      <input type="file" accept="application/pdf" className="hidden" ref={pdfExportInputRef} onChange={handleManualPdfSelect} />
 
       <header className="shrink-0 bg-gradient-to-r from-slate-900 via-[#131c2f] to-slate-900 border-b border-slate-700/80 px-2 py-2 shadow-lg z-20">
         <div className="max-w-[1400px] mx-auto flex flex-wrap justify-between items-center gap-2">
@@ -1589,6 +1757,9 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                 <button onClick={() => setIsSyncModalOpen(true)} className="bg-slate-700 hover:bg-emerald-600 border border-emerald-500/50 text-emerald-300 hover:text-white px-2 py-1.5 rounded text-[11px] font-black tracking-wider shadow-sm transition-colors flex items-center gap-1">
                     <SafeIcon name="RefreshCw" className="w-3 h-3" /> SYNC
                 </button>
+                <button onClick={handleExportPDF} className="bg-slate-700 hover:bg-blue-600 border border-blue-500/50 text-blue-300 hover:text-white px-2 py-1.5 rounded text-[11px] font-black tracking-wider shadow-sm transition-colors flex items-center gap-1">
+                    <SafeIcon name="DownloadCloud" className="w-3 h-3" /> EXPORT
+                </button>
             </div>
 
           </div>
@@ -1679,20 +1850,17 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                   const finalRowClass = isTriggered ? `${baseRowClass} bg-rose-900/30 shadow-[inset_4px_0_0_rgba(244,63,94,1)]` : baseRowClass;
                   
                   const toMins = calculatedData.takeoffMinutes !== null ? calculatedData.takeoffMinutes : 0;
-                  // FIR通過位置の判定には、ATOの入力でブレないようにオリジナルの計画時間(originalEtoMins)を使用します。
                   const prevOriginalEto = idx > 0 ? calculatedData.flightData[idx - 1].originalEtoMins : -1;
                   const currentOriginalEto = row.originalEtoMins;
                   
                   const crossedFirs = parsedEetList.filter(fir => {
                       const firOriginalEto = toMins + fir.mins;
-                      // WAYPOINTとEETが同じ時間の場合はWAYPOINTの上に表示するため <= で判定
                       return firOriginalEto > prevOriginalEto && firOriginalEto <= currentOriginalEto;
                   });
 
                   return (
                   <React.Fragment key={idx}>
                     {crossedFirs.map((fir, fIdx) => {
-                        // 過去に入力されたATOの差分(appliedDiff)を加味してFIRの通過時刻(ETO)を算出
                         const revisedFirMins = (toMins + fir.mins + (row.appliedDiff || 0) + 1440 * 10) % 1440;
                         const revisedFirStr = minutesToTime(revisedFirMins);
                         const firName = FIR_NAMES[fir.fir];

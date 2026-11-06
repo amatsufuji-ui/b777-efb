@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import * as LucideIcons from 'lucide-react';
 
-const APP_VERSION = "12.7"; 
+const APP_VERSION = "12.8"; 
 
 import { RAW_CSV_DATA, aircraftRegistrationList, BUDDYCOM_LINKS } from './data/flightData';
 import { aircraftPerformanceData, defaultCruiseWeights, defaultLandingWeights, modelKeyMap, AIRCRAFT_DIMENSIONS, SEAT_DATA, CRUISE_PERF_DATA, VREF_DATA, HOLD_SPD_DATA_RAW, MANEUVER_1_3G_MACH_DATA, TARGET_PITCH_N1_DATA_RAW, LANDING_DIST_DATA_RAW, B777_WIND_LIMITS, MAX_MAN_DATA } from './data/perfData';
@@ -22,7 +22,6 @@ import { TarmacView } from './components/TarmacView';
 import { SidView } from './components/SidView'; 
 import { WeatherRadarView } from './components/WeatherRadarView';
 
-// IMPORTANT: TOLView MUST be exported as 'export default TOLView;' from './components/TOLView'
 import TOLView from './components/TOLView';
 
 // =========================================================================
@@ -265,8 +264,15 @@ export default function App() {
 
   useEffect(() => {
     try {
+      let backupNavlogData = null;
+      if (navlogData) {
+          // メモリを圧迫する巨大データ(PDF実体と座標)は LocalStorage に保存しない
+          const { originalPdfBytes, textPositions, ...restNavlog } = navlogData;
+          backupNavlogData = restNavlog;
+      }
+      
       const backup = { 
-        state, flightId, navlogData,
+        state, flightId, navlogData: backupNavlogData,
         restFlightHours3, restFlightMins3, restFlightHours4, restFlightMins4,
         stdHours, stdMins, isTakeoffAuto, taxiOutMins, taxiInMins,
         restTakeoffHours, restTakeoffMins, restOffsetMins, restLandingOffsetMins,
@@ -889,20 +895,44 @@ export default function App() {
           window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
         }
         
-        const typedarray = new Uint8Array(event.target.result);
-        const pdf = await window.pdfjsLib.getDocument(typedarray).promise;
+        // ★データ所有権(Detached ArrayBuffer)が奪われないように完全に分離(slice)する
+        const buffer = event.target.result;
+        const pdfJsArray = new Uint8Array(buffer.slice(0));
+        const exportArray = new Uint8Array(buffer.slice(0));
+        
+        const pdf = await window.pdfjsLib.getDocument(pdfJsArray).promise;
+        
         let fullText = "";
+        let textPositions = []; 
         
         for (let i = 1; i <= pdf.numPages; i++) {
           const page = await pdf.getPage(i);
           const content = await page.getTextContent();
-          fullText += content.items.map(item => item.str).join(" ") + "\n";
+          content.items.forEach(item => {
+              if (item && typeof item.str === 'string') {
+                  fullText += item.str + " ";
+                  if (item.str.trim().length >= 3 && item.transform) {
+                      textPositions.push({
+                          str: item.str.trim(),
+                          page: i - 1,
+                          x: item.transform[4],
+                          y: item.transform[5]
+                      });
+                  }
+              }
+          });
+          fullText += "\n";
         }
 
         const parsedData = parseNavlogPDFText(fullText);
         
         if (parsedData.newPlan.length > 0) {
             parsedData.isNew = true; 
+            
+            // クラッシュ回避: 分離したバイナリをメモリに保持
+            parsedData.originalPdfBytes = exportArray; 
+            parsedData.textPositions = textPositions; 
+            
             setNavlogData(parsedData); 
             handleApplyFlightPlan(parsedData);
             setIsLoadModalOpen(false);
