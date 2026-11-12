@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import * as LucideIcons from 'lucide-react';
 
-const APP_VERSION = "12.9"; 
+const APP_VERSION = "13.0"; 
 
 import { RAW_CSV_DATA, aircraftRegistrationList, BUDDYCOM_LINKS } from './data/flightData';
 import { aircraftPerformanceData, defaultCruiseWeights, defaultLandingWeights, modelKeyMap, AIRCRAFT_DIMENSIONS, SEAT_DATA, CRUISE_PERF_DATA, VREF_DATA, HOLD_SPD_DATA_RAW, MANEUVER_1_3G_MACH_DATA, TARGET_PITCH_N1_DATA_RAW, LANDING_DIST_DATA_RAW, B777_WIND_LIMITS, MAX_MAN_DATA } from './data/perfData';
@@ -21,6 +21,7 @@ import { NavlogView } from './components/NavlogView';
 import { TarmacView } from './components/TarmacView'; 
 import { SidView } from './components/SidView'; 
 import { WeatherRadarView } from './components/WeatherRadarView';
+ import { fetchProfiles, renderWaypointPagePortrait, hourKey } from './utils/skewt';
 
 import TOLView from './components/TOLView';
 
@@ -157,6 +158,7 @@ export default function App() {
   const pdfInputRef = useRef(null);
   const [isParsingPdf, setIsParsingPdf] = useState(false);
   const [navlogData, setNavlogData] = useState(null);
+  const [skewTProgress, setSkewTProgress] = useState(null);
 
   const getSavedState = (key, defaultValue) => {
     try {
@@ -950,6 +952,237 @@ export default function App() {
     };
     reader.readAsArrayBuffer(file);
   };
+  
+  const handleGenerateSkewTPdf = async () => {
+    if (!navlogData || !navlogData.newPlan || navlogData.newPlan.length === 0) {
+        window.dispatchEvent(new CustomEvent('show-toast', { detail: '先にNAVLOGを読み込んでください' }));
+        return;
+    }
+
+    if (skewTProgress !== null) return; // 処理中はブロック
+
+    const plan = navlogData.newPlan;
+
+    // 累積距離 (NM): プラン各行の dist (レグ距離) を積算
+    const cumDistByIndex = [];
+    {
+        let acc = 0;
+        for (let i = 0; i < plan.length; i++) {
+            const d = Number(plan[i].dist);
+            if (Number.isFinite(d) && d > 0) acc += d;
+            cumDistByIndex[i] = acc;
+        }
+    }
+
+    let selectedWps = [];
+    let lastLat = null;
+    let lastLon = null;
+
+    // ウェイポイントの選定 (100NM間隔) — 従来と同一ロジック
+    for (let i = 0; i < plan.length; i++) {
+        const wp = plan[i];
+        const coord = parseWaypointToLatLng(wp);
+        if (coord && coord.lat !== null && coord.lon !== null && (coord.lat !== 0 || coord.lon !== 0)) {
+            if (selectedWps.length === 0) {
+                selectedWps.push({ ...wp, ...coord, cumDist: cumDistByIndex[i] });
+                lastLat = coord.lat;
+                lastLon = coord.lon;
+            } else {
+                const dist = getDistanceNM(lastLat, lastLon, coord.lat, coord.lon);
+                // 100NM以上離れているか、最後のウェイポイントなら追加
+                if (dist >= 100 || i === plan.length - 1) {
+                    selectedWps.push({ ...wp, ...coord, cumDist: cumDistByIndex[i] });
+                    lastLat = coord.lat;
+                    lastLon = coord.lon;
+                }
+            }
+        }
+    }
+
+    if (selectedWps.length === 0) {
+        window.dispatchEvent(new CustomEvent('show-toast', { detail: '有効なウェイポイントが見つかりません' }));
+        return;
+    }
+
+    setSkewTProgress(0); // 進捗開始
+    window.dispatchEvent(new CustomEvent('show-toast', { detail: '画像をダウンロードしてPDFに埋め込んでいます。しばらくお待ちください...' }));
+
+    // ---- ETO の基準時刻を決める -------------------------------------------
+    // フライト日は NAVLOG 解析結果の pDate ("02NOV26" = DDMMMYY) から取る。
+    // 取れない場合は今日 (UTC) で代替する (STD は Z 表示として扱う)。
+    const MONTHS = { JAN: 0, FEB: 1, MAR: 2, APR: 3, MAY: 4, JUN: 5, JUL: 6, AUG: 7, SEP: 8, OCT: 9, NOV: 10, DEC: 11 };
+    const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    let baseMs = null;
+    const dm = /^(\d{2})([A-Z]{3})(\d{2})$/i.exec((navlogData.pDate || '').trim());
+    if (dm && MONTHS[dm[2].toUpperCase()] !== undefined) {
+        baseMs = Date.UTC(2000 + Number(dm[3]), MONTHS[dm[2].toUpperCase()], Number(dm[1]), stdHours, stdMins);
+    } else {
+        const today = new Date();
+        baseMs = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), stdHours, stdMins);
+    }
+    baseMs += (Number(taxiOutMins) || 0) * 60000; // STD + taxi-out = 離陸時刻
+
+    const fmtLat = (lat) => `${Math.abs(lat).toFixed(2)}°${lat >= 0 ? 'N' : 'S'}`;
+    const fmtLon = (lon) => `${Math.abs(lon).toFixed(2)}°${lon >= 0 ? 'E' : 'W'}`;
+    const fmtValid = (date) =>
+        `valid ${String(date.getUTCHours()).padStart(2, '0')}z ${String(date.getUTCDate()).padStart(2, '0')} ${MONTH_NAMES[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
+    const fmtEto = (date) =>
+        `${String(date.getUTCDate()).padStart(2, '0')} ${MONTH_NAMES[date.getUTCMonth()]} ${String(date.getUTCHours()).padStart(2, '0')}:${String(date.getUTCMinutes()).padStart(2, '0')}Z`;
+
+    // 描画済みキャンバスが (ほぼ) 白紙かどうかを粗いサンプリングで判定する。
+    // 通常のページは非白ピクセルが約4%あるため、0.3%未満を白紙とみなす。
+    const isBlankPageCanvas = (cv) => {
+        try {
+            const data = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data;
+            let n = 0, ink = 0;
+            for (let y = 0; y < cv.height; y += 8) {
+                const rowStart = y * cv.width * 4;
+                for (let x = 0; x < cv.width; x += 8) {
+                    const i = rowStart + x * 4;
+                    n++;
+                    if (data[i] < 245 || data[i + 1] < 245 || data[i + 2] < 245) ink++;
+                }
+            }
+            return n === 0 || (ink / n) < 0.003;
+        } catch (e) {
+            return false; // 判定できない場合はページを出す側に倒す
+        }
+    };
+
+    // ---- ウェイポイントごとにプロファイル取得 + ページ描画 ----------------
+    const pageImages = []; // { wp, dataUrl }
+    const skippedWps = []; // プロファイル欠落・白紙・描画エラーで省略した地点
+    let doneCount = 0;
+
+    for (let wi = 0; wi < selectedWps.length; wi++) {
+        const wp = selectedWps[wi];
+        try {
+            // ETO = 離陸時刻 + ctme (分)。最寄りの正時へ丸めた ETO のみ使う。
+            const etoMs = baseMs + (Number(wp.ctme) || 0) * 60000;
+            const roundedMs = Math.round(etoMs / 3600000) * 3600000;
+            const etoDate = new Date(roundedMs);
+
+            // このウェイポイントのプロファイルを1回だけ取得 (ETO±1h)
+            const profiles = await fetchProfiles(
+                wp.lat, wp.lon,
+                new Date(roundedMs - 3600000), new Date(roundedMs + 3600000));
+            const profile = profiles[hourKey(etoDate)] || null;
+
+            if (profile) {
+                const detailed = (wi === 0 || wi === selectedWps.length - 1);
+                // A4縦 (1754x2480 px) のページに ETO パネル1枚を描く
+                const pageCanvas = document.createElement('canvas');
+                pageCanvas.width = 1754;
+                pageCanvas.height = 2480;
+                renderWaypointPagePortrait(pageCanvas, {
+                    wp: {
+                        name: wp.wp,
+                        lat: wp.lat,
+                        lon: wp.lon,
+                        header: `${flightId ? 'ANA' + flightId : 'Flight'} ${navlogData.depIcao || ''}-${navlogData.destIcao || ''}  —  ${wp.wp}  ${fmtLat(wp.lat)}, ${fmtLon(wp.lon)}  dist ${Math.round(wp.cumDist || 0)} NM`,
+                        subline: `ETO ${fmtEto(new Date(etoMs))}  —  ${fmtValid(etoDate)}`,
+                        panelTitle: `GFS Sounding ${fmtLat(wp.lat)}, ${fmtLon(wp.lon)}`,
+                        validLabel: fmtValid(etoDate),
+                        footer: 'Data: Open-Meteo GFS (gfs_seamless). Panel: ETO only (rounded to the nearest hour). Hodograph (≤5,000 ft) on departure/arrival pages only.',
+                    },
+                    profile,
+                    detailed,
+                });
+                if (isBlankPageCanvas(pageCanvas)) {
+                    // 白紙ページは出さず、省略として数える
+                    skippedWps.push(wp.wp);
+                } else {
+                    pageImages.push({ wp, dataUrl: pageCanvas.toDataURL('image/png') });
+                }
+            } else {
+                // プロファイルが取れなかった地点は無言で落とさず記録する
+                skippedWps.push(wp.wp);
+            }
+        } catch (err) {
+            console.error('SKEW-T render failed for waypoint', wp.wp, err);
+            skippedWps.push(wp.wp);
+        }
+        doneCount++;
+        setSkewTProgress(Math.round((doneCount / selectedWps.length) * 100));
+    }
+
+    if (pageImages.length === 0) {
+        setSkewTProgress(null); // 進捗終了
+        window.dispatchEvent(new CustomEvent('show-toast', { detail: 'SKEW-Tデータの取得に失敗しました。通信環境を確認してください。' }));
+        return;
+    }
+
+    // SKEW-T レポート用のHTML文字列を作成 (従来と同じ印刷ウィンドウ方式)
+    // ページ画像そのものにタイトル等が入っているため、印刷HTMLは画像だけを
+    // 並べる。余分な見出しや余白を置くと空白ページの原因になる。
+    // A4縦の印刷可能領域 (198x285mm, 比率 1.4394) に対し画像の比率は
+    // 2480/1754 = 1.4139 なので、幅100%で高さも1ページに収まる。
+    let htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>SKEW-T Report - ${flightId ? 'ANA' + flightId : 'Flight'}</title>
+        <style>
+            @page { size: A4 portrait; margin: 6mm; }
+            html, body { margin: 0; padding: 0; background-color: white; }
+            .page { break-after: page; break-inside: avoid; }
+            .page:last-child { break-after: auto; }
+            .page img { display: block; width: 100%; height: auto; }
+        </style>
+    </head>
+    <body>
+    `;
+
+    pageImages.forEach((page) => {
+        htmlContent += `
+        <div class="page"><img src="${page.dataUrl}" alt="SKEW-T ${page.wp.wp}" /></div>
+        `;
+    });
+
+    htmlContent += `
+        <script>
+            window.onload = function() {
+                // 大きなPNGデータURLはデコードに時間がかかることがある。
+                // 全画像のデコード完了を待ってから印刷する (デコード前の
+                // 画像は空白ページとして印刷されてしまうため)。
+                var imgs = Array.prototype.slice.call(document.images || []);
+                var waits = imgs.map(function(img) {
+                    if (img.decode) return img.decode().catch(function() {});
+                    return new Promise(function(resolve) {
+                        if (img.complete) { resolve(); return; }
+                        img.onload = img.onerror = function() { resolve(); };
+                    });
+                });
+                Promise.all(waits).then(function() {
+                    setTimeout(function() { window.print(); }, 100);
+                });
+            };
+        </script>
+    </body>
+    </html>
+    `;
+
+    setSkewTProgress(null); // 進捗終了
+
+    // 省略した地点があれば、無言にせず完了時に知らせる
+    if (skippedWps.length > 0) {
+        window.dispatchEvent(new CustomEvent('show-toast', {
+            detail: `${skippedWps.length}地点（${skippedWps.join('、')}）はデータが取れず省略しました`,
+        }));
+    }
+
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+        printWindow.document.open();
+        printWindow.document.write(htmlContent);
+        printWindow.document.close();
+    } else {
+        window.dispatchEvent(new CustomEvent('show-toast', { detail: 'ポップアップがブロックされました。ブラウザの設定を確認してください。' }));
+    }
+};
+
+
+
 
   const parsedFlightData = useMemo(() => {
     if (typeof RAW_CSV_DATA === 'undefined' || !RAW_CSV_DATA) return [];
@@ -1337,6 +1570,22 @@ export default function App() {
               <button onClick={() => setIsLoadModalOpen(true)} className="animate-glow-pulse bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-emerald-100 px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border border-emerald-500 shadow-sm shrink-0" title="PDFまたはテキストから読み込む">
                 <SafeIcon name="Download" className="w-3 h-3 pointer-events-none" />
                 <span className="text-[9px] sm:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">LOAD</span>
+              </button>
+
+              {/* SKEW-T 追加ボタン */}
+              <button 
+                onClick={handleGenerateSkewTPdf} 
+                disabled={skewTProgress !== null}
+                className="bg-slate-700 hover:bg-teal-600 disabled:bg-teal-900 disabled:opacity-80 text-teal-400 hover:text-white px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border border-slate-500 hover:border-teal-400 shadow-sm shrink-0 relative overflow-hidden" 
+                title="Skew-T PDF作成"
+              >
+                {skewTProgress !== null && (
+                    <div className="absolute left-0 top-0 bottom-0 bg-teal-500/40" style={{ width: `${skewTProgress}%`, transition: 'width 0.3s ease-out' }}></div>
+                )}
+                <SafeIcon name={skewTProgress !== null ? "Loader2" : "CloudRain"} className={`w-3 h-3 pointer-events-none relative z-10 ${skewTProgress !== null ? "animate-spin" : ""}`} />
+                <span className="text-[9px] sm:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none relative z-10">
+                    {skewTProgress !== null ? `DL ${skewTProgress}%` : 'SKEW-T'}
+                </span>
               </button>
 
               <button onClick={() => { if (!state.selectedReg || state.selectedReg === "N/A" || state.selectedReg === "") { window.dispatchEvent(new CustomEvent('show-toast', { detail: '機番を選択してください' })); return; } const buddycomUrl = typeof BUDDYCOM_LINKS !== 'undefined' ? BUDDYCOM_LINKS[state.selectedReg] : null; if (buddycomUrl) { const pastedFlightName = flightId ? `ANA${flightId}` : ""; if (pastedFlightName) { copyToClipboard(pastedFlightName); window.dispatchEvent(new CustomEvent('show-toast', { detail: `便名(${pastedFlightName})をコピーして起動しました` })); } else { window.dispatchEvent(new CustomEvent('show-toast', { detail: 'Buddycomを起動しました' })); } setTimeout(() => { window.open(buddycomUrl, '_blank'); }, 1000); } else { window.dispatchEvent(new CustomEvent('show-toast', { detail: 'この機番のBuddycomリンクは未登録です' })); } }} className={`px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border shadow-sm shrink-0 ${state.selectedReg && state.selectedReg !== "N/A" && state.selectedReg !== "" ? 'bg-slate-700 hover:bg-orange-600 text-orange-400 hover:text-white border-slate-500 hover:border-orange-400' : 'bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed'}`} title="Buddycomを開く"><SafeIcon name="Radio" className="w-3 h-3 pointer-events-none" /><span className="text-[9px] sm:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">BDYC</span></button>

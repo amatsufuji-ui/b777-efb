@@ -1404,68 +1404,108 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
 
           const { PDFDocument, rgb, StandardFonts } = window.PDFLib;
           
-          // 万が一 Uint8Array でないものが渡ってきた場合の安全処理
           const safeBytes = originalBytes instanceof Uint8Array 
               ? originalBytes 
               : new Uint8Array(originalBytes);
 
           const pdfDoc = await PDFDocument.load(safeBytes);
-          
-          // クラッシュ防止のため標準フォントを指定して書き込む
           const helveticaFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
           const pages = pdfDoc.getPages();
+
+          // ▼ 列のX座標は、表のヘッダー行（(WP)POS を含む行）の実測位置から取得する。
+          //    WAYPOINT名は LAT/LONG 列（x≈163.8）にあるため、従来の x < 150 条件では
+          //    本表の行が1件も一致せず、何も書き込まれなかった。
+          const headerItem = textPositions.find(p => p.str === '(WP)POS');
+          const headerItems = headerItem
+              ? textPositions.filter(p => p.page === headerItem.page && Math.abs(p.y - headerItem.y) <= 16)
+              : [];
+          const colX = (names, fallback) => {
+              const hit = headerItems.find(p => names.includes(p.str));
+              return hit ? hit.x : fallback;
+          };
+          const NAME_X = colX(['LAT/LONG'], 163.8);
+          const ATO_X  = colX(['ATO'], 253.8);
+          const ALT_X  = colX(['ALT'], 311.7) + 13; // 高度は様式に印刷された「FL」の右隣に書き込む（+13pt）
+          const RMG_X  = colX(['RMG', 'FUEL'], 350.3);
+          const TMP_X  = colX(['SAT', 'TMP'], 388.9) + 8; // 気温は列位置より少し右に寄せて書き込む（+8pt）
+          const WND_X  = colX(['SPOT', 'ZWIND'], 414.6);
+
+          // ▼ 対象は本表のあるページ範囲（(RDIS) のページ 〜 (0000) のページ）のみ。
+          //    従来のインデックス範囲では、出発地EDDFの行が (RDIS) の直前に並ぶため
+          //    EDDFだけ範囲外になっていた。
+          const rdisItem = textPositions.find(p => p.str.includes('(RDIS)'));
+          const zeroItem = textPositions.find(p => p.str.includes('(0000)'));
+          const firstTablePage = rdisItem ? rdisItem.page : 0;
+          const lastTablePage = zeroItem ? zeroItem.page : Number.MAX_SAFE_INTEGER;
+
+          // ▼ 書き込む文字はすべて赤に統一する
+          const EXPORT_COLOR = rgb(1, 0, 0);
 
           for (const [wp, actualData] of Object.entries(actuals)) {
               if (!actualData.ato && !actualData.afob && !actualData.actAlt && !actualData.actTmp && !actualData.actWind) continue;
 
-              // 分割認識されたWaypoint名にも対応するため前方一致で探す
-              const wpPos = textPositions.find(p => p.str.startsWith(wp) && p.x < 150);
+              // Waypoint名の完全一致 ＋ 名前列（LAT/LONG列）のX ＋ 本表ページ範囲内のみを抽出
+              const wpPos = textPositions.find(p =>
+                  p.str === wp &&
+                  Math.abs(p.x - NAME_X) <= 8 &&
+                  p.page >= firstTablePage && p.page <= lastTablePage
+              );
+
               if (wpPos && pages[wpPos.page]) {
                   const page = pages[wpPos.page];
-                  
+                  const drawY = wpPos.y - 2;
+
                   if (actualData.ato) {
                       page.drawText(actualData.ato, {
-                          x: wpPos.x + 55, // ★ATO: 左側に配置
-                          y: wpPos.y - 2,
+                          x: ATO_X, // ATO列
+                          y: drawY,
                           size: 9,
                           font: helveticaFont,
-                          color: rgb(0, 0.4, 0.8) // 青色
+                          color: EXPORT_COLOR
                       });
                   }
                   if (actualData.actAlt) {
-                      page.drawText(actualData.actAlt, {
-                          x: wpPos.x + 130, // ★ACT ALT: ATOの右
-                          y: wpPos.y - 2,
-                          size: 9,
-                          font: helveticaFont,
-                          color: rgb(0.6, 0.2, 0.8) // 紫色
-                      });
+                      // 高度は「FL」を付けず数字のみ書き込む（例: FL310 → 310）
+                      const altText = String(actualData.actAlt).trim().replace(/^FL/i, '');
+                      if (altText) {
+                          page.drawText(altText, {
+                              x: ALT_X, // ALT/FL列（印刷済み「FL」の右隣、+13pt右寄せ済み）
+                              y: drawY,
+                              size: 9,
+                              font: helveticaFont,
+                              color: EXPORT_COLOR
+                          });
+                      }
                   }
                   if (actualData.afob) {
                       page.drawText(actualData.afob, {
-                          x: wpPos.x + 175, // ★RMG(AFOB): ALTの右
-                          y: wpPos.y - 2,
+                          x: RMG_X, // RMG(AFOB)列
+                          y: drawY,
                           size: 9,
                           font: helveticaFont,
-                          color: rgb(0, 0.6, 0) // 緑色
+                          color: EXPORT_COLOR
                       });
                   }
                   if (actualData.actTmp) {
-                      page.drawText(actualData.actTmp, {
-                          x: wpPos.x + 215, // ★ACT TMP: RMGの右
-                          y: wpPos.y - 2,
-                          size: 9,
-                          font: helveticaFont,
-                          color: rgb(0.6, 0.2, 0.8) // 紫色
-                      });
+                      // 気温はマイナス符号を付けずに書き込む（例: -48 → 48）
+                      const tmpText = String(actualData.actTmp).trim().replace(/^[-−]/, '');
+                      if (tmpText) {
+                          page.drawText(tmpText, {
+                              x: TMP_X, // SAT/TMP列（+8pt右寄せ済み）
+                              y: drawY,
+                              size: 9,
+                              font: helveticaFont,
+                              color: EXPORT_COLOR
+                          });
+                      }
                   }
                   if (actualData.actWind) {
                       page.drawText(actualData.actWind, {
-                          x: wpPos.x + 255, // ★ACT WND: TMPの右
-                          y: wpPos.y - 2,
+                          x: WND_X, // SPOT/ZWIND列
+                          y: drawY,
                           size: 9,
                           font: helveticaFont,
-                          color: rgb(0.6, 0.2, 0.8) // 紫色
+                          color: EXPORT_COLOR
                       });
                   }
               }
@@ -1498,7 +1538,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
       reader.onload = async (event) => {
           const buffer = event.target.result;
           
-          // pdf.jsで中身が奪われる(Detach)のを防ぐためバッファを複製して分離する
           const pdfjsArray = new Uint8Array(buffer.slice(0)); 
           const originalArray = new Uint8Array(buffer.slice(0)); 
           
@@ -1538,14 +1577,12 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
       reader.readAsArrayBuffer(file);
   };
 
-  // ▼ EXPORTボタンクリック
   const handleExportPDF = async () => {
       window.dispatchEvent(new CustomEvent('show-toast', { detail: 'PDF作成準備中...' }));
       
       const targetPdfBytes = navlogData?.originalPdfBytes;
       
       if (!targetPdfBytes || targetPdfBytes.length === 0) {
-          // メモリから消えていた場合はファイルダイアログを開かせる
           if (pdfExportInputRef.current) {
               window.dispatchEvent(new CustomEvent('show-toast', { detail: '元データが見つかりません。ベースとなるPDFファイルを再度選択してください。' }));
               pdfExportInputRef.current.click(); 
@@ -1597,7 +1634,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
         onClose={() => setTimerPopupData(null)}
       />
 
-      {/* 隠しインプット: メモリからPDFデータが消えていた場合の手動選択用 */}
       <input type="file" accept="application/pdf" className="hidden" ref={pdfExportInputRef} onChange={handleManualPdfSelect} />
 
       <header className="shrink-0 bg-gradient-to-r from-slate-900 via-[#131c2f] to-slate-900 border-b border-slate-700/80 px-2 py-2 shadow-lg z-20">
@@ -1850,20 +1886,17 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                   const finalRowClass = isTriggered ? `${baseRowClass} bg-rose-900/30 shadow-[inset_4px_0_0_rgba(244,63,94,1)]` : baseRowClass;
                   
                   const toMins = calculatedData.takeoffMinutes !== null ? calculatedData.takeoffMinutes : 0;
-                  // FIR通過位置の判定には、ATOの入力でブレないようにオリジナルの計画時間(originalEtoMins)を使用します。
                   const prevOriginalEto = idx > 0 ? calculatedData.flightData[idx - 1].originalEtoMins : -1;
                   const currentOriginalEto = row.originalEtoMins;
                   
                   const crossedFirs = parsedEetList.filter(fir => {
                       const firOriginalEto = toMins + fir.mins;
-                      // WAYPOINTとEETが同じ時間の場合はWAYPOINTの上に表示するため <= で判定
                       return firOriginalEto > prevOriginalEto && firOriginalEto <= currentOriginalEto;
                   });
 
                   return (
                   <React.Fragment key={idx}>
                     {crossedFirs.map((fir, fIdx) => {
-                        // 過去に入力されたATOの差分(appliedDiff)を加味してFIRの通過時刻(ETO)を算出
                         const revisedFirMins = (toMins + fir.mins + (row.appliedDiff || 0) + 1440 * 10) % 1440;
                         const revisedFirStr = minutesToTime(revisedFirMins);
                         const firName = FIR_NAMES[fir.fir];
