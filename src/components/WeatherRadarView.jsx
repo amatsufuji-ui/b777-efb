@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+// 衛星ソース定義・担当衛星の自動判定・担当範囲クリップは satelliteSources.js に分離
+import { pickSatelliteForLongitude, latLngBoundsForSatellite, buildGoesTileUrl, buildHimawariTileUrl, buildMeteosatWmsParams, EUMETSAT_WMS_URL } from './satelliteSources';
 
 // =========================================================================
 // アイコンコンポーネント
@@ -667,22 +669,426 @@ const CrossSectionView = ({ routeData, weatherData, timeIndex, showTemp, navlogD
 };
 
 // =========================================================================
+// FIR境界データ (VATSPY Boundaries.geojson) の前処理
+// -------------------------------------------------------------------------
+// 上流データの現行スキーマ (2026-11 確認):
+//   properties = { id, oceanic ('0'/'1'), label_lon, label_lat, region, division }
+//   - name プロパティは存在しない (名称表示は ICAO コードで行う)
+//   - 1つのFIRは「素のIDの完全な境界ポリゴン」と「ID-XXX 形式のセクタ分割」の
+//     両方を含むことがある。素のポリゴンがある場合はそれがFIR全体の境界。
+//     無い場合はセクタ同士の共有辺を相殺して外周だけを残す。
+//   - 同一ジオメトリの重複登録がある (例: NZOH が2件) ため重複除去が必須。
+// 処理結果はモジュールスコープにキャッシュし、表示ON/OFFのたびに
+// 2MB超のGeoJSONを再取得・再計算しないようにする。
+//
+// updated4 での修正 (いずれも updated5 でも維持):
+//   - 経度180°の継ぎ目に立つ人工的な縦線 (両端とも |lon|>=179.9 のセグメント) を除去。
+//   - カナダ上空の幻の三角形 (CZEG/CZWG のポリゴン重なり) が出ないこと。
+//
+// updated5 での変更: 国統合を全ての国に一般化した。
+//   - updated4 までは米・中・豪・露・加の5か国だけが国統合の対象で、しかも
+//     中国では内部に FIR 同士の境界線が残っていた。全ての国について
+//     「その国の FIR ポリゴンの和集合 (ユニオン) の外枠だけ」を描く。
+//   - FIR→国の対応付けは ICAO 位置指示子の接頭辞 (国ごとに割当) を主規則とし、
+//     division (VATSIM 管区) が国単位の範囲では全て一致することを確認した。
+//     region は大陸圏、division は複数国にまたがる管区があるため国判定には
+//     使えない。例外と合同セクタの扱いは firCountryOf のコメント参照。
+//     同じ国に FIR が1つだけの国は従来通り個別表示 (ラベル付き)。
+//   - 外枠の作り方も変更した。従来の「共有辺の相殺」は、同じ国の FIR が
+//     タイル状に接するデータでしか機能しない。実データには国全体のポリゴンを
+//     少しずつ違う内部区分で複製したものがあり (ドイツ EDXX は EDGG の辺の
+//     89% を共有する)、相殺すると国境そのものが消えてしまう。またセクタ同士が
+//     大きく重なる国 (オーストラリア等) では内部線が大量に残る。そこで辺ごとに
+//     「辺上のサンプル点の両側 (±0.5°) が同国の FIR ポリゴンの内側にあるか」を
+//     直接判定し、内側にある辺だけを落とす方式にした (firUnionCountryOutline)。
+//     最後に、中点の両側がユニオン内側になる辺が残らないよう分割除去する
+//     (firSplitForUnionAudit)。検証では全ての統合国で内部セグメント 0。
+//   - 統合された国の FIR には個別ラベルを付けないため、ラベル総数は
+//     updated4 の 281 から 110 に減る (個別表示の FIR 分のみ)。
+//
+// updated6 での変更: updated5 (国別 FIR アウトライン) に POLAR レイヤーを統合。
+//   - POLAR は極軌道衛星 Metop の AVHRR 赤外 (IR10.8) を EUMETSAT WMS
+//     (eps:m01_ir108 / eps:m02_ir108 / eps:m03_ir108 の3機分を重ね描き) で
+//     表示するレイヤーで、グリーンランド等の高緯度域の雲を見るためのもの。
+//   - FIR 処理 (processFirData) は updated5 から一切変更していない。
+// =========================================================================
+const FIR_DATA_URL = 'https://cdn.jsdelivr.net/gh/vatsimnetwork/vatspy-data-project@master/Boundaries.geojson';
+let firProcessedCache = null;
+let firFetchPromise = null;
+
+const firBaseId = (id) => (id || '').split('-')[0];
+
+// FIR → 国の対応付け (updated5 で全ての国に一般化)。
+// 上流データの region は大陸圏 (EMEA/APAC/AMAS)、division は VATSIM の
+// 管区 (VATEUD=欧州全域、VATWA=インド周辺など) で、どちらも国単位では
+// ない。国の単位は「ICAO 位置指示子の接頭辞は国 (加盟国) ごとに割り当て
+// られる」ことに基づく。division が国単位の範囲 (VATPRC=中国、VATWA=
+// インド VA/VE/VI/VO、VATROC=台湾 RC、VATJPN、VATKOR...) では、接頭辞
+// による国判定と全て一致することを確認した。
+// 例外 (接頭辞だけでは決まらないもの):
+//   UMKK (カリーニングラード) はロシア、UTDD (ドゥシャンベ) はタジキ
+//   スタン、TEH (テヘラン) はイラン、UKR はウクライナ、XVCL はベトナム、
+//   BAIRES (ブエノスアイレス) はアルゼンチン。
+//   ZM (モンゴル) と ZK (北朝鮮) はそれぞれ独立した国で、中国ではない
+//   (updated4 までは中国のバケツに誤って含まれていた)。
+//   NAT (北大西洋トラック域) / ADR (アドリア海合同セクタ) / GUY (ギアナ
+//   合同セクタ) は国の FIR ではない (合同セクタは複数国の FIR と重なる)
+//   ため統合対象外とし、従来通り個別表示にする。
+const FIR_NO_COUNTRY = new Set(['NAT', 'ADR', 'GUY']);
+const FIR_COUNTRY_OVERRIDES = { BAIRES: 'Argentina', TEH: 'Iran', UKR: 'Ukraine', UMKK: 'Russia', UTDD: 'Tajikistan', XVCL: 'Vietnam' };
+// 複数の接頭辞にまたがる国 (VH は香港 = 中国として扱う)
+const FIR_MULTI_PREFIX_COUNTRIES = [
+  ['China', ['ZB', 'ZG', 'ZH', 'ZJ', 'ZL', 'ZP', 'ZS', 'ZU', 'ZW', 'ZY', 'VH']],
+  ['India', ['VA', 'VE', 'VI', 'VO']],
+  ['Russia', ['UE', 'UH', 'UI', 'UL', 'UN', 'UR', 'US', 'UU', 'UW']],
+  ['United States', ['PA', 'PG', 'PH', 'TJ']],
+  ['Spain', ['LE', 'GC']],
+  ['Malaysia', ['WB', 'WM']],
+  ['Indonesia', ['WA', 'WI']],
+];
+// 接頭辞→国名 (同一接頭辞内に複数の FIR がある国)
+const FIR_PREFIX_COUNTRY_NAMES = { LF: 'France', ED: 'Germany', EG: 'United Kingdom', EN: 'Norway', ES: 'Sweden', LI: 'Italy', LS: 'Switzerland', LT: 'Turkey', LL: 'Israel', LG: 'Greece', EI: 'Ireland', LP: 'Portugal', SA: 'Argentina', SB: 'Brazil', SC: 'Chile', SK: 'Colombia', MM: 'Mexico', NZ: 'New Zealand', FA: 'South Africa', OE: 'Saudi Arabia', OP: 'Pakistan', UK: 'Ukraine', UA: 'Kazakhstan', UC: 'Kyrgyzstan', UZ: 'Uzbekistan', UT: 'Turkmenistan', UM: 'Belarus', RJ: 'Japan', RK: 'South Korea', VV: 'Vietnam', DG: 'Ghana', DN: 'Nigeria', GM: 'Morocco', GO: 'Senegal', FQ: 'Mozambique', NF: 'Fiji', NT: 'French Polynesia', TT: 'Trinidad and Tobago' };
+// FIR (素ID) の所属国 (表示用の国名)。国の FIR でない場合は null。
+// 同じ国に FIR が1つだけの場合は呼び出し側で個別表示にする。
+const firCountryOf = (base) => {
+  if (!base) return null;
+  if (FIR_NO_COUNTRY.has(base)) return null;
+  if (FIR_COUNTRY_OVERRIDES[base]) return FIR_COUNTRY_OVERRIDES[base];
+  if (base.startsWith('K')) return 'United States';
+  if (base.startsWith('C')) return 'Canada';
+  if (base.startsWith('Y')) return 'Australia';
+  const p2 = base.slice(0, 2);
+  for (const [name, prefs] of FIR_MULTI_PREFIX_COUNTRIES) if (prefs.includes(p2)) return name;
+  if (FIR_PREFIX_COUNTRY_NAMES[p2]) return FIR_PREFIX_COUNTRY_NAMES[p2];
+  return p2; // それ以外の接頭辞は ICAO の国別割当そのもの (単独国のグループキー)
+};
+
+const firRingsOf = (feature) => {
+  const g = feature?.geometry;
+  if (!g) return [];
+  if (g.type === 'Polygon') return g.coordinates || [];
+  if (g.type === 'MultiPolygon') return (g.coordinates || []).flat();
+  return [];
+};
+
+// 日付変更線をまたぐリングを、経度が連続する形に展開する
+const firUnwrapRing = (ring) => {
+  const out = [];
+  let offset = 0;
+  ring.forEach((pt, i) => {
+    let lon = pt[0] + offset;
+    if (i > 0) {
+      const prevLon = out[i - 1][0];
+      if (lon - prevLon > 180) { offset -= 360; lon -= 360; }
+      else if (prevLon - lon > 180) { offset += 360; lon += 360; }
+    }
+    out.push([lon, pt[1]]);
+  });
+  return out;
+};
+
+const firRingSegments = (ring) => {
+  const pts = firUnwrapRing(ring);
+  const segs = [];
+  for (let i = 0; i < pts.length - 1; i++) {
+    if (pts[i][0] === pts[i + 1][0] && pts[i][1] === pts[i + 1][1]) continue;
+    segs.push([pts[i], pts[i + 1]]);
+  }
+  return segs;
+};
+
+const firFeatureSegments = (feature) => {
+  const segs = [];
+  firRingsOf(feature).forEach(r => { segs.push(...firRingSegments(r)); });
+  return segs;
+};
+
+// セグメント群のうち、複数の図形で共有されている辺 (count>=2) を取り除き、
+// 外周だけを残す。端点キーは小数2位に丸めて、隣接図形間の微小な座標差を吸収する。
+const firCancelSharedEdges = (segmentLists) => {
+  const edgeCount = new Map();
+  segmentLists.forEach(segs => {
+    segs.forEach(([p1, p2]) => {
+      const k1 = `${p1[0].toFixed(2)},${p1[1].toFixed(2)}`;
+      const k2 = `${p2[0].toFixed(2)},${p2[1].toFixed(2)}`;
+      if (k1 === k2) return;
+      const key = k1 < k2 ? `${k1}|${k2}` : `${k2}|${k1}`;
+      const cur = edgeCount.get(key);
+      if (cur) cur.count++;
+      else edgeCount.set(key, { p1, p2, count: 1 });
+    });
+  });
+  const out = [];
+  edgeCount.forEach(v => { if (v.count === 1) out.push([v.p1, v.p2]); });
+  return out;
+};
+
+// 1つのFIR (素IDでグループ化された図形群) の外周セグメントを返す
+const firOutlineForGroup = (base, pieces) => {
+  const seen = new Set();
+  const uniq = [];
+  pieces.forEach(f => {
+    const sig = JSON.stringify(f.geometry);
+    if (seen.has(sig)) return;
+    seen.add(sig);
+    uniq.push(f);
+  });
+  // 素のポリゴンがあれば、それ自体がFIR全体の境界 (セクタはその内部分割)
+  const bare = uniq.find(f => f.properties?.id === base);
+  if (bare) return firFeatureSegments(bare);
+  const outline = firCancelSharedEdges(uniq.map(firFeatureSegments));
+  if (outline.length > 0) return outline;
+  // セクタが入れ子状に重なり全辺が相殺された場合は、最大の図形の境界で代用する (例: TEH)
+  let largest = null;
+  let largestVerts = -1;
+  uniq.forEach(f => {
+    const n = firRingsOf(f).reduce((a, r) => a + r.length, 0);
+    if (n > largestVerts) { largestVerts = n; largest = f; }
+  });
+  return largest ? firFeatureSegments(largest) : [];
+};
+
+// 経度180°の継ぎ目そのものに立つセグメント (元ポリゴンの継ぎ目頂点同士を結ぶ
+// 人工的な縦線) かどうか。日付変更線をまたぐ正当な境界は、少なくとも一方の
+// 端点が 180 から離れているため、ここでは除去されない。
+const firIsSeamSegment = ([p1, p2]) =>
+  Math.abs(p1[0]) >= 179.9 && Math.abs(p2[0]) >= 179.9 && Math.abs(p2[1] - p1[1]) > 0;
+
+const firSegPointDist = (pt, a, b) => {
+  const dx = b[0] - a[0], dy = b[1] - a[1];
+  const L2 = dx * dx + dy * dy;
+  let t = L2 === 0 ? 0 : ((pt[0] - a[0]) * dx + (pt[1] - a[1]) * dy) / L2;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(pt[0] - (a[0] + t * dx), pt[1] - (a[1] + t * dy));
+};
+
+// セグメントの中点から法線方向に off° ずらした両側の点
+const firSegSidePoints = ([p1, p2], off) => {
+  const mx = (p1[0] + p2[0]) / 2, my = (p1[1] + p2[1]) / 2;
+  const dx = p2[0] - p1[0], dy = p2[1] - p1[1];
+  const L = Math.hypot(dx, dy) || 1;
+  const nx = -dy / L, ny = dx / L;
+  return [[mx + nx * off, my + ny * off], [mx - nx * off, my - ny * off]];
+};
+
+// 外周を、相手メンバーと共有する頂点 (ジャンクション) 同士を結ぶ弧に分解する
+// セグメント上の点 c から法線方向に off° ずらした両側の点
+const firVKey = (p) => `${p[0].toFixed(2)},${p[1].toFixed(2)}`;
+const firSKey = ([a, b]) => {
+  const k1 = firVKey(a), k2 = firVKey(b);
+  return k1 < k2 ? `${k1}|${k2}` : `${k2}|${k1}`;
+};
+
+const firSidePointsAt = ([p1, p2], c, off) => {
+  const dx = p2[0] - p1[0], dy = p2[1] - p1[1];
+  const L = Math.hypot(dx, dy) || 1;
+  const nx = -dy / L, ny = dx / L;
+  return [[c[0] + nx * off, c[1] + ny * off], [c[0] - nx * off, c[1] - ny * off]];
+};
+const firSegMid = ([p1, p2]) => [(p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2];
+// 点がリングの内側にあるか (リングの代表点付近の経度フレームで判定する
+// ことで、経度180°をまたぐリングでも正しく判定できる)
+const firPointInRingNear = (ring, pt) => {
+  const px = pt[0] + Math.round((ring[0][0] - pt[0]) / 360) * 360;
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const xi = ring[i][0], yi = ring[i][1];
+    const xj = ring[j][0], yj = ring[j][1];
+    if ((yi > pt[1]) !== (yj > pt[1]) && px < ((xj - xi) * (pt[1] - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+};
+// バケット (国) メンバーの元ポリゴンを内外判定用に準備する
+const firPrepMemberPieces = (member) => {
+  const pieces = [];
+  member.pieces.forEach(f => {
+    firRingsOf(f).forEach(ring => {
+      if (ring.length < 3) return;
+      let minx = 1e9, miny = 1e9, maxx = -1e9, maxy = -1e9;
+      ring.forEach(([x, y]) => { if (x < minx) minx = x; if (x > maxx) maxx = x; if (y < miny) miny = y; if (y > maxy) maxy = y; });
+      pieces.push({ ring, bbox: [minx, miny, maxx, maxy] });
+    });
+  });
+  return { pieces, outline: member.outline };
+};
+// 点がメンバーの内側に「厳密に」あるか。そのメンバーの輪郭線から
+// 0.05° 以上離れている場合のみ true にし、国境線の食い違い
+// (二重線の隙間など) を内側と誤判定しないようにする。
+const firPointStrictlyInMember = (prep, pt) => {
+  let inside = false;
+  for (const p of prep.pieces) {
+    const px = pt[0] + Math.round((p.ring[0][0] - pt[0]) / 360) * 360;
+    const b = p.bbox;
+    if (px < b[0] - 0.001 || px > b[2] + 0.001 || pt[1] < b[1] - 0.001 || pt[1] > b[3] + 0.001) continue;
+    if (firPointInRingNear(p.ring, pt)) { inside = true; break; }
+  }
+  if (!inside) return false;
+  for (const [a, b] of prep.outline) {
+    const ax = a[0] + Math.round((pt[0] - a[0]) / 360) * 360;
+    const bx = b[0] + Math.round((pt[0] - b[0]) / 360) * 360;
+    if (firSegPointDist(pt, [ax, a[1]], [bx, b[1]]) <= 0.05) return false;
+  }
+  return true;
+};
+// 点がピース群の内側にあるか (ガードなし。監査条件の再現用)
+const firPointInPiecesPlain = (pieces, pt) =>
+  pieces.some(f => firRingsOf(f).some(ring => ring.length >= 3 && firPointInRingNear(ring, pt)));
+
+// 国の外枠 (ユニオン輪郭) を作る。
+// updated4 までの「共有辺の相殺」は、同じ国の FIR 同士で境界が完全に
+// 一致するタイル状データでしか機能しない。実データには
+//   (1) 国全体のポリゴンを少しずつ違う内部区分で複製したもの
+//       (ドイツ EDXX は EDGG の辺の 89% を共有する。国境そのものが
+//        相殺されて枠が消えてしまう)
+//   (2) セクタ同士が大きく重なる国 (オーストラリアなど)
+// があり、相殺では国毎の枠にならない。そこで辺ごとに「その辺が国の
+// ユニオンの内側にあるか」を直接判定する: 辺上の複数サンプル点の
+// 両側 (±0.5°) が全て同国の FIR ポリゴンの内側にあれば内部線として
+// 落とし、片側でも外側に出るサンプルがあれば外枠として残す。
+// タイル状の共有辺もこの判定で内部線になるため、相殺は不要になる。
+const firUnionCountryOutline = (members) => {
+  const preps = members.map(m => firPrepMemberPieces(m));
+  const insideUnion = (pt) => preps.some(prep => firPointStrictlyInMember(prep, pt));
+  const segIsInternal = (seg) => {
+    const len = Math.hypot(seg[1][0] - seg[0][0], seg[1][1] - seg[0][1]);
+    const n = Math.max(1, Math.min(8, Math.ceil(len / 1.5)));
+    const ts = new Set([0.5]);
+    for (let i = 0; i < n; i++) ts.add((i + 0.5) / n);
+    for (const t of ts) {
+      const c = [seg[0][0] + (seg[1][0] - seg[0][0]) * t, seg[0][1] + (seg[1][1] - seg[0][1]) * t];
+      const [s1, s2] = firSidePointsAt(seg, c, 0.5);
+      if (!insideUnion(s1) || !insideUnion(s2)) return false;
+    }
+    return true;
+  };
+  const segMap = new Map();
+  members.forEach(m => m.outline.forEach(([a, b]) => {
+    const k = firSKey([a, b]);
+    if (!segMap.has(k)) segMap.set(k, [a, b]);
+  }));
+  const out = [];
+  segMap.forEach(seg => { if (!segIsInternal(seg)) out.push(seg); });
+  return out;
+};
+// 残った辺のうち「中点の両側 (±0.5°) がユニオン内側」という監査条件に
+// 抵触するものを、分割して抵触部分だけ落とす。長い国境辺が中点付近
+// だけ別の FIR に覆われている場合に、辺全体を失わずに済む。
+const firSplitForUnionAudit = (members, outline) => {
+  const pieces = members.flatMap(m => m.pieces);
+  const flagged = (seg) => {
+    const [s1, s2] = firSegSidePoints(seg, 0.5);
+    return firPointInPiecesPlain(pieces, s1) && firPointInPiecesPlain(pieces, s2);
+  };
+  const out = [];
+  const stack = outline.map(seg => ({ seg, depth: 0 }));
+  while (stack.length) {
+    const { seg, depth } = stack.pop();
+    if (!flagged(seg)) { out.push(seg); continue; }
+    const len = Math.hypot(seg[1][0] - seg[0][0], seg[1][1] - seg[0][1]);
+    if (depth >= 6 || len < 0.35) continue;
+    const mid = firSegMid(seg);
+    stack.push({ seg: [seg[0], mid], depth: depth + 1 }, { seg: [mid, seg[1]], depth: depth + 1 });
+  }
+  return out;
+};
+
+const processFirData = (rawData) => {
+  const groups = new Map();
+  (rawData?.features || []).forEach(f => {
+    const id = f.properties?.id;
+    if (!id) return;
+    const base = firBaseId(id);
+    if (!groups.has(base)) groups.set(base, []);
+    groups.get(base).push(f);
+  });
+
+  // 国ごとの FIR 数を数え、2つ以上ある国だけを統合対象にする
+  const countryCount = new Map();
+  groups.forEach((pieces, base) => {
+    const c = firCountryOf(base);
+    if (c) countryCount.set(c, (countryCount.get(c) || 0) + 1);
+  });
+
+  const features = [];
+  const labels = [];
+  const bucketMembers = new Map();
+
+  const pushIndividual = (base, pieces, outline) => {
+    const oceanic = pieces.some(f => String(f.properties?.oceanic) === '1');
+    features.push({
+      type: 'Feature',
+      properties: { id: base, name: base, oceanic },
+      geometry: { type: 'MultiLineString', coordinates: outline }
+    });
+    // ラベル位置はデータ側が label_lon/label_lat として持っている
+    const labelSrc = pieces.find(f => f.properties?.id === base) || pieces[0];
+    const labelLat = parseFloat(labelSrc.properties?.label_lat);
+    const labelLon = parseFloat(labelSrc.properties?.label_lon);
+    if (Number.isFinite(labelLat) && Number.isFinite(labelLon)) {
+      labels.push({ id: base, lat: labelLat, lon: labelLon });
+    }
+  };
+
+  groups.forEach((pieces, base) => {
+    // 経度180°の継ぎ目に立つ人工的な縦線は最初に落とす
+    const outline = firOutlineForGroup(base, pieces).filter(s => !firIsSeamSegment(s));
+    if (outline.length === 0) return;
+    const country = firCountryOf(base);
+    if (country && countryCount.get(country) >= 2) {
+      if (!bucketMembers.has(country)) bucketMembers.set(country, []);
+      bucketMembers.get(country).push({ base, outline, pieces });
+      return;
+    }
+    pushIndividual(base, pieces, outline);
+  });
+
+  // 国統合: メンバーの輪郭辺を「ユニオンの内側にあるか」で分類し、
+  // 外枠だけを残す (firUnionCountryOutline)。その後、監査条件に
+  // 抵触する辺を分割除去する (firSplitForUnionAudit)。
+  bucketMembers.forEach((members, country) => {
+    let outline = firUnionCountryOutline(members);
+    outline = firSplitForUnionAudit(members, outline).filter(s => !firIsSeamSegment(s));
+    if (outline.length === 0) return;
+    const bucketName = `${country} (Integrated FIRs)`;
+    features.push({
+      type: 'Feature',
+      properties: { id: bucketName, name: bucketName, oceanic: false },
+      geometry: { type: 'MultiLineString', coordinates: outline }
+    });
+  });
+
+  return { features: { type: 'FeatureCollection', features }, labels };
+};
+
+const getProcessedFirData = () => {
+  if (firProcessedCache) return Promise.resolve(firProcessedCache);
+  if (!firFetchPromise) {
+    firFetchPromise = fetch(FIR_DATA_URL)
+      .then(res => { if (!res.ok) throw new Error(`FIR Fetch Failed: ${res.status}`); return res.json(); })
+      .then(raw => { firProcessedCache = processFirData(raw); return firProcessedCache; })
+      .catch(err => { firFetchPromise = null; console.error('Failed to load FIR data', err); return null; });
+  }
+  return firFetchPromise;
+};
+
+// =========================================================================
 // Weather Radar Map View
 // =========================================================================
 const WeatherRadarMap = ({ 
     navlogData, routeWps, frameIndex, setFrameIndex, isPlaying, setIsPlaying, maxFrames, setMaxFrames,
     deviationNM, setDeviationNM, opacity, setOpacity,
     showHimawari, setShowHimawari, showGoesEast, setShowGoesEast, showGoesWest, setShowGoesWest, showMeteosat, setShowMeteosat,
-    showGlobalIr, setShowGlobalIr, showRadar, setShowRadar, showNavlogRoute, setShowNavlogRoute,
+    showPolar, setShowPolar,
+    showRadar, setShowRadar, showNavlogRoute, setShowNavlogRoute,
     showAirspace, setShowAirspace, showFIR, setShowFIR, safeFrameIndex
 }) => {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const layersRef = useRef({});
   const [isMapLoaded, setIsMapLoaded] = useState(false);
+  const [activeSat, setActiveSat] = useState(() => pickSatelliteForLongitude(135)); // 表示中心の経度から判定した担当衛星
 
   const [rvRadarFrames, setRvRadarFrames] = useState([]);
-  const [rvSatFrames, setRvSatFrames] = useState([]); 
   const [jmaFrames, setJmaFrames] = useState([]);
   const prevRouteStrRef = useRef("");
 
@@ -695,14 +1101,11 @@ const WeatherRadarMap = ({
         .then(data => {
           const host = data.host || 'https://tilecache.rainviewer.com';
           const rFrames = data.radar?.past ? data.radar.past.map(f => ({ ...f, host })) : [];
-          const sFrames = data.satellite?.infrared ? data.satellite.infrared.map(f => ({ ...f, host })) : [];
           setRvRadarFrames(rFrames);
-          setRvSatFrames(sFrames);
           
           try {
               const currentCache = JSON.parse(localStorage.getItem(RDR_CACHE_KEY) || '{}');
               currentCache.rvRadarFrames = rFrames;
-              currentCache.rvSatFrames = sFrames;
               localStorage.setItem(RDR_CACHE_KEY, JSON.stringify(currentCache));
           } catch(e) {}
         }).catch(err => {
@@ -730,7 +1133,6 @@ const WeatherRadarMap = ({
       try {
           const cached = JSON.parse(localStorage.getItem(RDR_CACHE_KEY) || '{}');
           if (cached.rvRadarFrames) setRvRadarFrames(cached.rvRadarFrames);
-          if (cached.rvSatFrames) setRvSatFrames(cached.rvSatFrames);
           if (cached.jmaFrames) setJmaFrames(cached.jmaFrames);
       } catch (e) {}
   }, []);
@@ -751,8 +1153,12 @@ const WeatherRadarMap = ({
   const goesEastLayerRef = useRef(null); 
   const goesWestLayerRef = useRef(null);
   const meteosatLayerRef = useRef(null); 
-  const globalIrLayerRef = useRef(null);
+  const meteosatIodcLayerRef = useRef(null);
+  const polarM01LayerRef = useRef(null);
+  const polarM02LayerRef = useRef(null);
+  const polarM03LayerRef = useRef(null);
   const radarLayerRef = useRef(null);
+  const opacityRef = useRef(opacity); // 地図初期化は初回マウント時の不透明度だけを使い、値の変化では地図を作り直さない
 
   useEffect(() => {
     let isMounted = true;
@@ -767,6 +1173,7 @@ const WeatherRadarMap = ({
         if (isMounted && mapContainerRef.current) {
           if (mapInstanceRef.current) { mapInstanceRef.current.remove(); mapInstanceRef.current = null; }
           const L = window.L;
+          const initialOpacity = opacityRef.current;
           const map = L.map(mapContainerRef.current, { center: [35.0, 135.0], zoom: 3, zoomControl: false, attributionControl: false, worldCopyJump: true });
           L.control.zoom({ position: 'bottomright' }).addTo(map);
 
@@ -784,24 +1191,46 @@ const WeatherRadarMap = ({
           map.createPane('radarPane');
           map.getPane('radarPane').style.zIndex = 300; // レーダーは必ずサテライトの上に描画する
 
+          map.createPane('firPane');
+          map.getPane('firPane').style.zIndex = 350; // FIR境界: サテライト/レーダーより上、ルート等の overlayPane(400) より下
+
           const style = document.createElement('style');
+          style.id = 'rdr-map-custom-styles';
           style.innerHTML = `
-            .yellow-boundaries { filter: invert(100%) sepia(100%) saturate(1000%) hue-rotate(15deg) brightness(1.2); opacity: 0.85; pointer-events: none; }
             .nav-tooltip { background-color: rgba(15, 23, 42, 0.85) !important; border: 1px solid rgba(56, 189, 248, 0.4) !important; color: #e0f2fe !important; font-size: 10px !important; font-weight: bold !important; padding: 2px 6px !important; border-radius: 4px !important; box-shadow: 0 2px 4px rgba(0,0,0,0.5) !important; }
             .airspace-tooltip { background-color: rgba(0, 0, 0, 0.7) !important; border: 1px solid #38bdf8 !important; color: #bae6fd !important; font-size: 10px !important; font-weight: bold !important; padding: 2px 6px !important; border-radius: 4px !important; }
             .airspace-restricted { background-color: rgba(0, 0, 0, 0.7) !important; border: 1px solid #ef4444 !important; color: #fca5a5 !important; font-size: 10px !important; font-weight: bold !important; padding: 2px 6px !important; border-radius: 4px !important; }
             .fir-tooltip { background-color: rgba(255, 255, 255, 0.8) !important; border: 1px solid #f97316 !important; color: #c2410c !important; font-size: 10px !important; font-weight: bold !important; padding: 2px 6px !important; border-radius: 4px !important; }
+            .fir-label-icon { background: transparent !important; border: none !important; pointer-events: none !important; }
+            .fir-label-text { display: block; transform: translate(-50%, -50%); font-size: 9px; font-weight: bold; letter-spacing: 0.08em; color: #ffedd5; text-shadow: 0 0 3px rgba(0,0,0,0.95), 0 0 3px rgba(0,0,0,0.95), 1px 0 2px rgba(0,0,0,0.9), -1px 0 2px rgba(0,0,0,0.9); white-space: nowrap; }
           `;
-          document.head.appendChild(style);
+          if (!document.getElementById('rdr-map-custom-styles')) document.head.appendChild(style);
 
           const errImg = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
           
-          meteosatLayerRef.current = L.tileLayer.wms('https://view.eumetsat.int/geoserver/ows', { layers: 'msg_fes:ir108,msg_iodc:ir108', format: 'image/png', transparent: true, version: '1.3.0', opacity: opacity, pane: 'satellitePane' }).addTo(map);
-          goesEastLayerRef.current = L.tileLayer(errImg, { opacity: opacity, maxNativeZoom: 5, maxZoom: 16, noWrap: false, errorTileUrl: errImg, pane: 'satellitePane' }).addTo(map);
-          goesWestLayerRef.current = L.tileLayer(errImg, { opacity: opacity, maxNativeZoom: 5, maxZoom: 16, noWrap: false, errorTileUrl: errImg, pane: 'satellitePane', keepBuffer: 16 }).addTo(map);
-          himawariLayerRef.current = L.tileLayer(errImg, { opacity: opacity, minZoom: 3, maxNativeZoom: 5, maxZoom: 16, noWrap: false, errorTileUrl: errImg, pane: 'satellitePane', keepBuffer: 16 }).addTo(map);
-          globalIrLayerRef.current = L.tileLayer(errImg, { opacity: opacity, maxNativeZoom: 5, maxZoom: 16, noWrap: false, errorTileUrl: errImg, pane: 'satellitePane', keepBuffer: 16 }).addTo(map);
-          radarLayerRef.current = L.tileLayer(errImg, { opacity: opacity, maxZoom: 16, noWrap: false, errorTileUrl: errImg, pane: 'radarPane' }).addTo(map);
+          // 各静止衛星レイヤーには担当経度範囲 (bounds) を付け、その範囲外ではタイルを取得しない。
+          // これにより、円盤の縁で強く歪んだ他衛星の画像が重なって表示されなくなる。
+          meteosatLayerRef.current = L.tileLayer.wms(EUMETSAT_WMS_URL, { ...buildMeteosatWmsParams('meteosat-fes'), opacity: initialOpacity, pane: 'satellitePane', bounds: latLngBoundsForSatellite(L, 'meteosat-fes') }).addTo(map);
+          meteosatIodcLayerRef.current = L.tileLayer.wms(EUMETSAT_WMS_URL, { ...buildMeteosatWmsParams('meteosat-iodc'), opacity: initialOpacity, pane: 'satellitePane', bounds: latLngBoundsForSatellite(L, 'meteosat-iodc') }).addTo(map);
+          goesEastLayerRef.current = L.tileLayer(errImg, { opacity: initialOpacity, maxNativeZoom: 7, maxZoom: 16, noWrap: false, errorTileUrl: errImg, pane: 'satellitePane', bounds: latLngBoundsForSatellite(L, 'goes-east') }).addTo(map);
+          goesWestLayerRef.current = L.tileLayer(errImg, { opacity: initialOpacity, maxNativeZoom: 7, maxZoom: 16, noWrap: false, errorTileUrl: errImg, pane: 'satellitePane', keepBuffer: 16, bounds: latLngBoundsForSatellite(L, 'goes-west') }).addTo(map);
+          himawariLayerRef.current = L.tileLayer(errImg, { opacity: initialOpacity, minZoom: 3, maxNativeZoom: 5, maxZoom: 16, noWrap: false, errorTileUrl: errImg, pane: 'satellitePane', keepBuffer: 16, bounds: latLngBoundsForSatellite(L, 'himawari') }).addTo(map);
+
+          // POLAR: 極軌道衛星 Metop の AVHRR 赤外 (IR10.8)。静止衛星は高緯度で円盤の縁になり使い物に
+          // ならないため、グリーンランド等の極域はこのレイヤーで見る。Meteosat と同じ EUMETSAT WMS
+          // から Metop 3機分を重ね描きし (軌道の隙間は透過になる)、GEO 画像より上に来るよう最後に追加する。
+          polarM01LayerRef.current = L.tileLayer.wms(EUMETSAT_WMS_URL, { layers: 'eps:m01_ir108', format: 'image/png', transparent: true, version: '1.3.0', opacity: initialOpacity, pane: 'satellitePane', attribution: 'EUMETSAT Metop AVHRR IR10.8' }).addTo(map);
+          polarM02LayerRef.current = L.tileLayer.wms(EUMETSAT_WMS_URL, { layers: 'eps:m02_ir108', format: 'image/png', transparent: true, version: '1.3.0', opacity: initialOpacity, pane: 'satellitePane', attribution: 'EUMETSAT Metop AVHRR IR10.8' }).addTo(map);
+          polarM03LayerRef.current = L.tileLayer.wms(EUMETSAT_WMS_URL, { layers: 'eps:m03_ir108', format: 'image/png', transparent: true, version: '1.3.0', opacity: initialOpacity, pane: 'satellitePane', attribution: 'EUMETSAT Metop AVHRR IR10.8' }).addTo(map);
+
+          // 表示中心の経度から「その場所を担当する衛星 (直下点が最も近い衛星)」を自動判定し、情報パネルに表示する
+          const updateActiveSat = () => {
+              const sat = pickSatelliteForLongitude(map.getCenter().lng);
+              setActiveSat(prev => (prev && prev.id === sat.id ? prev : sat));
+          };
+          map.on('moveend', updateActiveSat);
+          updateActiveSat();
+          radarLayerRef.current = L.tileLayer(errImg, { opacity: initialOpacity, maxZoom: 16, noWrap: false, errorTileUrl: errImg, pane: 'radarPane' }).addTo(map);
 
           setIsMapLoaded(true);
         }
@@ -809,19 +1238,18 @@ const WeatherRadarMap = ({
     };
     loadLeaflet();
     return () => { isMounted = false; if (mapInstanceRef.current) { mapInstanceRef.current.remove(); mapInstanceRef.current = null; } };
-  }, [opacity]); 
+  }, []); 
 
   useEffect(() => {
       let activeLengths = [];
       if (showHimawari && jmaFrames.length > 0) activeLengths.push(jmaFrames.length);
-      if (showGlobalIr && rvSatFrames.length > 0) activeLengths.push(rvSatFrames.length);
       if (showRadar && rvRadarFrames.length > 0) activeLengths.push(rvRadarFrames.length);
       
       const mFrames = activeLengths.length > 0 ? Math.max(...activeLengths, 1) : 1;
       setMaxFrames(mFrames);
       setFrameIndex(mFrames - 1);
       setIsPlaying(false);
-  }, [showHimawari, showGlobalIr, showRadar, jmaFrames.length, rvSatFrames.length, rvRadarFrames.length, setMaxFrames, setFrameIndex, setIsPlaying]);
+  }, [showHimawari, showRadar, jmaFrames.length, rvRadarFrames.length, setMaxFrames, setFrameIndex, setIsPlaying]);
 
   const getLayerFrameIndex = (layerFramesLength) => {
       if (layerFramesLength <= 1 || maxFrames <= 1) return layerFramesLength - 1;
@@ -840,41 +1268,51 @@ const WeatherRadarMap = ({
 
   useEffect(() => {
     if (!isMapLoaded || !himawariLayerRef.current || !window.L) return;
+    opacityRef.current = opacity;
     const errImg = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
 
-    // 1. HIMAWARI パスの修正 (SND/ETC で拡張子 jpg。カラーの雲頂強調画像になります。経度の途切れ回避のためboundsは除去済)
+    // 1. HIMAWARI (SND/ETC, jpg。カラーの雲頂強調画像。タイル取得は生成時の bounds で担当範囲内に制限)
     let himawariUrl = errImg;
     if (showHimawari && jmaFrames.length > 0) {
         const frame = jmaFrames[Math.max(0, Math.min(getLayerFrameIndex(jmaFrames.length), jmaFrames.length - 1))];
-        if (frame?.basetime && frame?.validtime) himawariUrl = `https://www.jma.go.jp/bosai/himawari/data/satimg/${frame.basetime}/fd/${frame.validtime}/SND/ETC/{z}/{x}/{y}.jpg`;
+        const builtHimawariUrl = buildHimawariTileUrl(frame); if (builtHimawariUrl) himawariUrl = builtHimawariUrl;
     }
     if (himawariLayerRef.current._url !== himawariUrl) himawariLayerRef.current.setUrl(himawariUrl);
     himawariLayerRef.current.setOpacity(showHimawari ? opacity : 0);
 
     let goesEastUrl = errImg;
-    if (showGoesEast) goesEastUrl = `https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/goes-ir-4km-900913/{z}/{x}/{y}.png`;
+    if (showGoesEast) goesEastUrl = buildGoesTileUrl('goes-east');
     if (goesEastLayerRef.current._url !== goesEastUrl) goesEastLayerRef.current.setUrl(goesEastUrl);
     goesEastLayerRef.current.setOpacity(showGoesEast ? opacity : 0);
 
     // 2. GOES-W を安定したXYZのフルディスクに変更 (扇形回避、極点の過度な歪みはカット)
     let goesWestUrl = errImg;
-    if (showGoesWest) goesWestUrl = `https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/goes-west-ir-4km-900913/{z}/{x}/{y}.png`;
+    if (showGoesWest) goesWestUrl = buildGoesTileUrl('goes-west');
     if (goesWestLayerRef.current._url !== goesWestUrl) goesWestLayerRef.current.setUrl(goesWestUrl);
     goesWestLayerRef.current.setOpacity(showGoesWest ? opacity : 0);
 
     meteosatLayerRef.current.setOpacity(showMeteosat ? opacity : 0);
-
-    // 3. GLOBAL IR: 安定取得可能なデフォルトスキーム "0/0_0.png" に修正
-    let globalIrUrl = errImg;
-    if (showGlobalIr && rvSatFrames.length > 0) {
-        const idx = getLayerFrameIndex(rvSatFrames.length);
-        if (idx >= 0 && idx < rvSatFrames.length) {
-            const frame = rvSatFrames[idx];
-            if (frame) globalIrUrl = `${frame.host}${frame.path}/256/{z}/{x}/{y}/0/0_0.png`;
-        }
+    if (meteosatIodcLayerRef.current) meteosatIodcLayerRef.current.setOpacity(showMeteosat ? opacity : 0);
+    // Meteosat (WMS) は非表示でもタイル取得が続くため、OFF時はレイヤー自体を地図から外して通信を止める
+    if (mapInstanceRef.current) {
+      [meteosatLayerRef.current, meteosatIodcLayerRef.current].forEach(l => {
+        if (!l) return;
+        if (showMeteosat && !mapInstanceRef.current.hasLayer(l)) l.addTo(mapInstanceRef.current);
+        if (!showMeteosat && mapInstanceRef.current.hasLayer(l)) mapInstanceRef.current.removeLayer(l);
+      });
     }
-    if (globalIrLayerRef.current._url !== globalIrUrl) globalIrLayerRef.current.setUrl(globalIrUrl);
-    globalIrLayerRef.current.setOpacity(showGlobalIr ? opacity : 0);
+
+    // POLAR (Metop AVHRR, WMS) も Meteosat と同様に最新画像のみ。OFF時はレイヤー自体を外して通信を止める
+    [polarM01LayerRef.current, polarM02LayerRef.current, polarM03LayerRef.current].forEach(l => {
+      if (l) l.setOpacity(showPolar ? opacity : 0);
+    });
+    if (mapInstanceRef.current) {
+      [polarM01LayerRef.current, polarM02LayerRef.current, polarM03LayerRef.current].forEach(l => {
+        if (!l) return;
+        if (showPolar && !mapInstanceRef.current.hasLayer(l)) l.addTo(mapInstanceRef.current);
+        if (!showPolar && mapInstanceRef.current.hasLayer(l)) mapInstanceRef.current.removeLayer(l);
+      });
+    }
 
     let radarUrl = errImg;
     if (showRadar && rvRadarFrames.length > 0) {
@@ -886,7 +1324,7 @@ const WeatherRadarMap = ({
     }
     if (radarLayerRef.current._url !== radarUrl) radarLayerRef.current.setUrl(radarUrl);
     radarLayerRef.current.setOpacity(showRadar ? opacity : 0);
-  }, [isMapLoaded, frameIndex, safeFrameIndex, opacity, showHimawari, showGoesEast, showGoesWest, showMeteosat, showGlobalIr, showRadar, jmaFrames, rvSatFrames, rvRadarFrames, maxFrames]);
+  }, [isMapLoaded, frameIndex, safeFrameIndex, opacity, showHimawari, showGoesEast, showGoesWest, showMeteosat, showPolar, showRadar, jmaFrames, rvRadarFrames, maxFrames]);
 
   useEffect(() => {
     if (!isMapLoaded || !mapInstanceRef.current || !window.L) return;
@@ -984,162 +1422,79 @@ const WeatherRadarMap = ({
     if (!isMapLoaded || !mapInstanceRef.current || !window.L) return;
     const L = window.L;
     const map = mapInstanceRef.current;
+    let cancelled = false;
 
     if (layersRef.current.firGroup) {
       map.removeLayer(layersRef.current.firGroup);
       layersRef.current.firGroup = null;
     }
+    if (layersRef.current.firLabelGroup) {
+      map.removeLayer(layersRef.current.firLabelGroup);
+      layersRef.current.firLabelGroup = null;
+    }
 
     if (!showFIR) return;
+
+    // FIR専用Pane (zIndex 350): サテライト(250)/レーダー(300)より上、
+    // ルートや空域が載る overlayPane(400) より下に固定する
     const firGroup = L.layerGroup();
     layersRef.current.firGroup = firGroup;
     firGroup.addTo(map);
+    const firLabelGroup = L.layerGroup();
+    layersRef.current.firLabelGroup = firLabelGroup;
 
-    const loadFIRs = async () => {
-        try {
-            const res = await fetch('https://cdn.jsdelivr.net/gh/vatsimnetwork/vatspy-data-project@master/Boundaries.geojson');
-            if (!res.ok) { console.warn(`FIR Fetch Failed: ${res.status}`); return; }
-            
-            const rawData = await res.json();
-            
-            const usFeatures = [];
-            const cnFeatures = [];
-            const auFeatures = [];
-            const ruFeatures = [];
-            const caFeatures = [];
-            const regularFeatures = [];
-
-            rawData.features.forEach(f => {
-                const id = f.properties?.id || '';
-                if (id.length !== 4) return;
-
-                if (id.startsWith('K') || ['PAZA', 'PHZH', 'TJZS', 'KZAK'].includes(id)) usFeatures.push(f);
-                else if (id.startsWith('Z')) cnFeatures.push(f);
-                else if (id.startsWith('Y')) auFeatures.push(f);
-                else if (['UU', 'UN', 'UR', 'US', 'UH', 'UL', 'UE', 'UI'].some(prefix => id.startsWith(prefix))) ruFeatures.push(f);
-                else if (id.startsWith('C')) caFeatures.push(f);
-                else regularFeatures.push(f);
-            });
-
-            const extractOutline = (features) => {
-                const edgeCount = new Map();
-                features.forEach(f => {
-                    const processRing = (ring) => {
-                        let offset = 0;
-                        const pts = ring.map((pt, i) => {
-                            if (i > 0) {
-                                let prevLon = ring[i-1][0];
-                                let lon = pt[0] + offset;
-                                if (lon - prevLon > 180) { offset -= 360; lon -= 360; }
-                                else if (prevLon - lon > 180) { offset += 360; lon += 360; }
-                                return [lon, pt[1]];
-                            }
-                            return [pt[0], pt[1]];
-                        });
-
-                        for (let i = 0; i < pts.length - 1; i++) {
-                            const pt1 = pts[i];
-                            const pt2 = pts[i+1];
-                            const lon1 = pt1[0] % 360;
-                            const lon2 = pt2[0] % 360;
-                            if (Math.abs(Math.abs(lon1) - 180) < 0.1 && Math.abs(Math.abs(lon2) - 180) < 0.1 && Math.abs(lon1 - lon2) < 0.1) continue;
-                            
-                            const k1 = `${pt1[0].toFixed(2)},${pt1[1].toFixed(2)}`;
-                            const k2 = `${pt2[0].toFixed(2)},${pt2[1].toFixed(2)}`;
-                            if (k1 === k2) continue;
-                            
-                            const key = k1 < k2 ? `${k1}|${k2}` : `${k2}|${k1}`;
-                            if (edgeCount.has(key)) edgeCount.get(key).count++;
-                            else edgeCount.set(key, { pt1, pt2, count: 1 });
-                        }
-                    };
-                    if (f.geometry.type === 'Polygon') f.geometry.coordinates.forEach(processRing);
-                    else if (f.geometry.type === 'MultiPolygon') f.geometry.coordinates.forEach(p => p.forEach(processRing));
-                });
-                const outlineLines = [];
-                edgeCount.forEach(val => { if (val.count === 1) outlineLines.push([val.pt1, val.pt2]); });
-                return outlineLines;
-            };
-
-            const finalFeatures = [];
-            regularFeatures.forEach(f => {
-                const multiLines = [];
-                const processRing = (ring) => {
-                    let offset = 0;
-                    const pts = ring.map((pt, i) => {
-                        if (i > 0) {
-                            let prevLon = ring[i-1][0];
-                            let lon = pt[0] + offset;
-                            if (lon - prevLon > 180) { offset -= 360; lon -= 360; }
-                            else if (prevLon - lon > 180) { offset += 360; lon += 360; }
-                            return [lon, pt[1]];
-                        }
-                        return [pt[0], pt[1]];
-                    });
-
-                    let currentLine = [];
-                    for (let i = 0; i < pts.length - 1; i++) {
-                        const pt1 = pts[i];
-                        const pt2 = pts[i+1];
-                        currentLine.push(pt1);
-                        const lon1 = pt1[0] % 360;
-                        const lon2 = pt2[0] % 360;
-                        if (Math.abs(Math.abs(lon1) - 180) < 0.1 && Math.abs(Math.abs(lon2) - 180) < 0.1 && Math.abs(lon1 - lon2) < 0.1) {
-                            if (currentLine.length > 1) multiLines.push(currentLine);
-                            currentLine = [];
-                        }
-                    }
-                    if (currentLine.length > 0) {
-                        currentLine.push(pts[pts.length - 1]);
-                        if (currentLine.length > 1) multiLines.push(currentLine);
-                    }
-                };
-                if (f.geometry.type === 'Polygon') f.geometry.coordinates.forEach(processRing);
-                else if (f.geometry.type === 'MultiPolygon') f.geometry.coordinates.forEach(p => p.forEach(processRing));
-
-                finalFeatures.push({
-                    type: 'Feature', properties: f.properties,
-                    geometry: { type: 'MultiLineString', coordinates: multiLines }
-                });
-            });
-
-            const usLines = extractOutline(usFeatures);
-            const cnLines = extractOutline(cnFeatures);
-            const auLines = extractOutline(auFeatures);
-            const ruLines = extractOutline(ruFeatures);
-            const caLines = extractOutline(caFeatures);
-
-            if (usLines.length > 0) finalFeatures.push({ type: 'Feature', properties: { name: 'United States (Integrated FIRs)' }, geometry: { type: 'MultiLineString', coordinates: usLines } });
-            if (cnLines.length > 0) finalFeatures.push({ type: 'Feature', properties: { name: 'China (Integrated FIRs)' }, geometry: { type: 'MultiLineString', coordinates: cnLines } });
-            if (auLines.length > 0) finalFeatures.push({ type: 'Feature', properties: { name: 'Australia (Integrated FIRs)' }, geometry: { type: 'MultiLineString', coordinates: auLines } });
-            if (ruLines.length > 0) finalFeatures.push({ type: 'Feature', properties: { name: 'Russia (Integrated FIRs)' }, geometry: { type: 'MultiLineString', coordinates: ruLines } });
-            if (caLines.length > 0) finalFeatures.push({ type: 'Feature', properties: { name: 'Canada (Integrated FIRs)' }, geometry: { type: 'MultiLineString', coordinates: caLines } });
-
-            const geoJsonData = { type: 'FeatureCollection', features: finalFeatures };
-
-            const firStyle = (feature) => {
-                const isOceanic = feature.properties?.name?.toLowerCase().includes('oceanic') || feature.properties?.name?.toLowerCase().includes('pacific');
-                return { color: '#f97316', weight: isOceanic ? 2.0 : 1.0, fillOpacity: 0 };
-            };
-
-            const createGeoJSON = (offsetLng) => {
-                return L.geoJSON(geoJsonData, {
-                    coordsToLatLng: (coords) => new L.LatLng(coords[1], coords[0] + offsetLng),
-                    style: firStyle,
-                    onEachFeature: (feature, layer) => {
-                        const name = feature.properties?.name || feature.properties?.id;
-                        if (name && !name.includes('Integrated FIRs')) layer.bindTooltip(name, { sticky: true, className: 'fir-tooltip' });
-                    }
-                });
-            };
-
-            firGroup.addLayer(createGeoJSON(0));
-            firGroup.addLayer(createGeoJSON(360));
-            firGroup.addLayer(createGeoJSON(-360));
-
-        } catch (err) { console.error("Failed to load FIR data", err); }
+    // FIR名ラベルは混雑を避けるためズーム5以上でのみ表示する
+    const updateFirLabels = () => {
+      if (map.getZoom() >= 5) {
+        if (!map.hasLayer(firLabelGroup)) firLabelGroup.addTo(map);
+      } else if (map.hasLayer(firLabelGroup)) {
+        map.removeLayer(firLabelGroup);
+      }
     };
-    loadFIRs();
+    map.on('zoomend', updateFirLabels);
+
+    getProcessedFirData().then(data => {
+      if (cancelled || !data) return;
+      // 大量の線はSVGではなくCanvasで描く (タブレットでの描画負荷対策)
+      const renderer = L.canvas({ pane: 'firPane', padding: 0.5 });
+      // 下地 (暗色の太線) + 本線 (橙) の二重描きで、白い雲・暗い海の両方で読めるようにする
+      const casingStyle = (feature) => ({
+        color: '#0f172a', weight: feature.properties?.oceanic ? 6 : 5, opacity: 0.45, lineCap: 'round', lineJoin: 'round'
+      });
+      const coreStyle = (feature) => ({
+        color: '#fb923c', weight: feature.properties?.oceanic ? 2.75 : 2, opacity: 0.95, lineCap: 'round', lineJoin: 'round'
+      });
+      const createGeoJSON = (offsetLng, style, interactive) => L.geoJSON(data.features, {
+        pane: 'firPane',
+        renderer,
+        coordsToLatLng: (coords) => new L.LatLng(coords[1], coords[0] + offsetLng),
+        style,
+        interactive,
+        onEachFeature: interactive ? (feature, layer) => {
+          const name = feature.properties?.name || feature.properties?.id;
+          if (name && !name.includes('Integrated FIRs')) layer.bindTooltip(name, { sticky: true, className: 'fir-tooltip' });
+        } : undefined
+      });
+      [0, 360, -360].forEach(offsetLng => {
+        firGroup.addLayer(createGeoJSON(offsetLng, casingStyle, false));
+        firGroup.addLayer(createGeoJSON(offsetLng, coreStyle, true));
+      });
+      data.labels.forEach(({ id, lat, lon }) => {
+        firLabelGroup.addLayer(L.marker([lat, lon], {
+          pane: 'firPane',
+          interactive: false,
+          keyboard: false,
+          icon: L.divIcon({ className: 'fir-label-icon', html: `<span class="fir-label-text">${id}</span>`, iconSize: null })
+        }));
+      });
+      updateFirLabels();
+    });
+
+    return () => {
+      cancelled = true;
+      map.off('zoomend', updateFirLabels);
+      if (map.hasLayer(firLabelGroup)) map.removeLayer(firLabelGroup);
+    };
   }, [isMapLoaded, showFIR]);
 
   let currentTimeLabel = "LIVE";
@@ -1150,7 +1505,7 @@ const WeatherRadarMap = ({
   if (showGoesEast) layerNames.push("GOES-E");
   if (showGoesWest) layerNames.push("GOES-W");
   if (showMeteosat) layerNames.push("METEOSAT");
-  if (showGlobalIr) layerNames.push("GLOBAL IR");
+  if (showPolar) layerNames.push("POLAR");
   if (showRadar) layerNames.push("RADAR");
 
   if (layerNames.length > 0) {
@@ -1160,9 +1515,6 @@ const WeatherRadarMap = ({
   if (showHimawari && jmaFrames.length > 0) {
       const idx = Math.max(0, Math.min(getLayerFrameIndex(jmaFrames.length), jmaFrames.length - 1));
       if (jmaFrames[idx]) currentTimeLabel = formatJmaTime(jmaFrames[idx].validtime || jmaFrames[idx].basetime);
-  } else if (showGlobalIr && rvSatFrames.length > 0) {
-      const idx = Math.max(0, Math.min(getLayerFrameIndex(rvSatFrames.length), rvSatFrames.length - 1));
-      if (rvSatFrames[idx]) currentTimeLabel = formatRvTime(rvSatFrames[idx].time);
   } else if (showRadar && rvRadarFrames.length > 0) {
        const idx = Math.max(0, Math.min(getLayerFrameIndex(rvRadarFrames.length), rvRadarFrames.length - 1));
        if (rvRadarFrames[idx]) currentTimeLabel = formatRvTime(rvRadarFrames[idx].time);
@@ -1178,6 +1530,8 @@ const WeatherRadarMap = ({
             <span className="text-[10px] bg-sky-950 border border-sky-800 text-sky-300 px-1.5 py-0.5 rounded ml-2">{currentTimeLabel}</span>
           </div>
           <div className="leading-tight">{activeLayerName}</div>
+          <div className="leading-tight border-t border-slate-800 pt-1 mt-1">AUTO SAT: <span className="text-sky-300 font-bold">{activeSat.shortLabel}</span> <span className="text-slate-400">({activeSat.satellite} / {activeSat.subLon}&deg;)</span></div>
+          <div className="text-[10px] text-slate-500 leading-tight">{activeSat.attribution} — {activeSat.product}</div>
           {navlogData && (navlogData.fNo || navlogData.depIcao || navlogData.destIcao) && (
             <div className="text-amber-300 font-bold border-t border-slate-800 pt-2 mt-2 flex justify-between gap-4">
               <span>{navlogData.fNo || 'ROUTE'} : {navlogData.depIcao || 'DEP'} &rarr; {navlogData.destIcao || 'ARR'}</span>
@@ -1206,7 +1560,7 @@ export const WeatherRadarView = ({ navlogData }) => {
     const [showGoesEast, setShowGoesEast] = useState(true); 
     const [showGoesWest, setShowGoesWest] = useState(true); 
     const [showMeteosat, setShowMeteosat] = useState(true); 
-    const [showGlobalIr, setShowGlobalIr] = useState(false); 
+    const [showPolar, setShowPolar] = useState(true);
     const [showRadar, setShowRadar] = useState(true);
     const [showNavlogRoute, setShowNavlogRoute] = useState(true);
     const [showAirspace, setShowAirspace] = useState(true);
@@ -1225,6 +1579,15 @@ export const WeatherRadarView = ({ navlogData }) => {
         setToastData({ message, visible: true });
         setTimeout(() => setToastData({ message: '', visible: false }), 4000);
     }, []);
+
+    // MAPアニメーション再生: isPlaying の間はフレームを自動で進める (従来は再生ボタンが状態を変えるだけで進まなかった)
+    useEffect(() => {
+        if (!isPlaying || maxFrames <= 1) return;
+        const id = setInterval(() => {
+            setFrameIndex(prev => (prev + 1) % maxFrames);
+        }, 700);
+        return () => clearInterval(id);
+    }, [isPlaying, maxFrames]);
 
     // Parse navlogData to generate route geometry with flight levels
     useEffect(() => {
@@ -1459,7 +1822,7 @@ export const WeatherRadarView = ({ navlogData }) => {
                         <label className="flex items-center gap-1 cursor-pointer select-none text-slate-300 hover:text-white"><input type="checkbox" checked={showGoesEast} onChange={(e) => setShowGoesEast(e.target.checked)} className="accent-sky-500 rounded" /><span>GOES-E</span></label>
                         <label className="flex items-center gap-1 cursor-pointer select-none text-slate-300 hover:text-white"><input type="checkbox" checked={showGoesWest} onChange={(e) => setShowGoesWest(e.target.checked)} className="accent-sky-500 rounded" /><span>GOES-W</span></label>
                         <label className="flex items-center gap-1 cursor-pointer select-none text-slate-300 hover:text-white"><input type="checkbox" checked={showMeteosat} onChange={(e) => setShowMeteosat(e.target.checked)} className="accent-sky-500 rounded" /><span>METEOSAT</span></label>
-                        <label className="flex items-center gap-1 cursor-pointer select-none text-slate-300 hover:text-white border-l border-slate-600 pl-2" title="RainViewer Global IR"><input type="checkbox" checked={showGlobalIr} onChange={(e) => setShowGlobalIr(e.target.checked)} className="accent-sky-500 rounded" /><span className="font-bold text-sky-200">GLOBAL IR</span></label>
+                        <label className="flex items-center gap-1 cursor-pointer select-none text-slate-300 hover:text-white"><input type="checkbox" checked={showPolar} onChange={(e) => setShowPolar(e.target.checked)} className="accent-sky-500 rounded" /><span>POLAR</span></label>
                         <label className="flex items-center gap-1 cursor-pointer select-none text-slate-300 hover:text-white border-l border-slate-600 pl-2"><input type="checkbox" checked={showRadar} onChange={(e) => setShowRadar(e.target.checked)} className="accent-sky-500 rounded" /><span>RADAR</span></label>
                         <label className="flex items-center gap-1 cursor-pointer select-none text-slate-300 hover:text-white border-l border-slate-600 pl-2"><input type="checkbox" checked={showNavlogRoute} onChange={(e) => setShowNavlogRoute(e.target.checked)} className="accent-sky-500 rounded" /><span className="font-bold text-sky-400">Route</span></label>
                         <label className="flex items-center gap-1 cursor-pointer select-none text-slate-300 hover:text-white border-l border-slate-600 pl-2"><input type="checkbox" checked={showAirspace} onChange={(e) => setShowAirspace(e.target.checked)} className="accent-rose-500 rounded" /><span className="font-bold text-rose-400">空域(R/T/W)</span></label>
@@ -1506,8 +1869,8 @@ export const WeatherRadarView = ({ navlogData }) => {
                         setShowGoesWest={setShowGoesWest}
                         showMeteosat={showMeteosat}
                         setShowMeteosat={setShowMeteosat}
-                        showGlobalIr={showGlobalIr}
-                        setShowGlobalIr={setShowGlobalIr}
+                        showPolar={showPolar}
+                        setShowPolar={setShowPolar}
                         showRadar={showRadar}
                         setShowRadar={setShowRadar}
                         showNavlogRoute={showNavlogRoute}
