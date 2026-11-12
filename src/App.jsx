@@ -1,7 +1,8 @@
+// App-7.jsx — 2026-11-13 (App-6.jsx + SKEW-T ハンドラ v2: pdf-lib で PDF を直接生成、印刷ウィンドウ廃止)
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import * as LucideIcons from 'lucide-react';
 
-const APP_VERSION = "13.1"; 
+const APP_VERSION = "13.2"; 
 
 import { RAW_CSV_DATA, aircraftRegistrationList, BUDDYCOM_LINKS } from './data/flightData';
 import { aircraftPerformanceData, defaultCruiseWeights, defaultLandingWeights, modelKeyMap, AIRCRAFT_DIMENSIONS, SEAT_DATA, CRUISE_PERF_DATA, VREF_DATA, HOLD_SPD_DATA_RAW, MANEUVER_1_3G_MACH_DATA, TARGET_PITCH_N1_DATA_RAW, LANDING_DIST_DATA_RAW, B777_WIND_LIMITS, MAX_MAN_DATA } from './data/perfData';
@@ -1112,56 +1113,20 @@ export default function App() {
         return;
     }
 
-    // SKEW-T レポート用のHTML文字列を作成 (従来と同じ印刷ウィンドウ方式)
-    // ページ画像そのものにタイトル等が入っているため、印刷HTMLは画像だけを
-    // 並べる。余分な見出しや余白を置くと空白ページの原因になる。
-    // A4縦の印刷可能領域 (198x285mm, 比率 1.4394) に対し画像の比率は
-    // 2480/1754 = 1.4139 なので、幅100%で高さも1ページに収まる。
-    let htmlContent = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>SKEW-T Report - ${flightId ? 'ANA' + flightId : 'Flight'}</title>
-        <style>
-            @page { size: A4 portrait; margin: 6mm; }
-            html, body { margin: 0; padding: 0; background-color: white; }
-            .page { break-after: page; break-inside: avoid; }
-            .page:last-child { break-after: auto; }
-            .page img { display: block; width: 100%; height: auto; }
-        </style>
-    </head>
-    <body>
-    `;
-
-    pageImages.forEach((page) => {
-        htmlContent += `
-        <div class="page"><img src="${page.dataUrl}" alt="SKEW-T ${page.wp.wp}" /></div>
-        `;
-    });
-
-    htmlContent += `
-        <script>
-            window.onload = function() {
-                // 大きなPNGデータURLはデコードに時間がかかることがある。
-                // 全画像のデコード完了を待ってから印刷する (デコード前の
-                // 画像は空白ページとして印刷されてしまうため)。
-                var imgs = Array.prototype.slice.call(document.images || []);
-                var waits = imgs.map(function(img) {
-                    if (img.decode) return img.decode().catch(function() {});
-                    return new Promise(function(resolve) {
-                        if (img.complete) { resolve(); return; }
-                        img.onload = img.onerror = function() { resolve(); };
-                    });
-                });
-                Promise.all(waits).then(function() {
-                    setTimeout(function() { window.print(); }, 100);
-                });
-            };
-        </script>
-    </body>
-    </html>
-    `;
-
+    // ---- PDF を pdf-lib で直接組み立てる (2026-11-13 ハンドラ v2) ----------
+    // 旧方式は印刷用 HTML をポップアップ (window.open) に流し込み、その自動
+    // 印刷で PDF 化していたが、iPad では2つの問題が出た:
+    //  (1) ページ数が倍になる: iOS Safari の印刷は @page { margin: 6mm } を
+    //      前提にした寸法では改ページせず、自前の印刷可能領域を使うため、
+    //      幅100%にした画像の高さが僅かにはみ出し、画像下端の細片だけの
+    //      ページが1地点ごとに挟まった (実測: 28地点→56ページ)。
+    //  (2) 印刷ウィンドウが消せない: スタンドアロン PWA では window.open が
+    //      アプリの上に被さるシートになり、閉じる手段がなく、アプリを
+    //      終了しないと元の画面に戻れなかった。
+    // そこで pdf-lib で A4縦・1地点1ページの PDF をその場で組み立て、
+    // 共有シート (navigator.share) またはダウンロードで渡す方式に変更した。
+    // ページ数は地点数と必ず一致し、ポップアップも印刷も使わない。
+    // pdf-lib の読み込みは NavlogView の EXPORT と同じ CDN 遅延ロード方式。
     setSkewTProgress(null); // 進捗終了
 
     // 省略した地点があれば、無言にせず完了時に知らせる
@@ -1171,13 +1136,79 @@ export default function App() {
         }));
     }
 
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-        printWindow.document.open();
-        printWindow.document.write(htmlContent);
-        printWindow.document.close();
-    } else {
-        window.dispatchEvent(new CustomEvent('show-toast', { detail: 'ポップアップがブロックされました。ブラウザの設定を確認してください。' }));
+    const pdfFileName = `SKEW-T_Report_-_${flightId ? 'ANA' + flightId : 'Flight'}.pdf`;
+
+    const loadPdfLib = () => new Promise((resolve, reject) => {
+        if (window.PDFLib) { resolve(window.PDFLib); return; }
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js';
+        script.onload = () => resolve(window.PDFLib);
+        script.onerror = () => reject(new Error('pdf-lib の読み込みに失敗しました'));
+        document.head.appendChild(script);
+    });
+
+    const dataUrlToBytes = (dataUrl) => {
+        const bin = atob(dataUrl.split(',')[1]);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        return bytes;
+    };
+
+    try {
+        const { PDFDocument } = await loadPdfLib();
+        const pdfDoc = await PDFDocument.create();
+        pdfDoc.setTitle(`SKEW-T Report - ${flightId ? 'ANA' + flightId : 'Flight'}`);
+        // A4縦 (595.28 x 841.89 pt)、余白 6mm = 17.01 pt
+        const PAGE_W = 595.28;
+        const PAGE_H = 841.89;
+        const MARGIN = 17.01;
+        const contentW = PAGE_W - MARGIN * 2;
+        const contentH = PAGE_H - MARGIN * 2;
+        for (const page of pageImages) {
+            const png = await pdfDoc.embedPng(dataUrlToBytes(page.dataUrl));
+            // 画像 (1754x2480) を余白内に収まるよう等比縮小する。幅基準では
+            // 561.26 x 793.66 pt となり、高さ上限 807.87 pt にも余裕で収まる。
+            const scale = Math.min(contentW / png.width, contentH / png.height);
+            const drawW = png.width * scale;
+            const drawH = png.height * scale;
+            const pdfPage = pdfDoc.addPage([PAGE_W, PAGE_H]);
+            pdfPage.drawImage(png, {
+                x: (PAGE_W - drawW) / 2,
+                y: PAGE_H - MARGIN - drawH,
+                width: drawW,
+                height: drawH,
+            });
+        }
+        const pdfBytes = await pdfDoc.save();
+        const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' });
+
+        // 渡し方: まず共有シート (iPad では「ファイルに保存」等が選べる)。
+        // ユーザー操作の有効期限切れなどで共有が使えない場合は
+        // ダウンロードに自動で切り替える。キャンセル時は切り替えない。
+        let delivered = false;
+        try {
+            const file = new File([pdfBlob], pdfFileName, { type: 'application/pdf' });
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                await navigator.share({ files: [file] });
+                delivered = true;
+            }
+        } catch (shareErr) {
+            if (shareErr && shareErr.name === 'AbortError') delivered = true;
+        }
+        if (!delivered) {
+            const url = URL.createObjectURL(pdfBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = pdfFileName;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 60000);
+        }
+        window.dispatchEvent(new CustomEvent('show-toast', { detail: `SKEW-T PDFを作成しました（${pageImages.length}ページ）` }));
+    } catch (pdfErr) {
+        console.error('SKEW-T PDF build failed', pdfErr);
+        window.dispatchEvent(new CustomEvent('show-toast', { detail: 'PDFの作成に失敗しました。通信環境を確認してください。' }));
     }
 };
 

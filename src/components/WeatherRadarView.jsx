@@ -711,6 +711,16 @@ const CrossSectionView = ({ routeData, weatherData, timeIndex, showTemp, navlogD
 //     (eps:m01_ir108 / eps:m02_ir108 / eps:m03_ir108 の3機分を重ね描き) で
 //     表示するレイヤーで、グリーンランド等の高緯度域の雲を見るためのもの。
 //   - FIR 処理 (processFirData) は updated5 から一切変更していない。
+//
+// updated7 での変更: POLAR の「全体が白くなる」問題の修正 (updated6 からの差分は POLAR のみ)。
+//   実測: EUMETSAT WMS の eps:m0X_ir108 は透過指定を無視するのではなく、Metop の
+//   モザイク自体がほぼ全面を不透明に覆う (グリーンランド域で m01/m03 は不透明率
+//   100%、平均輝度 約190/255 と真っ白に近い)。デフォルト ON・範囲無制限でカラーの
+//   GEO 画像の上に 0.85 で重ねていたため、地図全体が白く霞んでいた。
+//   修正: (1) POLAR の表示範囲を北緯58°以北に限定 (GEO レイヤーと同様に bounds で
+//   クリップ)、(2) デフォルト OFF に変更。用がある高緯度でのみ ON にして使う。
+//   CSS の mix-blend-mode (multiply/screen) は合成テストで雲の判読性がむしろ
+//   落ちることを確認したため採用していない。FIR 処理は updated6 から無変更。
 // =========================================================================
 const FIR_DATA_URL = 'https://cdn.jsdelivr.net/gh/vatsimnetwork/vatspy-data-project@master/Boundaries.geojson';
 let firProcessedCache = null;
@@ -1218,10 +1228,15 @@ const WeatherRadarMap = ({
 
           // POLAR: 極軌道衛星 Metop の AVHRR 赤外 (IR10.8)。静止衛星は高緯度で円盤の縁になり使い物に
           // ならないため、グリーンランド等の極域はこのレイヤーで見る。Meteosat と同じ EUMETSAT WMS
-          // から Metop 3機分を重ね描きし (軌道の隙間は透過になる)、GEO 画像より上に来るよう最後に追加する。
-          polarM01LayerRef.current = L.tileLayer.wms(EUMETSAT_WMS_URL, { layers: 'eps:m01_ir108', format: 'image/png', transparent: true, version: '1.3.0', opacity: initialOpacity, pane: 'satellitePane', attribution: 'EUMETSAT Metop AVHRR IR10.8' }).addTo(map);
-          polarM02LayerRef.current = L.tileLayer.wms(EUMETSAT_WMS_URL, { layers: 'eps:m02_ir108', format: 'image/png', transparent: true, version: '1.3.0', opacity: initialOpacity, pane: 'satellitePane', attribution: 'EUMETSAT Metop AVHRR IR10.8' }).addTo(map);
-          polarM03LayerRef.current = L.tileLayer.wms(EUMETSAT_WMS_URL, { layers: 'eps:m03_ir108', format: 'image/png', transparent: true, version: '1.3.0', opacity: initialOpacity, pane: 'satellitePane', attribution: 'EUMETSAT Metop AVHRR IR10.8' }).addTo(map);
+          // から Metop 3機分を重ね描きし、GEO 画像より上に来るよう最後に追加する。
+          // updated7: eps の IR 画像はモザイクでほぼ全面を不透明に覆うグレースケール (寒冷な地表面・
+          // 氷床ほど白い) のため、全世界・デフォルト ON だとカラーの GEO 画像全体が白く霞んだ。
+          // 対策として (1) 表示範囲を北緯58°以北に限定 (bounds) し、(2) デフォルト OFF にした。
+          // グリーンランド周辺では GEO が実用外で POLAR が主役になるため、重ね順は GEO の上のまま。
+          const polarBounds = L.latLngBounds(L.latLng(58, -180), L.latLng(90, 180));
+          polarM01LayerRef.current = L.tileLayer.wms(EUMETSAT_WMS_URL, { layers: 'eps:m01_ir108', format: 'image/png', transparent: true, version: '1.3.0', opacity: initialOpacity, pane: 'satellitePane', bounds: polarBounds, attribution: 'EUMETSAT Metop AVHRR IR10.8' }).addTo(map);
+          polarM02LayerRef.current = L.tileLayer.wms(EUMETSAT_WMS_URL, { layers: 'eps:m02_ir108', format: 'image/png', transparent: true, version: '1.3.0', opacity: initialOpacity, pane: 'satellitePane', bounds: polarBounds, attribution: 'EUMETSAT Metop AVHRR IR10.8' }).addTo(map);
+          polarM03LayerRef.current = L.tileLayer.wms(EUMETSAT_WMS_URL, { layers: 'eps:m03_ir108', format: 'image/png', transparent: true, version: '1.3.0', opacity: initialOpacity, pane: 'satellitePane', bounds: polarBounds, attribution: 'EUMETSAT Metop AVHRR IR10.8' }).addTo(map);
 
           // 表示中心の経度から「その場所を担当する衛星 (直下点が最も近い衛星)」を自動判定し、情報パネルに表示する
           const updateActiveSat = () => {
@@ -1560,7 +1575,7 @@ export const WeatherRadarView = ({ navlogData }) => {
     const [showGoesEast, setShowGoesEast] = useState(true); 
     const [showGoesWest, setShowGoesWest] = useState(true); 
     const [showMeteosat, setShowMeteosat] = useState(true); 
-    const [showPolar, setShowPolar] = useState(true);
+    const [showPolar, setShowPolar] = useState(false); // updated7: デフォルト OFF (理由は下記 updated7 注記)
     const [showRadar, setShowRadar] = useState(true);
     const [showNavlogRoute, setShowNavlogRoute] = useState(true);
     const [showAirspace, setShowAirspace] = useState(true);
