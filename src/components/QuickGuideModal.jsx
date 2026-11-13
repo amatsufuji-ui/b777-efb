@@ -103,17 +103,19 @@ export const QuickGuideModal = ({ isOpen, onClose }) => {
             <h3 className="text-sky-400 font-bold mb-2 border-l-4 border-sky-400 pl-2">2. ヘッダーボタンの機能</h3>
             <ul className="text-xs leading-relaxed space-y-2 pl-1">
               <li><span className="bg-sky-600 px-1.5 py-0.5 rounded text-white font-mono font-bold">PANA</span> / <span className="bg-indigo-600 px-1.5 py-0.5 rounded text-white font-mono font-bold">INMA</span> / <span className="bg-emerald-600 px-1.5 py-0.5 rounded text-white font-mono font-bold">DOM</span> : 機内Wi-Fiポータルへ接続します。（PANAを長押しでパスワード登録。パスワードの入力時にペースト可能。）</li>
+              <li><span className="bg-blue-500 px-1.5 py-0.5 rounded text-white font-mono font-bold">SKEW-T</span> : 経路上のPointのETOにおける一番近い時間のSkewTをPDFで作成。DEP/ARRのみホドグラフを作成。遅延時も対応可能。</li>
               <li><span className="bg-purple-600 px-1.5 py-0.5 rounded text-white font-mono font-bold">DRM</span> : 欧州線でのDRM送信のため抽出した便名を件名に入れた状態でGmailを起動します。</li>
               <li><span className="bg-orange-600 px-1.5 py-0.5 rounded text-white font-mono font-bold">BDYC</span> : 当該機番のBuddycomを起動します。</li>
               <li><span className="bg-yellow-600 px-1.5 py-0.5 rounded text-white font-mono font-bold">FR24</span> : FlightRadar24が起動し、便名にペーストできます。</li>
               <li><span className="bg-pink-600 px-1.5 py-0.5 rounded text-white font-mono font-bold">ALC</span> : リモートアルコール検査</li>
               <li><span className="bg-sky-600 px-1.5 py-0.5 rounded text-white font-mono font-bold">CKIN</span> : オンラインチェックイン</li>
               <li><span className="bg-emerald-600 px-1.5 py-0.5 rounded text-white font-mono font-bold">UPDT</span> : アプリ更新</li>
+              <li><span className="bg-blue-900/60 border border-blue-500/50 px-1.5 py-0.5 rounded text-blue-200 font-mono font-bold">SHARE</span> : アプリのQRを表示</li>
             </ul>
           </section>
 
           <section>
-            <h3 className="text-amber-400 font-bold mb-3 border-l-4 border-amber-400 pl-2">3. 各機能・タブの説明</h3>
+            <h3 className="text-amber-400 font-bold mb-3 border-l-4 border-amber-400 pl-2">3. ダッシュボード (DASHBOARD)</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pl-1 text-xs">
               
               <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700 md:col-span-2">
@@ -139,7 +141,7 @@ export const QuickGuideModal = ({ isOpen, onClose }) => {
               
               <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
                 <div className="text-amber-300 font-bold mb-1">RDR</div>
-                <p className="leading-relaxed">各種</p>
+                <p className="leading-relaxed">各種雲画像を表示。<br/>DEV幅を表示可能。</p>
               </div>
 
               <div className="bg-slate-900/50 p-2.5 rounded border border-slate-700">
@@ -163,6 +165,7 @@ export const QuickGuideModal = ({ isOpen, onClose }) => {
                   <li>TIME DIFFとFUEL DIFFを上部ヘッダーに固定してグラフ表示</li>
                   <li>最寄りのETOPS ALTNをハイライト表示</li>
                   <li><span className="text-sky-300 font-bold">POINTを長押しすると通過時に教えてくれる(SLEEP時や他のアプリを使用する場合はタイマー推奨)</span></li>
+                  <li><span className="text-amber-300 font-bold">最寄りふたつのADEQ APOを距離と合わせて表示。APOを触ると空港名を表示。</span></li>
                 </ul>
               </div>
               

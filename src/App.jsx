@@ -1,8 +1,8 @@
-// App-10.jsx — 2026-11-13 (App-9.jsx + SKEW-T 遅延入力をダイアログ方式に変更: ヘッダーの常設入力欄を廃止し、SKEW-Tボタン押下で確認ダイアログを表示。遅延のETO反映・トースト等のハンドラ挙動は v4 と同一)
+// App-11.jsx — 2026-11-13 (App-10.jsx + PWA自動アップデートに1日1回の定期チェックを追加: 最終チェック時刻を localStorage に保持してゲートし、画面復帰時と1時間毎に再評価。起動時チェックは従来通り毎回実行)
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import * as LucideIcons from 'lucide-react';
 
-const APP_VERSION = "13.3"; 
+const APP_VERSION = "13.4"; 
 
 import { RAW_CSV_DATA, aircraftRegistrationList, BUDDYCOM_LINKS, ICAO_COORDS } from './data/flightData';
 import { aircraftPerformanceData, defaultCruiseWeights, defaultLandingWeights, modelKeyMap, AIRCRAFT_DIMENSIONS, SEAT_DATA, CRUISE_PERF_DATA, VREF_DATA, HOLD_SPD_DATA_RAW, MANEUVER_1_3G_MACH_DATA, TARGET_PITCH_N1_DATA_RAW, LANDING_DIST_DATA_RAW, B777_WIND_LIMITS, MAX_MAN_DATA } from './data/perfData';
@@ -302,8 +302,26 @@ export default function App() {
   const [globalEtops207, setGlobalEtops207] = useState(() => getSavedState('globalEtops207', false));
 
   useEffect(() => {
-    // Only attempt update if the browser is online and service workers are supported
-    if (navigator.onLine && 'serviceWorker' in navigator) {
+    // --- PWA update checks: launch check + once-a-day periodic check ---
+    // The launch check (runUpdateCheck on mount) is the original behaviour
+    // and always runs. On top of that, a daily gate keeps re-checks to at
+    // most once every 24 h while the app stays open: the gate stores the
+    // last check time in localStorage and is re-evaluated when the app
+    // becomes visible again and on an hourly interval tick. Deciding from
+    // the stored timestamp (not from counting timer firings) keeps the
+    // 24 h spacing correct even when iOS throttles/suspends timers.
+    if (!('serviceWorker' in navigator)) return;
+
+    const LAST_CHECK_KEY = 'pwaLastUpdateCheck';
+    const DAY_MS = 24 * 60 * 60 * 1000;
+
+    const runUpdateCheck = () => {
+        // Only attempt update if the browser is online. When offline the
+        // timestamp is NOT stamped, so the next trigger retries the check.
+        if (!navigator.onLine) return;
+        // Stamp the time whenever a check actually runs (even if no
+        // update is found): the gate limits check frequency, not updates.
+        try { localStorage.setItem(LAST_CHECK_KEY, String(Date.now())); } catch (e) {}
         navigator.serviceWorker.getRegistrations().then(registrations => {
             for (let registration of registrations) {
                 registration.update().then(() => {
@@ -326,15 +344,43 @@ export default function App() {
                 };
             }
         });
+    };
 
-        let refreshing = false;
-        navigator.serviceWorker.addEventListener('controllerchange', () => {
-            if (!refreshing) {
-                refreshing = true;
-                window.location.reload();
-            }
-        });
-    }
+    const isDailyCheckDue = () => {
+        let last = 0;
+        try { last = parseInt(localStorage.getItem(LAST_CHECK_KEY) || '0', 10) || 0; } catch (e) {}
+        return Date.now() - last >= DAY_MS;
+    };
+
+    const runDailyCheckIfDue = () => {
+        if (isDailyCheckDue()) runUpdateCheck();
+    };
+
+    // 1) Launch check: unchanged, always runs on mount (and stamps).
+    runUpdateCheck();
+
+    // Reload once when a new service worker takes control (as before).
+    let refreshing = false;
+    const onControllerChange = () => {
+        if (!refreshing) {
+            refreshing = true;
+            window.location.reload();
+        }
+    };
+    navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);
+
+    // 2) Daily-check triggers while the app stays open.
+    const onVisibilityChange = () => {
+        if (document.visibilityState === 'visible') runDailyCheckIfDue();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    const intervalId = setInterval(runDailyCheckIfDue, 60 * 60 * 1000);
+
+    return () => {
+        document.removeEventListener('visibilitychange', onVisibilityChange);
+        clearInterval(intervalId);
+        navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);
+    };
   }, []);
 
   useEffect(() => {
