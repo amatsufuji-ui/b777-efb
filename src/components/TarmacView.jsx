@@ -1,3 +1,4 @@
+// TarmacView.updated.jsx — 2026-11-13 (フィリピンを追加、ANA OM INFO No.5 Tarmac Delay BULLETIN No.029 準拠)
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   Play, Square, RotateCcw, FastForward, CheckSquare, Square as SquareOutline, 
@@ -43,7 +44,7 @@ export const TarmacView = () => {
   const [checkedTasks, setCheckedTasks] = useState(persistedState.checkedTasks);
   const timerRef = useRef(null);
 
-  const countries = ['米国', 'カナダ', '韓国', '中国', 'タイ', 'ベトナム'];
+  const countries = ['米国', 'カナダ', '韓国', '中国', 'タイ', 'ベトナム', 'フィリピン'];
   
   // タイ・ベトナムは出発時のみ適用
   const phases = ['出発時', '到着時', 'ダイバート/ATB時'];
@@ -190,15 +191,17 @@ export const TarmacView = () => {
       list.push({ time: 30, label: 'アナウンス(以降定期)', icon: Megaphone, color: 'text-amber-400' });
     }
     
-    // 飲食物 (タイ・ベトナム除く)
+    // 飲食物 (タイ除く。フィリピンは3時間以内、ベトナムは飲料水のみ)
     if (selectedCountry === 'ベトナム') {
       list.push({ time: 30, label: '飲料水提供', icon: Coffee, color: 'text-amber-400' });
+    } else if (selectedCountry === 'フィリピン') {
+      list.push({ time: 180, label: '飲食物提供', icon: Coffee, color: 'text-amber-400' });
     } else if (selectedCountry !== 'タイ') {
       list.push({ time: 120, label: '飲食物提供(以降2H毎)', icon: Coffee, color: 'text-amber-400' });
     }
 
-    // 判断タイミング (カナダ、タイ、ベトナム: 2H / 米国、韓国、中国: 3H)
-    if (['カナダ', 'タイ', 'ベトナム'].includes(selectedCountry)) {
+    // 判断タイミング (カナダ、タイ、ベトナム、フィリピン: 2H / 米国、韓国、中国: 3H)
+    if (['カナダ', 'タイ', 'ベトナム', 'フィリピン'].includes(selectedCountry)) {
       list.push({ time: 120, label: 'GTB/継続 判断', icon: ShieldAlert, color: 'text-orange-400' });
     } else {
       list.push({ time: 180, label: 'GTB/継続 判断', icon: ShieldAlert, color: 'text-orange-400' });
@@ -207,7 +210,7 @@ export const TarmacView = () => {
     // 上限時間 (中国は無し)
     if (selectedCountry === '米国' || selectedCountry === '韓国') {
       list.push({ time: 240, label: '上限 (降機機会提供)', icon: XCircle, color: 'text-rose-500' });
-    } else if (['カナダ', 'タイ', 'ベトナム'].includes(selectedCountry)) {
+    } else if (['カナダ', 'タイ', 'ベトナム', 'フィリピン'].includes(selectedCountry)) {
       list.push({ time: 180, label: '上限 (降機機会提供)', icon: XCircle, color: 'text-rose-500' });
     } else if (selectedCountry === '中国') {
       list.push({ time: 999, label: '上限なし', icon: Clock, color: 'text-slate-500' }); // 表示用
@@ -233,11 +236,13 @@ export const TarmacView = () => {
 
     if (selectedCountry === 'ベトナム') {
       t.push({ id: 't_v1', time: 30, text: '飲料水の提供' });
+    } else if (selectedCountry === 'フィリピン') {
+      t.push({ id: 't_ph1', time: 180, text: '飲食物（水・スナック）の提供（3時間以内）' });
     } else if (selectedCountry !== 'タイ') {
       t.push({ id: 't6', time: 120, text: '飲食物（水・スナック）の提供（以降2時間毎）' });
     }
 
-    if (['カナダ', 'タイ', 'ベトナム'].includes(selectedCountry)) {
+    if (['カナダ', 'タイ', 'ベトナム', 'フィリピン'].includes(selectedCountry)) {
       t.push({ id: 't7', time: 120, text: 'GTBするか運航継続するかの判断（機長・基地長）' });
       t.push({ id: 't8', time: 180, text: '【上限到達】旅客へ降機の機会を提供' });
     } else {
@@ -269,10 +274,11 @@ export const TarmacView = () => {
         reset: '①ドアオープンした時点\n②①を行わない場合は離陸した時点'
       };
     }
-    if (selectedCountry === 'カナダ' || selectedCountry === '韓国' || selectedCountry === '中国') {
+    if (selectedCountry === 'カナダ' || selectedCountry === '韓国' || selectedCountry === '中国' || selectedCountry === 'フィリピン') {
       return {
         start: selectedPhase === '出発時' ? 'ドアクローズした時点' : '着陸した時点',
-        reset: '運航継続：離陸した時点\n運航中止：ドアオープンした時点\n(※降機可能と伝えてもリセットされない)'
+        reset: '運航継続：離陸した時点\n運航中止：ドアオープンした時点\n(※降機可能と伝えてもリセットされない)',
+        special: selectedCountry === 'フィリピン' ? '※上限は3時間。ただし3時間30分以内に離陸可能な見込みが管制機関（または空港当局）から示された場合は待機可。離陸予定時刻が30分以内で更新される場合は最大2回まで待機を延長でき、その場合の上限は4時間' : ''
       };
     }
     // 米国

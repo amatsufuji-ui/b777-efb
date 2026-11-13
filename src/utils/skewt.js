@@ -1,4 +1,4 @@
-// skewt.js — 2026-11-12 v5.4 (A4 portrait, ETO only, larger labels, no blank pages)
+// skewt.js — 2026-11-13 v5.5 (A4 portrait, ETO only, hodograph auto-scale, cap 40 kt)
 // skewt.js — self-contained Skew-T / hodograph rendering for the 7PT PWA.
 //
 // No external dependencies. Fetches GFS pressure-level profiles from the
@@ -40,6 +40,10 @@ const HODO_LAYERS = [              // (bottom km AGL, top km AGL, colour)
   [9.0, null, '#1f77b4'],          // blue         (unused below 5,000 ft)
 ];
 const HODO_LABEL_HEIGHTS_FT = [1000, 2000, 3000, 4000, 5000];
+// Hodograph auto scale (v5.5): the outer ring takes the smallest step
+// that fits the page's strongest wind (curve + RM/LM markers). The
+// everyday steps stop at 40 kt; stronger winds extend to 50/60/80/100.
+const HODO_SCALE_STEPS = [15, 20, 25, 30, 40, 50, 60, 80, 100];
 // ALL hodographs: heights labelled in thousands of feet ("1".."5"),
 // nothing above 5,000 ft (hodographData truncates there). No full-digit
 // height labels anywhere (v4 audit: a legacy small-hodograph path used
@@ -821,13 +825,31 @@ export function drawHodograph(canvas, profile, opts = {}) {
   const titleH = 24;
   const size = Math.min(W, H - titleH);
   const cx = W / 2, cy = titleH + size / 2;
-  const R = size / 2 - 58; // 60 kt radius (margin fits the 26 px ring numerals)
-  const toPx = (u, v) => [cx + (u / 60) * R, cy - (v / 60) * R];
+  const R = size / 2 - 58; // margin fits the 26 px ring numerals
+  // Auto scale (v5.5): fit the outer ring to this page's strongest wind.
+  const pts = profile ? hodographData(profile) : [];
+  let maxSpd = 0;
+  for (const p of pts) maxSpd = Math.max(maxSpd, Math.hypot(p.u, p.v));
+  if (profile) {
+    try {
+      const { rm, lm } = bunkersStormMotion(profile);
+      maxSpd = Math.max(maxSpd, Math.hypot(rm.u, rm.v),
+        Math.hypot(lm.u, lm.v));
+    } catch (e) { /* markers are best-effort */ }
+  }
+  const scale = HODO_SCALE_STEPS.find(s => s >= maxSpd) ?? 100;
+  const ringStep = scale <= 20 ? 5 : 10;
+  const labelStep = scale <= 20 ? 10 : 20;
+  const toPx = (u, v) => [cx + (u / scale) * R, cy - (v / scale) * R];
+
+  const ringVals = [];
+  for (let r = ringStep; r < scale; r += ringStep) ringVals.push(r);
+  ringVals.push(scale); // outer ring is always drawn, even off-step (15/25)
 
   ctx.strokeStyle = '#999'; ctx.fillStyle = '#666';
   ctx.font = '26px sans-serif'; ctx.lineWidth = 0.8;
-  for (let r = 10; r <= 60; r += 10) {
-    ctx.beginPath(); ctx.arc(cx, cy, (r / 60) * R, 0, Math.PI * 2);
+  for (const r of ringVals) {
+    ctx.beginPath(); ctx.arc(cx, cy, (r / scale) * R, 0, Math.PI * 2);
     ctx.setLineDash([4, 4]); ctx.stroke(); ctx.setLineDash([]);
   }
   ctx.beginPath();
@@ -835,8 +857,9 @@ export function drawHodograph(canvas, profile, opts = {}) {
   ctx.moveTo(cx, cy - R); ctx.lineTo(cx, cy + R);
   ctx.stroke();
   ctx.textAlign = 'center';
-  for (let s = -60; s <= 60; s += 20) {
-    if (s !== 0) {
+  for (const r of ringVals) {
+    if (r % labelStep !== 0 && r !== scale) continue;
+    for (const s of [-r, r]) {
       const [tx] = toPx(s, 0); ctx.fillText(String(s), tx, cy + R + 34);
       const [, ty] = toPx(0, s); ctx.fillText(String(s), cx - R - 34, ty + 9);
     }
@@ -848,7 +871,6 @@ export function drawHodograph(canvas, profile, opts = {}) {
   ctx.fillText('kt', cx + R + 12, cy + R + 34);
 
   if (!profile) return canvas;
-  const pts = hodographData(profile);
   if (pts.length >= 2) {
     if (opts.detailed) {
       const top = pts[pts.length - 1].zKm;

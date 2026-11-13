@@ -1,10 +1,10 @@
-// App-7.jsx — 2026-11-13 (App-6.jsx + SKEW-T ハンドラ v2: pdf-lib で PDF を直接生成、印刷ウィンドウ廃止)
+// App-10.jsx — 2026-11-13 (App-9.jsx + SKEW-T 遅延入力をダイアログ方式に変更: ヘッダーの常設入力欄を廃止し、SKEW-Tボタン押下で確認ダイアログを表示。遅延のETO反映・トースト等のハンドラ挙動は v4 と同一)
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import * as LucideIcons from 'lucide-react';
 
-const APP_VERSION = "13.2"; 
+const APP_VERSION = "13.3"; 
 
-import { RAW_CSV_DATA, aircraftRegistrationList, BUDDYCOM_LINKS } from './data/flightData';
+import { RAW_CSV_DATA, aircraftRegistrationList, BUDDYCOM_LINKS, ICAO_COORDS } from './data/flightData';
 import { aircraftPerformanceData, defaultCruiseWeights, defaultLandingWeights, modelKeyMap, AIRCRAFT_DIMENSIONS, SEAT_DATA, CRUISE_PERF_DATA, VREF_DATA, HOLD_SPD_DATA_RAW, MANEUVER_1_3G_MACH_DATA, TARGET_PITCH_N1_DATA_RAW, LANDING_DIST_DATA_RAW, B777_WIND_LIMITS, MAX_MAN_DATA } from './data/perfData';
 import { DG_DATA, ISOLATION_COLS_FINAL, ISOLATION_MATRIX_FINAL, ERG_DRILLS_FINAL, ERG_LETTERS_LEFT_FINAL, ERG_LETTERS_RIGHT_FINAL, SPECIAL_PAX_DATA } from './data/docsData';
 import { formatNum, formatWeightDisplay, parseWeightInput, interpolateObjArray, interpolateDirectArray, kiasToMach, getHoldSpeed, getManeuverMach, calculateTAS, calculateHeadingAndGS, generateTurnPoints, calculateWindComponentRow } from './utils/flightCalc';
@@ -99,6 +99,93 @@ const getDistanceNM = (lat1, lon1, lat2, lon2) => {
   return R * c;
 };
 
+// SKEW-T 遅延入力 (分) の解釈 (確認ダイアログ用): 空欄・不正値は 0、
+// 範囲は -120 (早発2時間) 〜 +720 (遅延12時間) に丸める。
+const parseSkewTDelayMin = (value) => {
+  const n = parseInt(value, 10);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(-120, Math.min(720, n));
+};
+
+// SKEW-T 作成確認ダイアログ (2026-11-13 UX変更): ヘッダーに常設していた
+// 遅延入力欄を廃止し、SKEW-T ボタンを押したときだけ、このダイアログで
+// 出発遅延 (分) を確認してから生成を始める。見た目は LoadDataModal に
+// 揃えた (閉じるのは × ボタンと「キャンセル」のみで、背景クリックや
+// Esc では閉じないのも LoadDataModal と同じ)。遅延の文字列 state は
+// ダイアログ内に閉じ、開くたびに空 (= 0分) へ戻すので、前回入れた遅延が
+// 次回に残ることはない。「作成」で解釈済みの分数を onConfirm(分) に渡す。
+const SkewTDelayDialog = ({ isOpen, onClose, onConfirm, stdHours, stdMins, taxiOutMins }) => {
+    const [text, setText] = useState('');
+    useEffect(() => { if (isOpen) setText(''); }, [isOpen]);
+    if (!isOpen) return null;
+
+    const delayMin = parseSkewTDelayMin(text);
+    const fmtHM = (totalMin) => {
+        const m = ((totalMin % 1440) + 1440) % 1440;
+        return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}Z`;
+    };
+    const baseDepMin = (Number(stdHours) || 0) * 60 + (Number(stdMins) || 0) + (Number(taxiOutMins) || 0);
+    const summaryText = delayMin === 0
+        ? '遅延なし（NAVLOGのETO通り）で計算します'
+        : `全地点のETOを ${delayMin > 0 ? '+' : ''}${delayMin}分 ずらして計算します`;
+    const depText = `離陸基準（STD + TAXI OUT）: ${fmtHM(baseDepMin)}${delayMin !== 0 ? ` → ${fmtHM(baseDepMin + delayMin)}` : ''}`;
+    const chips = [0, 30, 60, 90, 120];
+
+    return (
+        <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
+            <div className="bg-slate-800 border border-slate-600 rounded-xl p-4 max-w-sm w-full shadow-2xl flex flex-col">
+                <div className="flex justify-between items-center border-b border-slate-700 pb-2 mb-4">
+                    <h3 className="text-white font-bold flex items-center gap-2">
+                        <SafeIcon name="CloudRain" className="w-5 h-5 text-teal-400" />
+                        SKEW-T PDF作成
+                    </h3>
+                    <button onClick={onClose} className="text-slate-400 hover:text-white font-bold text-xl leading-none">&times;</button>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                    <label className="text-xs font-bold text-slate-300">出発遅延（分）</label>
+                    <input
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="0"
+                        value={text}
+                        onChange={(e) => setText(e.target.value.replace(/[^0-9-]/g, ''))}
+                        className="w-full bg-slate-900 border border-slate-600 rounded-lg p-2 text-white text-center font-mono font-bold text-lg focus:outline-none focus:border-teal-400 transition-colors"
+                    />
+                    <span className="text-[10px] text-slate-400">マイナス値で早発（例: -30）。空欄は 0 分。範囲は -120〜+720 分に丸められます</span>
+                    <div className="flex gap-1.5">
+                        {chips.map((v) => (
+                            <button
+                                key={v}
+                                onClick={() => setText(v === 0 ? '' : String(v))}
+                                className={`flex-1 py-1.5 rounded-lg border text-xs font-bold transition-colors ${delayMin === v ? 'bg-teal-600 border-teal-400 text-white' : 'bg-slate-700 border-slate-600 text-slate-300 hover:bg-slate-600'}`}
+                            >
+                                {v === 0 ? '0' : `+${v}`}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="bg-slate-900/60 border border-slate-700 rounded-lg px-3 py-2 mt-4 flex flex-col gap-0.5">
+                    <span className="text-xs text-teal-300 font-bold">{summaryText}</span>
+                    <span className="text-[11px] text-slate-400 font-mono">{depText}</span>
+                </div>
+
+                <div className="flex gap-2 mt-4">
+                    <button onClick={onClose} className="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold py-2.5 rounded-lg transition-colors">
+                        キャンセル
+                    </button>
+                    <button onClick={() => onConfirm(delayMin)} className="flex-1 bg-teal-600 hover:bg-teal-500 text-white font-bold py-2.5 rounded-lg flex items-center justify-center gap-2 transition-colors shadow-lg">
+                        <SafeIcon name="CloudRain" className="w-4 h-4" />
+                        作成
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+
 const LoadDataModal = ({ isOpen, onClose, onFileClick, onPaste, isParsing }) => {
     const [text, setText] = useState("");
     if (!isOpen) return null;
@@ -152,7 +239,8 @@ export default function App() {
   const [isDrmModalOpen, setIsDrmModalOpen] = useState(false); 
   const [isSmartCatModalOpen, setIsSmartCatModalOpen] = useState(false);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
-  const [isLoadModalOpen, setIsLoadModalOpen] = useState(false); 
+  const [isLoadModalOpen, setIsLoadModalOpen] = useState(false);
+  const [isSkewTDialogOpen, setIsSkewTDialogOpen] = useState(false); 
   const [showSetupBanner, setShowSetupBanner] = useState(false);
   const [showQR, setShowQR] = useState(false);
 
@@ -160,6 +248,9 @@ export default function App() {
   const [isParsingPdf, setIsParsingPdf] = useState(false);
   const [navlogData, setNavlogData] = useState(null);
   const [skewTProgress, setSkewTProgress] = useState(null);
+  // SKEW-T の遅延入力はボタン押下時の確認ダイアログ (SkewTDelayDialog) に
+  // 移した (2026-11-13 UX変更)。遅延 state はダイアログ内に閉じて開くたび
+  // 0 から始めるため、App 側での保持や新規読込時リセットは不要になった。
 
   const getSavedState = (key, defaultValue) => {
     try {
@@ -954,13 +1045,17 @@ export default function App() {
     reader.readAsArrayBuffer(file);
   };
   
-  const handleGenerateSkewTPdf = async () => {
+  const handleGenerateSkewTPdf = async (delayMinArg = 0) => {
     if (!navlogData || !navlogData.newPlan || navlogData.newPlan.length === 0) {
         window.dispatchEvent(new CustomEvent('show-toast', { detail: '先にNAVLOGを読み込んでください' }));
         return;
     }
 
     if (skewTProgress !== null) return; // 処理中はブロック
+
+    // 出発遅延 (分): 確認ダイアログで確定した値を引数で受け取る。
+    // ダイアログ側で解釈済みだが、範囲外・不正値はここでも丸める。
+    const delayMin = Number.isFinite(delayMinArg) ? Math.max(-120, Math.min(720, Math.trunc(delayMinArg))) : 0;
 
     const plan = navlogData.newPlan;
 
@@ -1000,6 +1095,45 @@ export default function App() {
         }
     }
 
+    // ---- 出発空港ページの保証 (2026-11-13 ハンドラ v3) -------------------
+    // CFP の NAVLOG 表では出発空港の行に座標が付かない (ANA0204 の実データで
+    // 確認: パーサの newPlan 先頭は空港ではなく SID フィックス DF158 になる)。
+    // そのため最初の選択地点が空港から遠く離れることがある。ここで出発空港を
+    // 先頭に必ず1ページ置く。座標の出どころは優先順に:
+    //   (1) プラン行に出発空港と同名で座標のある行があれば、その座標
+    //   (2) アプリの空港座標テーブル ICAO_COORDS (./data/flightData)
+    // どちらも無い場合は追加しない (無関係なウェイポイントの座標を空港の
+    // ページとして流用することはしない)。ETO は ctme = 0 として計算される
+    // ため、離陸時刻 (STD + taxiOut) がそのまま使われる。先頭に来るので
+    // 詳細ホドグラフも自動的に付く (detailed は先頭/末尾ページで判定)。
+    const depIcaoCode = navlogData.depIcao || null;
+    let depPos = null;
+    if (depIcaoCode) {
+        for (const row of plan) {
+            if (row.wp === depIcaoCode) {
+                const c = parseWaypointToLatLng(row);
+                if (c && (c.lat !== 0 || c.lon !== 0)) depPos = { lat: c.lat, lon: c.lon };
+                break;
+            }
+        }
+        if (!depPos && typeof ICAO_COORDS !== 'undefined' && ICAO_COORDS && ICAO_COORDS[depIcaoCode]) {
+            const e = ICAO_COORDS[depIcaoCode];
+            if (Number.isFinite(e.lat) && Number.isFinite(e.lon)) depPos = { lat: e.lat, lon: e.lon };
+        }
+    }
+    if (depPos) {
+        const firstSel = selectedWps.length > 0 ? selectedWps[0] : null;
+        const firstIsDep = !!firstSel && (firstSel.wp === depIcaoCode ||
+            getDistanceNM(firstSel.lat, firstSel.lon, depPos.lat, depPos.lon) <= 1);
+        if (!firstIsDep) {
+            selectedWps.unshift({
+                wp: depIcaoCode, latLon: null, ctme: 0, dist: 0,
+                lat: depPos.lat, lon: depPos.lon, cumDist: 0,
+                isDepartureAirport: true,
+            });
+        }
+    }
+
     if (selectedWps.length === 0) {
         window.dispatchEvent(new CustomEvent('show-toast', { detail: '有効なウェイポイントが見つかりません' }));
         return;
@@ -1022,6 +1156,7 @@ export default function App() {
         baseMs = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), stdHours, stdMins);
     }
     baseMs += (Number(taxiOutMins) || 0) * 60000; // STD + taxi-out = 離陸時刻
+    baseMs += delayMin * 60000; // 出発遅延を反映 (全地点の ETO が同じだけずれる。出発空港ページは ctme = 0 なので離陸時刻そのものがずれる)
 
     const fmtLat = (lat) => `${Math.abs(lat).toFixed(2)}°${lat >= 0 ? 'N' : 'S'}`;
     const fmtLon = (lon) => `${Math.abs(lon).toFixed(2)}°${lon >= 0 ? 'E' : 'W'}`;
@@ -1205,7 +1340,9 @@ export default function App() {
             a.remove();
             setTimeout(() => URL.revokeObjectURL(url), 60000);
         }
-        window.dispatchEvent(new CustomEvent('show-toast', { detail: `SKEW-T PDFを作成しました（${pageImages.length}ページ）` }));
+        window.dispatchEvent(new CustomEvent('show-toast', { detail: delayMin !== 0
+            ? `SKEW-T PDFを作成しました（${pageImages.length}ページ、遅延${delayMin > 0 ? '+' : ''}${delayMin}分で計算）`
+            : `SKEW-T PDFを作成しました（${pageImages.length}ページ）` }));
     } catch (pdfErr) {
         console.error('SKEW-T PDF build failed', pdfErr);
         window.dispatchEvent(new CustomEvent('show-toast', { detail: 'PDFの作成に失敗しました。通信環境を確認してください。' }));
@@ -1522,6 +1659,15 @@ export default function App() {
         }} 
       />
 
+      <SkewTDelayDialog
+        isOpen={isSkewTDialogOpen}
+        onClose={() => setIsSkewTDialogOpen(false)}
+        onConfirm={(d) => { setIsSkewTDialogOpen(false); handleGenerateSkewTPdf(d); }}
+        stdHours={stdHours}
+        stdMins={stdMins}
+        taxiOutMins={taxiOutMins}
+      />
+
       <input type="file" accept="application/pdf" className="hidden" ref={pdfInputRef} onChange={handleAppPdfUpload} />
 
       {showSetupBanner && (
@@ -1605,7 +1751,13 @@ export default function App() {
 
               {/* SKEW-T 追加ボタン */}
               <button 
-                onClick={handleGenerateSkewTPdf} 
+                onClick={() => {
+                  if (!navlogData || !navlogData.newPlan || navlogData.newPlan.length === 0) {
+                    window.dispatchEvent(new CustomEvent('show-toast', { detail: '先にNAVLOGを読み込んでください' }));
+                    return;
+                  }
+                  setIsSkewTDialogOpen(true);
+                }} 
                 disabled={skewTProgress !== null}
                 className="bg-slate-700 hover:bg-teal-600 disabled:bg-teal-900 disabled:opacity-80 text-teal-400 hover:text-white px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border border-slate-500 hover:border-teal-400 shadow-sm shrink-0 relative overflow-hidden" 
                 title="Skew-T PDF作成"
