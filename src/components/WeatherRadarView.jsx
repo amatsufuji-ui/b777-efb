@@ -736,6 +736,17 @@ const CrossSectionView = ({ routeData, weatherData, timeIndex, showTemp, navlogD
 //     RGB≈(0,0,0) で返ることを実測し、「雲なし」として扱う。
 //   - 情報パネルに注意書き「雲頂高度はMeteosat空域のみ対応（雲をタップ）」
 //     を常時表示する。
+//
+// updated9 での変更: 雲頂タップの出し方を実機フィードバックで調整
+//   (差分はクリックハンドラと注意書きのスタイルのみ。他は updated8 と同一)。
+//   - Meteosat 空域外のタップではポップアップを出さないようにした
+//     (updated8 の範囲外ポップアップは廃止。範囲外で訓練空域などを触ると
+//     空域情報に被って邪魔だったため。制限自体は情報パネルの注意書きで
+//     案内している)。
+//   - 空域内でも、表示中の訓練空域・制限空域 (AIRSPACE_DATA のポリゴン)
+//     の内側のタップでは雲頂ポップアップを出さず、空域情報を優先する。
+//   - 情報パネルの注意書きを text-xs / text-slate-300 に変えて読みやすく
+//     した。
 // =========================================================================
 const FIR_DATA_URL = 'https://cdn.jsdelivr.net/gh/vatsimnetwork/vatspy-data-project@master/Boundaries.geojson';
 let firProcessedCache = null;
@@ -1129,6 +1140,18 @@ const cthLayerForLongitude = (lng) => {
   if (lng >= 20.8 && lng <= 91.1) return 'msg_iodc:cth';
   return null;
 };
+// [lat, lng] 配列のポリゴンの内側判定 (レイキャスティング)。
+// AIRSPACE_DATA の描画ジオメトリそのものに対して判定する (updated9)。
+const pointInLatLngPolygon = (lat, lng, coords) => {
+  let inside = false;
+  for (let i = 0, j = coords.length - 1; i < coords.length; j = i++) {
+    const yi = coords[i][0], xi = coords[i][1];
+    const yj = coords[j][0], xj = coords[j][1];
+    if ((yi > lat) !== (yj > lat) &&
+        lng < (xj - xi) * (lat - yi) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+};
 
 const WeatherRadarMap = ({ 
     navlogData, routeWps, frameIndex, setFrameIndex, isPlaying, setIsPlaying, maxFrames, setMaxFrames,
@@ -1295,6 +1318,9 @@ const WeatherRadarMap = ({
           // 雲頂高度のタップ取得 (updated8、Meteosat 空域のみ)。既存の地図クリック
           // ハンドラは無いため競合しない (空域等のツールチップはホバー表示)。
           // 連打時は世代カウンタで古い応答を捨てる。
+          // updated9: Meteosat 空域外のタップでは何も出さない (制限は情報パネル
+          // の注意書きで案内済み)。空域内でも、表示中の空域ポリゴンの内側では
+          // 空域情報を優先して雲頂ポップアップを出さない。
           let cthSeq = 0;
           let cthPopup = null;
           map.on('click', async (e) => {
@@ -1303,10 +1329,11 @@ const WeatherRadarMap = ({
             const lat = e.latlng.lat;
             const lng = ((e.latlng.lng + 540) % 360) - 180; // 世界コピー対策で -180..180 に正規化
             const layer = Math.abs(lat) <= 78 ? cthLayerForLongitude(lng) : null;
-            if (!layer) {
-              cthPopup = L.popup().setLatLng(e.latlng).setContent('雲頂高度はMeteosat空域のみ対応').openOn(map);
-              return;
-            }
+            if (!layer) return; // Meteosat 空域外では無言 (updated9)
+            // 表示中の訓練空域・制限空域の内側では空域情報を優先 (updated9)
+            const asGroup = layersRef.current.airspaceGroup;
+            if (asGroup && map.hasLayer(asGroup) &&
+                AIRSPACE_DATA.some(a => pointInLatLngPolygon(lat, lng, a.coords))) return;
             cthPopup = L.popup().setLatLng(e.latlng).setContent('雲頂高度を取得中…').openOn(map);
             try {
               // EPSG:3857 でタップ中心 ±25km の窓を作り、中心画素を問い合わせる
@@ -1635,7 +1662,7 @@ const WeatherRadarMap = ({
           <div className="leading-tight">{activeLayerName}</div>
           <div className="leading-tight border-t border-slate-800 pt-1 mt-1">AUTO SAT: <span className="text-sky-300 font-bold">{activeSat.shortLabel}</span> <span className="text-slate-400">({activeSat.satellite} / {activeSat.subLon}&deg;)</span></div>
           <div className="text-[10px] text-slate-500 leading-tight">{activeSat.attribution} — {activeSat.product}</div>
-          <div className="text-[10px] text-slate-500 leading-tight">雲頂高度はMeteosat空域のみ対応（雲をタップ）</div>
+          <div className="text-xs text-slate-300 leading-tight">雲頂高度はMeteosat空域のみ対応（雲をタップ）</div>
           {navlogData && (navlogData.fNo || navlogData.depIcao || navlogData.destIcao) && (
             <div className="text-amber-300 font-bold border-t border-slate-800 pt-2 mt-2 flex justify-between gap-4">
               <span>{navlogData.fNo || 'ROUTE'} : {navlogData.depIcao || 'DEP'} &rarr; {navlogData.destIcao || 'ARR'}</span>
