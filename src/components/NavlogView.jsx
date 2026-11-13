@@ -1,4 +1,4 @@
-// NavlogView.jsx
+// NavlogView.fixed-v5.jsx — 2026-11-13 (TAKEOFF TIME が前便のまま残る不具合の第2の穴を修正： アプリ再起動後のセッション復元（isNew:false）でも loadId の一致を必須とし、loadId で確定できない場合は便名・日付・出発/到着地で照合する。fixed-v4 の後継)
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { SafeIcon } from './SharedComponents';
 import { 
@@ -922,10 +922,60 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
     if (saved) {
         try {
             const parsed = JSON.parse(saved);
-            if (parsed.actuals) setActuals(parsed.actuals);
-            if (parsed.takeoffTime) setTakeoffTime(parsed.takeoffTime);
-            if (parsed.activeAlerts) setActiveAlerts(parsed.activeAlerts);
-            if (parsed.triggeredAlerts) setTriggeredAlerts(parsed.triggeredAlerts);
+            // バックアップは「現在の便のもの」と確認できた場合のみ復元する。
+            // v4 のガードは isNew=false（アプリ再起動後のセッション復元）を無条件に
+            // 通していたため、「別タブで新NAVLOGを読込（NavlogView未表示のまま
+            // バックアップは旧便のものが残る）→ アプリ再起動 → NAVLOGタブを開く」
+            // という順序で、旧便の TAKEOFF TIME / actuals が新便に復元されてしまう
+            // 穴が残っていた。同一性の判定は次の優先順位で行う：
+            //   1) loadId が両側にあれば、isNew の真偽によらず一致が必須
+            //      （セッション復元でも loadId は保持される： App 側は parse 時に
+            //       loadId を付与し、保存時に落とすのは PDF 実体と座標のみ）
+            //   2) loadId で確定できない場合（旧バージョンのバックアップ等）は、
+            //      便名・出発地・到着地・日付が全て一致すれば同一便とみなす
+            //   3) どちらの識別情報も両側に無い場合のみ、従来通り復元を許可する
+            const backupLoadId = parsed.loadId ?? null;
+            const currentLoadId = navlogData ? (navlogData.loadId ?? null) : null;
+            let backupMatchesCurrent;
+            if (!navlogData) {
+                backupMatchesCurrent = true;
+            } else if (backupLoadId !== null && currentLoadId !== null) {
+                backupMatchesCurrent = backupLoadId === currentLoadId;
+            } else {
+                const idPairs = [
+                    [parsed.flightNo, navlogData.fNo],
+                    [parsed.parsedDepIcao, navlogData.depIcao],
+                    [parsed.parsedDestIcao, navlogData.destIcao],
+                    [parsed.parsedDate, navlogData.pDate],
+                ];
+                const comparable = idPairs.filter(([b, c]) => b && c);
+                if (comparable.length > 0) {
+                    backupMatchesCurrent = comparable.every(([b, c]) => String(b) === String(c));
+                } else if (backupLoadId !== null || currentLoadId !== null) {
+                    // 片側だけ loadId があり副次情報でも照合できない場合は、
+                    // 別便の可能性を排除できないので復元しない。
+                    backupMatchesCurrent = false;
+                } else {
+                    backupMatchesCurrent = true;
+                }
+            }
+            if (backupMatchesCurrent) {
+                if (parsed.actuals) setActuals(parsed.actuals);
+                if (parsed.takeoffTime) setTakeoffTime(parsed.takeoffTime);
+                if (parsed.activeAlerts) setActiveAlerts(parsed.activeAlerts);
+                if (parsed.triggeredAlerts) setTriggeredAlerts(parsed.triggeredAlerts);
+            } else if (navlogData) {
+                // 別便のバックアップは適用しない。現在のNAVLOGのデフォルトに戻す
+                // （TAKEOFF TIME = STD + AVG TAXI OUT、actuals は空）。
+                setActuals({});
+                if (navlogData.stdH !== undefined && navlogData.stdM !== undefined && !isNaN(navlogData.stdH) && !isNaN(navlogData.stdM)) {
+                    const taxiOut = navlogData.pTaxiOut !== undefined && !isNaN(navlogData.pTaxiOut) ? navlogData.pTaxiOut : 20;
+                    const defaultToMins = (navlogData.stdH * 60 + navlogData.stdM + taxiOut) % 1440;
+                    setTakeoffTime(minutesToTime(defaultToMins));
+                } else {
+                    setTakeoffTime('');
+                }
+            }
             if (!navlogData) {
                 if (parsed.flightPlan) setFlightPlan(parsed.flightPlan);
                 if (parsed.flightNo) setFlightNo(parsed.flightNo);
@@ -958,7 +1008,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
 
   useEffect(() => {
     try {
-        const backup = { flightPlan, actuals, flightNo, routeInfo, parsedDepIcao, parsedReg, parsedPzfw, parsedTaxiOut, parsedTaxiIn, parsedDate, parsedSta, parsedDestIcao, takeoffTime, parsedEtopsInfo, activeAlerts, triggeredAlerts, parsedEetList };
+        const backup = { loadId: navlogData?.loadId ?? null, flightPlan, actuals, flightNo, routeInfo, parsedDepIcao, parsedReg, parsedPzfw, parsedTaxiOut, parsedTaxiIn, parsedDate, parsedSta, parsedDestIcao, takeoffTime, parsedEtopsInfo, activeAlerts, triggeredAlerts, parsedEetList };
         localStorage.setItem('navlogFlightDataBackup', JSON.stringify(backup));
     } catch (e) {}
   }, [flightPlan, actuals, flightNo, routeInfo, parsedDepIcao, parsedReg, parsedPzfw, parsedTaxiOut, parsedTaxiIn, parsedDate, parsedSta, parsedDestIcao, takeoffTime, parsedEtopsInfo, activeAlerts, triggeredAlerts, parsedEetList]);

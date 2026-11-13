@@ -1,8 +1,8 @@
-// App-11.jsx — 2026-11-13 (App-10.jsx + PWA自動アップデートに1日1回の定期チェックを追加: 最終チェック時刻を localStorage に保持してゲートし、画面復帰時と1時間毎に再評価。起動時チェックは従来通り毎回実行)
+// App-12.jsx — 2026-11-13 (App-11.jsx + SKEW-T ハンドラ v6: 到着空港のページも必ず末尾に追加 — v3 の出発空港保証と対。パーサが到着行の座標を付け損ねても到着地ページと詳細ホドグラフが落ちない)
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import * as LucideIcons from 'lucide-react';
 
-const APP_VERSION = "13.4"; 
+const APP_VERSION = "13.5"; 
 
 import { RAW_CSV_DATA, aircraftRegistrationList, BUDDYCOM_LINKS, ICAO_COORDS } from './data/flightData';
 import { aircraftPerformanceData, defaultCruiseWeights, defaultLandingWeights, modelKeyMap, AIRCRAFT_DIMENSIONS, SEAT_DATA, CRUISE_PERF_DATA, VREF_DATA, HOLD_SPD_DATA_RAW, MANEUVER_1_3G_MACH_DATA, TARGET_PITCH_N1_DATA_RAW, LANDING_DIST_DATA_RAW, B777_WIND_LIMITS, MAX_MAN_DATA } from './data/perfData';
@@ -1176,6 +1176,64 @@ export default function App() {
                 wp: depIcaoCode, latLon: null, ctme: 0, dist: 0,
                 lat: depPos.lat, lon: depPos.lon, cumDist: 0,
                 isDepartureAirport: true,
+            });
+        }
+    }
+
+    // ---- 到着空港ページの保証 (2026-11-13 ハンドラ v6) -------------------
+    // v3 の出発空港保証と対になる保証。到着側には構造的な弱点がある:
+    // パーサは到着空港の名前トークンを push した直後に走査を打ち切る
+    // (break) ため、到着行の座標は「名前より前に現れた pendingLatLon」
+    // として付いている場合にしか残らない。CFP の発行条件によって座標
+    // トークンが名前の後に来る並びになると latLon が付かず、parseWaypoint
+    // ToLatLng が {lat: 0, lon: 0} を返し、選択段の 0,0 フィルタで到着
+    // ページが静かに落ちて、最後のページがエンルートフィックスになって
+    // しまう (実例: ANA0012 RJAA→KORD で到着ページが出なかった)。
+    // ここで到着空港を末尾に必ず1ページ置く。座標の出どころは出発側と
+    // 同じ優先順:
+    //   (1) プラン行に到着空港と同名で座標のある行があれば、その座標
+    //   (2) アプリの空港座標テーブル ICAO_COORDS (./data/flightData)
+    // どちらも無い場合は追加しない (出発側と同じ方針)。
+    // ctme は到着行の ctme (取れなければプランの最大 ctme) を使い、ETO
+    // が到着時刻に合うようにする。cumDist は航路総距離 (cumDist の最終
+    // 値) とし、ページ見出しの距離表示が総距離になるようにする。末尾に
+    // 来るので詳細ホドグラフも自動的に付く (detailed は先頭/末尾で判定)。
+    const destIcaoCode = navlogData.destIcao || null;
+    let arrPos = null;
+    let destRowCtme = null;
+    if (destIcaoCode) {
+        for (const row of plan) {
+            if (row.wp === destIcaoCode) {
+                const c = parseWaypointToLatLng(row);
+                if (c && (c.lat !== 0 || c.lon !== 0)) arrPos = { lat: c.lat, lon: c.lon };
+                const rc = Number(row.ctme);
+                if (Number.isFinite(rc)) destRowCtme = rc;
+                break;
+            }
+        }
+        if (!arrPos && typeof ICAO_COORDS !== 'undefined' && ICAO_COORDS && ICAO_COORDS[destIcaoCode]) {
+            const e = ICAO_COORDS[destIcaoCode];
+            if (Number.isFinite(e.lat) && Number.isFinite(e.lon)) arrPos = { lat: e.lat, lon: e.lon };
+        }
+    }
+    if (arrPos) {
+        const lastSel = selectedWps.length > 0 ? selectedWps[selectedWps.length - 1] : null;
+        const lastIsArr = !!lastSel && (lastSel.wp === destIcaoCode ||
+            getDistanceNM(lastSel.lat, lastSel.lon, arrPos.lat, arrPos.lon) <= 1);
+        if (!lastIsArr) {
+            let arrCtme = (destRowCtme !== null && destRowCtme > 0) ? destRowCtme : null;
+            if (arrCtme === null) {
+                arrCtme = 0;
+                for (const row of plan) {
+                    const c = Number(row.ctme);
+                    if (Number.isFinite(c) && c > arrCtme) arrCtme = c;
+                }
+            }
+            const totalDist = cumDistByIndex.length > 0 ? cumDistByIndex[cumDistByIndex.length - 1] : 0;
+            selectedWps.push({
+                wp: destIcaoCode, latLon: null, ctme: arrCtme, dist: 0,
+                lat: arrPos.lat, lon: arrPos.lon, cumDist: totalDist,
+                isArrivalAirport: true,
             });
         }
     }
