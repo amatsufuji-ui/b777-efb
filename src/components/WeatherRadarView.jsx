@@ -721,6 +721,21 @@ const CrossSectionView = ({ routeData, weatherData, timeIndex, showTemp, navlogD
 //   クリップ)、(2) デフォルト OFF に変更。用がある高緯度でのみ ON にして使う。
 //   CSS の mix-blend-mode (multiply/screen) は合成テストで雲の判読性がむしろ
 //   落ちることを確認したため採用していない。FIR 処理は updated6 から無変更。
+//
+// updated8 での変更: 雲をタップすると雲頂高度 (FL) をポップアップ表示する機能を
+//   追加 (差分はこの機能と注意書きのみ。FIR・レイヤー処理は updated7 から無変更)。
+//   - 取得は Meteosat 空域のみ: EUMETSAT WMS の雲頂高度プロダクト
+//     (msg_fes:cth / msg_iodc:cth) へ GetFeatureInfo で問い合わせる。
+//     GOES・ひまわり・POLAR には数値を返す窓口がないため対象外で、範囲外の
+//     タップでは「Meteosat空域のみ対応」のポップアップを出す。
+//   - GetFeatureInfo が返すのは数値ではなくパレット色 (RED/GREEN/BLUE_BAND)。
+//     プロダクトは 320m × 51 バンド (0〜約16.3km) で量子化されており、
+//     GetLegendGraphic (2026-11-13 取得) のバーから抽出したバンド色表
+//     (CTH_BAND_COLORS) への最近傍マッチで高度に戻す。概算のため表示は
+//     「雲頂 約FL○○○」と FL の10刻みに丸める。透明画素 (晴天) は
+//     RGB≈(0,0,0) で返ることを実測し、「雲なし」として扱う。
+//   - 情報パネルに注意書き「雲頂高度はMeteosat空域のみ対応（雲をタップ）」
+//     を常時表示する。
 // =========================================================================
 const FIR_DATA_URL = 'https://cdn.jsdelivr.net/gh/vatsimnetwork/vatspy-data-project@master/Boundaries.geojson';
 let firProcessedCache = null;
@@ -1084,6 +1099,37 @@ const getProcessedFirData = () => {
 // =========================================================================
 // Weather Radar Map View
 // =========================================================================
+// =========================================================================
+// 雲頂高度タップ取得 (updated8、Meteosat 空域のみ)
+// EUMETSAT WMS の MSG Cloud Top Height (msg_fes:cth / msg_iodc:cth) は
+// GetFeatureInfo で数値ではなくパレット色だけを返す。プロダクト自体は
+// 320m × 51 バンド (0〜約16.3km) の量子化 (EUMETSAT SEVIRI CTH factsheet)。
+// 下の色表は GetLegendGraphic (msg_fes:cth、2026-11-13 取得) のバーから
+// 51 バンド中心の色を抽出したもの。実行時に凡例画像は取得しない
+// (CORS/キャンバス汚染回避のため表を埋め込む)。
+// =========================================================================
+const CTH_BAND_COLORS = [[26,11,0],[58,26,0],[105,45,5],[122,36,42],[140,27,79],[159,17,122],[186,4,180],[154,0,204],[117,0,216],[79,0,229],[27,0,248],[0,19,255],[0,45,255],[0,69,255],[0,99,255],[0,141,255],[0,169,255],[0,194,255],[0,220,255],[0,247,234],[0,235,177],[0,224,128],[0,211,77],[5,197,17],[34,200,0],[60,206,0],[83,212,0],[115,220,0],[155,230,0],[184,237,0],[208,243,0],[233,249,0],[254,232,0],[254,201,0],[254,177,0],[254,152,0],[254,110,0],[254,77,0],[254,53,0],[254,28,0],[250,11,8],[219,56,56],[201,88,88],[183,120,120],[166,155,155],[175,175,175],[193,193,193],[205,205,205],[218,218,218],[234,234,234],[255,255,255]];
+// パレット色 → FL (10刻み)。雲のない画素は透明で RGB≈(0,0,0) として返る
+// (2026-11-13 実測) ため、その場合は null (= 雲なし) を返す。
+const decodeCthFl = (r, g, b) => {
+  if (Math.max(r, g, b) <= 2) return null;
+  let best = 0, bestDist = Infinity;
+  for (let i = 0; i < CTH_BAND_COLORS.length; i++) {
+    const c = CTH_BAND_COLORS[i];
+    const d = (c[0] - r) * (c[0] - r) + (c[1] - g) * (c[1] - g) + (c[2] - b) * (c[2] - b);
+    if (d < bestDist) { bestDist = d; best = i; }
+  }
+  const km = (best + 0.5) * 0.32; // バンド中心の高さ
+  return Math.round((km * 3280.84) / 100 / 10) * 10;
+};
+// タップ地点の経度から問い合わせ先の CTH レイヤーを決める
+// (satelliteSources.js の Meteosat 担当経度範囲と同じ窓)
+const cthLayerForLongitude = (lng) => {
+  if (lng >= -37.6 && lng < 20.8) return 'msg_fes:cth';
+  if (lng >= 20.8 && lng <= 91.1) return 'msg_iodc:cth';
+  return null;
+};
+
 const WeatherRadarMap = ({ 
     navlogData, routeWps, frameIndex, setFrameIndex, isPlaying, setIsPlaying, maxFrames, setMaxFrames,
     deviationNM, setDeviationNM, opacity, setOpacity,
@@ -1245,6 +1291,48 @@ const WeatherRadarMap = ({
           };
           map.on('moveend', updateActiveSat);
           updateActiveSat();
+
+          // 雲頂高度のタップ取得 (updated8、Meteosat 空域のみ)。既存の地図クリック
+          // ハンドラは無いため競合しない (空域等のツールチップはホバー表示)。
+          // 連打時は世代カウンタで古い応答を捨てる。
+          let cthSeq = 0;
+          let cthPopup = null;
+          map.on('click', async (e) => {
+            const seq = ++cthSeq;
+            if (cthPopup) { map.closePopup(cthPopup); cthPopup = null; }
+            const lat = e.latlng.lat;
+            const lng = ((e.latlng.lng + 540) % 360) - 180; // 世界コピー対策で -180..180 に正規化
+            const layer = Math.abs(lat) <= 78 ? cthLayerForLongitude(lng) : null;
+            if (!layer) {
+              cthPopup = L.popup().setLatLng(e.latlng).setContent('雲頂高度はMeteosat空域のみ対応').openOn(map);
+              return;
+            }
+            cthPopup = L.popup().setLatLng(e.latlng).setContent('雲頂高度を取得中…').openOn(map);
+            try {
+              // EPSG:3857 でタップ中心 ±25km の窓を作り、中心画素を問い合わせる
+              const R = 6378137;
+              const px = R * lng * Math.PI / 180;
+              const py = R * Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360));
+              const h = 25000;
+              const url = EUMETSAT_WMS_URL
+                + '?service=WMS&version=1.3.0&request=GetFeatureInfo'
+                + '&layers=' + encodeURIComponent(layer)
+                + '&query_layers=' + encodeURIComponent(layer)
+                + '&styles=&crs=EPSG%3A3857'
+                + '&bbox=' + (px - h) + ',' + (py - h) + ',' + (px + h) + ',' + (py + h)
+                + '&width=256&height=256&i=128&j=128'
+                + '&format=image%2Fpng&info_format=application%2Fjson&transparent=true';
+              const res = await fetch(url);
+              if (!res.ok) throw new Error('GetFeatureInfo HTTP ' + res.status);
+              const json = await res.json();
+              if (seq !== cthSeq || !cthPopup) return; // 後のタップに追い越された
+              const props = json && json.features && json.features[0] && json.features[0].properties;
+              const fl = props ? decodeCthFl(Number(props.RED_BAND) || 0, Number(props.GREEN_BAND) || 0, Number(props.BLUE_BAND) || 0) : null;
+              cthPopup.setContent(fl !== null ? ('雲頂 約FL' + fl) : '雲なし');
+            } catch (err) {
+              if (seq === cthSeq && cthPopup) cthPopup.setContent('取得できませんでした');
+            }
+          });
           radarLayerRef.current = L.tileLayer(errImg, { opacity: initialOpacity, maxZoom: 16, noWrap: false, errorTileUrl: errImg, pane: 'radarPane' }).addTo(map);
 
           setIsMapLoaded(true);
@@ -1547,6 +1635,7 @@ const WeatherRadarMap = ({
           <div className="leading-tight">{activeLayerName}</div>
           <div className="leading-tight border-t border-slate-800 pt-1 mt-1">AUTO SAT: <span className="text-sky-300 font-bold">{activeSat.shortLabel}</span> <span className="text-slate-400">({activeSat.satellite} / {activeSat.subLon}&deg;)</span></div>
           <div className="text-[10px] text-slate-500 leading-tight">{activeSat.attribution} — {activeSat.product}</div>
+          <div className="text-[10px] text-slate-500 leading-tight">雲頂高度はMeteosat空域のみ対応（雲をタップ）</div>
           {navlogData && (navlogData.fNo || navlogData.depIcao || navlogData.destIcao) && (
             <div className="text-amber-300 font-bold border-t border-slate-800 pt-2 mt-2 flex justify-between gap-4">
               <span>{navlogData.fNo || 'ROUTE'} : {navlogData.depIcao || 'DEP'} &rarr; {navlogData.destIcao || 'ARR'}</span>
