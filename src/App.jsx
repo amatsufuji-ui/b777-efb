@@ -1,8 +1,8 @@
-// App-15.jsx — 2026-11-15 (App-14.jsx + パーサ修正: CFP改ページ位置でページ見出し「ANA0215//14 RJTT - LFPG」の空港コードを名前として拾い、次行の座標・CTMEを複写した空港名ダブり行 (dist=0) がプラン中ほどに混入する問題を、parseNavlogPDFText 内のクリーンアップで除去。除去条件は保守的に限定: 出発/到着と同名でも先頭行・末尾行ではなく、隣接行と latLon・ctme が完全一致し dist=0 の行のみ。これにより NavlogView の一覧・DIST CHECK、RDR のルート線 (空港名行が ICAO_COORDS で空港座標に解決され RJTT へ直線が引かれていた)、SKEW-T バッチ選定 (RJTT 名の余分なページ) が同時に解消する。他コンポーネントは無変更 (従来の回避策はダブり行が無ければ無害な no-op))
+// App-16.jsx — 2026-11-15 (App-15.jsx + NH8402 実運航テストのフィードバック対応2点: (B) ISA DEV の符号欠落を修正: CFP の ISA 偏差列は負値が "(- 5)" の形で印刷され、従来の空白除去 ( "(" 直後のみ) では "(-" と "5)" に分割されて正規表現に一致せず、負の偏差が全て isaDev=0 に化けていた。トークン化前に括弧内数値を正規化し、あわせて括弧パース側の二重反転 (parseInt が拾った "-" を再度反転していた) を修正。これにより負の ISA DEV がそのまま MAX ALT 計算 (interpolateAlt) に渡る。(E) PWA オフライン時のロックアウト対策: controllerchange による自動リロードを オフライン時は行わず "online" イベントへ延期し、sessionStorage のワンショットガードで同一セッション内の再リロードを防止。UPDT ボタンもオフライン時は SW 登録解除を行わず中断する)
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import * as LucideIcons from 'lucide-react';
 
-const APP_VERSION = "13.7"; 
+const APP_VERSION = "13.8"; 
 
 import { RAW_CSV_DATA, aircraftRegistrationList, BUDDYCOM_LINKS, ICAO_COORDS } from './data/flightData';
 import { aircraftPerformanceData, defaultCruiseWeights, defaultLandingWeights, modelKeyMap, AIRCRAFT_DIMENSIONS, SEAT_DATA, CRUISE_PERF_DATA, VREF_DATA, HOLD_SPD_DATA_RAW, MANEUVER_1_3G_MACH_DATA, TARGET_PITCH_N1_DATA_RAW, LANDING_DIST_DATA_RAW, B777_WIND_LIMITS, MAX_MAN_DATA } from './data/perfData';
@@ -456,12 +456,34 @@ export default function App() {
     // 1) Launch check: unchanged, always runs on mount (and stamps).
     runUpdateCheck();
 
-    // Reload once when a new service worker takes control (as before).
+    // Reload once when a new service worker takes control.
+    // ▼ オフライン対策 (2026-11-15 App-16, NH8402 実運航で発生したロックアウトへの対応):
+    //    従来は controllerchange で無条件にリロードしていたため、機内 (完全オフライン) で
+    //    新 SW が制御を引き継ぐと、ナビゲーションを取り直しに行って Safari の
+    //    「インターネットに接続されていません」画面に落ち、再起動しても復帰できなかった。
+    //    オフライン時はリロードせず、"online" イベント (または次回起動。新 SW は既に
+    //    コントローラになっている) へ延期する。あわせて sessionStorage のワンショット
+    //    ガードで、同一セッション中に自動リロードが繰り返し走らないようにする。
     let refreshing = false;
+    const SW_RELOAD_GUARD_KEY = 'pwaSwAutoReloadGuard';
+    const reloadForUpdate = () => {
+        if (refreshing) return;
+        try {
+            if (sessionStorage.getItem(SW_RELOAD_GUARD_KEY)) return; // このセッションで既に1回実行済み
+            sessionStorage.setItem(SW_RELOAD_GUARD_KEY, String(Date.now()));
+        } catch (e) {}
+        refreshing = true;
+        window.location.reload();
+    };
     const onControllerChange = () => {
-        if (!refreshing) {
-            refreshing = true;
-            window.location.reload();
+        if (navigator.onLine) {
+            reloadForUpdate();
+        } else {
+            const onOnline = () => {
+                window.removeEventListener('online', onOnline);
+                reloadForUpdate();
+            };
+            window.addEventListener('online', onOnline);
         }
     };
     navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);
@@ -883,6 +905,12 @@ export default function App() {
         }
     }
 
+    // ▼ ISA DEV の括弧表記を正規化 (2026-11-15 App-16): CFP の偏差列は "( 3)" / "(- 5)" の
+    //    ように括弧内に空白を含む形で印刷される。従来の /\(\s+/ 除去だけでは負値 "(- 5)" が
+    //    "(-" と "5)" の2トークンに割れ、下の括弧パース正規表現に一致せず、負の ISA DEV が
+    //    全て欠落して isaDev=0 になっていた。数値括弧だけを "(符号+数字)" へ畳んでから分割する。
+    //    数字が1〜2桁で閉じ括弧が続く形に限定するため、(KORD) や (4751) 等の他表記には触れない。
+    cleanTextForWp = cleanTextForWp.replace(/\(\s*([PM+-]?)\s*(\d{1,2})\s*\)/gi, '($1$2)');
     cleanTextForWp = cleanTextForWp.replace(/\(\s+/g, '(');
     const tokens = cleanTextForWp.split(/\s+/);
     
@@ -964,7 +992,9 @@ export default function App() {
         let isaBrackMatch = token.match(/^\(\s*([PM+-]?\d{1,2})\s*\)$/i);
         if (isaBrackMatch) {
             let valStr = isaBrackMatch[1].toUpperCase();
-            let num = parseInt(valStr.replace(/[PM+]/g, ''), 10);
+            // 符号は下の1回だけ適用する (従来は "-" を残したまま parseInt し、
+            // 既に負になった値を再度反転して正に化けていた) (2026-11-15 App-16)
+            let num = parseInt(valStr.replace(/[PM+-]/g, ''), 10);
             if (valStr.includes('-') || valStr.includes('M')) num = -num;
             if (!isNaN(num) && num >= -40 && num <= 40) {
               pendingIsa = num;
@@ -2134,7 +2164,7 @@ export default function App() {
               <button onClick={() => { setIsDrmModalOpen(true); }} className="bg-slate-700 hover:bg-purple-600 text-purple-400 hover:text-white px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border border-slate-500 shadow-sm shrink-0"><span className="text-[9px] sm:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">DRM</span></button>
               <button onClick={() => { setIsGuideOpen(true); }} className="bg-slate-700 hover:bg-rose-600 text-rose-400 hover:text-white px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border border-slate-500 shadow-sm shrink-0"><span className="text-[9px] sm:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">HELP</span></button>
               
-              <button onClick={() => { if ('serviceWorker' in navigator) { navigator.serviceWorker.getRegistrations().then((registrations) => { for (let registration of registrations) { registration.unregister(); } }); } window.dispatchEvent(new CustomEvent('show-toast', { detail: '最新バージョンを取得して再起動します...' })); setTimeout(() => { window.location.reload(true); }, 1500); }} className="bg-slate-700 hover:bg-emerald-600 text-emerald-400 hover:text-white px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border border-emerald-500 hover:border-emerald-400 shadow-sm shrink-0" title="アプリを消さずに最新版へアップデート">
+              <button onClick={() => { if (!navigator.onLine) { window.dispatchEvent(new CustomEvent('show-toast', { detail: 'オフラインのためアップデートできません。通信できる場所で実行してください。' })); return; } if ('serviceWorker' in navigator) { navigator.serviceWorker.getRegistrations().then((registrations) => { for (let registration of registrations) { registration.unregister(); } }); } window.dispatchEvent(new CustomEvent('show-toast', { detail: '最新バージョンを取得して再起動します...' })); setTimeout(() => { window.location.reload(true); }, 1500); }} className="bg-slate-700 hover:bg-emerald-600 text-emerald-400 hover:text-white px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border border-emerald-500 hover:border-emerald-400 shadow-sm shrink-0" title="アプリを消さずに最新版へアップデート">
                 <SafeIcon name="DownloadCloud" className="w-3 h-3 pointer-events-none" />
                 <span className="text-[9px] sm:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">UPDT</span>
               </button>

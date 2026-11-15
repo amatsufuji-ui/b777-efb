@@ -1,6 +1,8 @@
-// NavlogView.fixed-v10.jsx — 2026-11-15 (fixed-v9 + 2点の変更: (A) SKEWT の対応付けで空港名ページの扱いを修正: CFP 改ページ由来の空港名ダブり行 (ANA0215 14日便の RJTT 行など) をバッチ選定が通常地点として拾った空港名ページが、プラン中ほどの行に SK ボタンとして出ていた問題を解消。出発/到着ページは先頭行/末尾行のみという従来規則に加え、エンルート対応付けの対象から出発/到着と同名のページを外した (該当ページはビューアの矢印移動でのみ表示)。(B) SKEWT 列に「+」ボタンを追加: 未生成で座標のある行に表示し、押すとその地点だけの SKEW-T を App の onRequestSkewtPoint で追加生成する (生成中は「…」表示で再押下不可)。追加生成ページは rowIndex アンカーで押した行に確実に対応づく。fixed-v9 以前の内容＝SKEWT列・ビューア・DIST CHECK 空港行除外・到着地の天気の前便値無効化・EXPORT修正・TAKEOFF TIME復元ガードはそのまま維持)
+// NavlogView.fixed-v11.jsx — 2026-11-15 (fixed-v10 + NH8402 実運航テストのフィードバック対応3点: (A) DIST CHECK の最終区間欠落を修正: 座標Waypointの前後にある通常Waypointを区切りにする判定で、間に ETP/EXP 等の挿入ポイントがある場合も読み飛ばして到達する最初の通常Waypointを区切りにする (例: ANA8402 の 50N40 → EXP2 → PRETY が 50N40→PRETY として表示される)。空港行は読み飛ばさず壁として扱うため、空港をまたぐ区間は作らない。(C) SYNC の QR を完全ローカル化: 表示側 QRious / 読取側 jsQR の CDN 読込を廃止し、同フォルダの qrcode.js / jsqr.js (ベンダー化モジュール) を使用。ペイロード形式 (7PT|…) は不変。(D) EXPORT の手動ファイル選択に同一便チェックを追加: 選択した PDF の便名・出発地・到着地・日付を読み取り中の便と比較し、食い違う項目名と両値をトーストで明示して中止する。あわせて CDN ライブラリ読込失敗時の無言失敗を、原因が分かるトーストに変更。fixed-v10 以前の内容はそのまま維持)
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { SafeIcon } from './SharedComponents';
+import { renderQRCode } from './qrcode';
+import jsQR from './jsqr';
 import { 
     WMO_CODES, 
     ICAO_COORDS, 
@@ -247,17 +249,17 @@ const SyncModal = ({ isOpen, onClose, actuals, onSync, showMessage }) => {
 
     useEffect(() => {
         if (isOpen && activeTab === 'export' && canvasRef.current) {
-            const drawQR = () => {
-                const dataStr = packData(actuals);
-                const valueToEncode = dataStr || "7PT|NODATA";
-                new window.QRious({ element: canvasRef.current, value: valueToEncode, size: 400, padding: 20, background: 'white', foreground: 'black', level: 'L' });
-            };
-            if (!window.QRious) {
-                const script = document.createElement('script');
-                script.src = "https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js";
-                script.onload = drawQR;
-                document.head.appendChild(script);
-            } else { drawQR(); }
+            // ▼ ローカル生成 (2026-11-15 fixed-v11): 従来は QRious を CDN から読んでいたため
+            //    機内 (オフライン) ではスクリプトが取得できず QR が真っ白になっていた。
+            //    同フォルダの qrcode.js (レベルL・バイトモード) で端末内生成する。
+            const dataStr = packData(actuals);
+            const valueToEncode = dataStr || "7PT|NODATA";
+            try {
+                renderQRCode(canvasRef.current, valueToEncode, { size: 400, padding: 20, background: 'white', foreground: 'black' });
+            } catch (err) {
+                console.error(err);
+                showMessage("QRコードを作成できませんでした（データが大きすぎます）。");
+            }
         }
     }, [isOpen, activeTab, actuals]);
 
@@ -280,7 +282,7 @@ const SyncModal = ({ isOpen, onClose, actuals, onSync, showMessage }) => {
                         context.fillStyle = "white"; context.fillRect(0, 0, w, h);
                         context.drawImage(img, 0, 0, w, h);
                         const imgData = context.getImageData(0, 0, w, h);
-                        return window.jsQR(imgData.data, imgData.width, imgData.height, { inversionAttempts: "attemptBoth" });
+                        return jsQR(imgData.data, imgData.width, imgData.height, { inversionAttempts: "attemptBoth" });
                     };
                     try {
                         let code = tryScan(1200) || tryScan(800) || tryScan(500);
@@ -300,11 +302,8 @@ const SyncModal = ({ isOpen, onClose, actuals, onSync, showMessage }) => {
             reader.readAsDataURL(file);
             e.target.value = '';
         };
-        if (!window.jsQR) {
-            const script = document.createElement('script');
-            script.src = "https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js";
-            script.onload = scan; document.head.appendChild(script);
-        } else { scan(); }
+        // 読取側もベンダー化した jsqr.js を使用 (CDN 読込は廃止) (2026-11-15 fixed-v11)
+        scan();
     };
 
     if (!isOpen) return null;
@@ -371,10 +370,28 @@ const DistCheckModal = ({ isOpen, onClose, flightData, depIcao, destIcao }) => {
         const airportNames = new Set([depIcao, destIcao, flightData.length > 0 ? flightData[flightData.length - 1].wp : null].filter(Boolean));
         const isAirportWp = (wp) => airportNames.has(wp.wp);
         const isCoordWp = (wp) => !!wp && !isExcludeWp(wp) && !isAirportWp(wp) && isLatLonWp(wp);
+        // ▼ v11: 隣接判定で挿入ポイントを読み飛ばす。
+        //    従来は直前・直後の行だけを見ていたため、座標Waypointの直後に ETP/EXP 等が
+        //    入ると、その先の通常Waypoint (例: ANA8402 の 50N40 → EXP2 → PRETY) が
+        //    区切りになれず、最後の区間が表示されなかった。挿入ポイントは「区切りに
+        //    しない・距離だけ累積」という本来の仕様どおり、判定でも透明に扱う。
+        //    ただし空港行は読み飛ばさない (そこで走査を止める) ため、空港をまたいだ
+        //    区間は作られない。通常行に当たった時点で止まるので、座標Waypointから
+        //    見て最初の通常Waypointだけが新たに区切りになる (その先は広がらない)。
+        const scanBeyondInserted = (idx, dir) => {
+            for (let j = idx + dir; j >= 0 && j < flightData.length; j += dir) {
+                if (isExcludeWp(flightData[j])) continue;
+                return j;
+            }
+            return -1;
+        };
         const checkpointFlags = flightData.map((wp, idx) => {
             if (isExcludeWp(wp) || isAirportWp(wp)) return false;
             if (isLatLonWp(wp)) return true;
-            if (isCoordWp(flightData[idx - 1]) || isCoordWp(flightData[idx + 1])) return true;
+            const prevIdx = scanBeyondInserted(idx, -1);
+            if (prevIdx >= 0 && isCoordWp(flightData[prevIdx])) return true;
+            const nextIdx = scanBeyondInserted(idx, +1);
+            if (nextIdx >= 0 && isCoordWp(flightData[nextIdx])) return true;
             return false;
         });
 
@@ -1588,7 +1605,13 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
           if (!window.PDFLib) {
               const script = document.createElement('script');
               script.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js";
-              await new Promise((res, rej) => { script.onload = res; script.onerror = rej; document.head.appendChild(script); });
+              try {
+                  await new Promise((res, rej) => { script.onload = res; script.onerror = rej; document.head.appendChild(script); });
+              } catch (e) {
+                  // CDN から読むため、オフライン (かつ未読込) ではここで失敗する。
+                  // 原因が分かる文言で投げ直し、下の catch のトーストに表示する。
+                  throw new Error('PDF生成ライブラリを読み込めませんでした。オフラインでは、地上で一度開いたセッションでのみ出力できます。');
+              }
           }
 
           const { PDFDocument, rgb, StandardFonts } = window.PDFLib;
@@ -1718,50 +1741,105 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
       }
   };
 
+  // ▼ EXPORT 用: 選択された PDF が読み込み中の便と同一かを確認するための識別情報抽出
+  //    (2026-11-15 fixed-v11)。便名・区間・日付は CFP のタイトル部に必ず印刷されるため、
+  //    全文テキストからの正規表現で十分に安定する。便名はパーサと同じく ANA0215 → ANA215
+  //    の形 (先行ゼロ除去) に正規化して比較する。
+  const extractPdfIdentity = (fullText) => {
+      const id = { fNo: null, dep: null, dest: null, date: null };
+      if (!fullText) return id;
+      const f = fullText.match(/\bANA\s?(\d{3,4})\b/i);
+      if (f) id.fNo = 'ANA' + parseInt(f[1], 10);
+      const r = fullText.match(/\b([A-Z]{4})\s*-\s*([A-Z]{4})\b/);
+      if (r) { id.dep = r[1]; id.dest = r[2]; }
+      const d = fullText.match(/\b(\d{2}(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\d{2})\b/i);
+      if (d) id.date = d[1].toUpperCase();
+      return id;
+  };
+  const normalizeFlightNo = (s) => {
+      if (!s) return null;
+      const m = String(s).match(/ANA\s?(\d+)/i);
+      return m ? 'ANA' + parseInt(m[1], 10) : String(s).toUpperCase();
+  };
+
   // ▼ 手動ファイル選択（フェールセーフ）
   const handleManualPdfSelect = async (e) => {
       const file = e.target.files[0];
       if (!file) return;
-      
+
+      const showToast = (msg) => window.dispatchEvent(new CustomEvent('show-toast', { detail: msg }));
       const reader = new FileReader();
       reader.onload = async (event) => {
-          const buffer = event.target.result;
-          
-          const pdfjsArray = new Uint8Array(buffer.slice(0)); 
-          const originalArray = new Uint8Array(buffer.slice(0)); 
-          
-          if (!window.pdfjsLib) {
-              const script = document.createElement('script');
-              script.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
-              await new Promise((res, rej) => { script.onload = res; script.onerror = rej; document.head.appendChild(script); });
-              window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-          }
-          
-          const loadingTask = window.pdfjsLib.getDocument({
-              data: pdfjsArray,
-              cMapUrl: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/",
-              cMapPacked: true
-          });
-          const pdf = await loadingTask.promise;
-          
-          let textPositions = []; 
-          for (let i = 1; i <= pdf.numPages; i++) {
-              const page = await pdf.getPage(i);
-              const content = await page.getTextContent();
-              content.items.forEach(item => {
-                  if (item && typeof item.str === 'string' && item.str.trim().length >= 3 && item.transform) {
-                      textPositions.push({
-                          str: item.str.trim(),
-                          page: i - 1,
-                          x: item.transform[4],
-                          y: item.transform[5]
-                      });
+          try {
+              const buffer = event.target.result;
+
+              const pdfjsArray = new Uint8Array(buffer.slice(0));
+              const originalArray = new Uint8Array(buffer.slice(0));
+
+              if (!window.pdfjsLib) {
+                  const script = document.createElement('script');
+                  script.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+                  try {
+                      await new Promise((res, rej) => { script.onload = res; script.onerror = rej; document.head.appendChild(script); });
+                  } catch (loadErr) {
+                      // CDN 読込はオフラインでは失敗する。従来はこの reject が
+                      // 未処理のまま無言で終わっていた (2026-11-15 fixed-v11 で明示)。
+                      showToast('PDF解析ライブラリを読み込めませんでした。オフラインでは、地上で一度開いたセッションでのみ選択できます。');
+                      return;
                   }
+                  window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+              }
+
+              const loadingTask = window.pdfjsLib.getDocument({
+                  data: pdfjsArray,
+                  cMapUrl: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/",
+                  cMapPacked: true
               });
+              const pdf = await loadingTask.promise;
+
+              let textPositions = [];
+              let fullText = '';
+              for (let i = 1; i <= pdf.numPages; i++) {
+                  const page = await pdf.getPage(i);
+                  const content = await page.getTextContent();
+                  content.items.forEach(item => {
+                      if (item && typeof item.str === 'string') {
+                          fullText += item.str + ' ';
+                          if (item.str.trim().length >= 3 && item.transform) {
+                              textPositions.push({
+                                  str: item.str.trim(),
+                                  page: i - 1,
+                                  x: item.transform[4],
+                                  y: item.transform[5]
+                              });
+                          }
+                      }
+                  });
+                  fullText += '\n';
+              }
+
+              // ▼ 同一便チェック (2026-11-15 fixed-v11): 選択した PDF の便名・出発地・
+              //    到着地・日付を、読み込み中の便と比較する。食い違う場合は、どの項目が
+              //    どう違うかを明示して中止する (別便の PDF への誤書き込み防止)。
+              //    項目が PDF から読み取れない場合は比較不能として従来どおり進める。
+              const pdfId = extractPdfIdentity(fullText);
+              const diffs = [];
+              if (pdfId.fNo && flightNo && pdfId.fNo !== normalizeFlightNo(flightNo)) diffs.push(`便名（読込中 ${flightNo} / PDF ${pdfId.fNo}）`);
+              if (pdfId.dep && parsedDepIcao && pdfId.dep !== parsedDepIcao) diffs.push(`出発地（読込中 ${parsedDepIcao} / PDF ${pdfId.dep}）`);
+              if (pdfId.dest && parsedDestIcao && pdfId.dest !== parsedDestIcao) diffs.push(`到着地（読込中 ${parsedDestIcao} / PDF ${pdfId.dest}）`);
+              if (pdfId.date && parsedDate && pdfId.date !== parsedDate) diffs.push(`日付（読込中 ${parsedDate} / PDF ${pdfId.date}）`);
+              if (diffs.length > 0) {
+                  showToast(`選択したPDFが読み込み中の便と一致しません: ${diffs.join('、')}`);
+                  return;
+              }
+
+              await processAndDownloadPdf(originalArray, textPositions);
+          } catch (err) {
+              console.error(err);
+              showToast(`PDFの読み込みに失敗しました: ${err && err.message ? err.message : err}`);
+          } finally {
+              if (pdfExportInputRef.current) pdfExportInputRef.current.value = '';
           }
-          
-          await processAndDownloadPdf(originalArray, textPositions);
-          if (pdfExportInputRef.current) pdfExportInputRef.current.value = '';
       };
       reader.readAsArrayBuffer(file);
   };
