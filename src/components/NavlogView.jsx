@@ -1,4 +1,4 @@
-// NavlogView.fixed-v8.jsx — 2026-11-14 (DIST CHECK: 出発/到着空港（ICAOが一致する行）は絶対に区切りにしない。CFPの改ページで座標行が重複し、ページ見出しの空港コードを名前として拾ったダブり行が緯度経度Waypointに隣接すると、v7の隣接ルールで区切りに昇格して「7740N → RJTT: 0」のような偽区間が出たため。空港行はETP等と同様に距離の累積のみに使う。fixed-v7 の内容＝DIST隣接ルール・到着地の天気の前便値無効化・EXPORT修正・TAKEOFF TIME復元ガードはそのまま維持)
+// NavlogView.fixed-v10.jsx — 2026-11-15 (fixed-v9 + 2点の変更: (A) SKEWT の対応付けで空港名ページの扱いを修正: CFP 改ページ由来の空港名ダブり行 (ANA0215 14日便の RJTT 行など) をバッチ選定が通常地点として拾った空港名ページが、プラン中ほどの行に SK ボタンとして出ていた問題を解消。出発/到着ページは先頭行/末尾行のみという従来規則に加え、エンルート対応付けの対象から出発/到着と同名のページを外した (該当ページはビューアの矢印移動でのみ表示)。(B) SKEWT 列に「+」ボタンを追加: 未生成で座標のある行に表示し、押すとその地点だけの SKEW-T を App の onRequestSkewtPoint で追加生成する (生成中は「…」表示で再押下不可)。追加生成ページは rowIndex アンカーで押した行に確実に対応づく。fixed-v9 以前の内容＝SKEWT列・ビューア・DIST CHECK 空港行除外・到着地の天気の前便値無効化・EXPORT修正・TAKEOFF TIME復元ガードはそのまま維持)
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { SafeIcon } from './SharedComponents';
 import { 
@@ -660,7 +660,104 @@ const TimerSuggestModal = ({ data, onClose }) => {
     );
 };
 
-export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, navlogData }) => {
+// SKEW-T ページとプラン行の対応付け (2026-11-15 fixed-v10 で空港名ページの扱いを修正)
+// pages: App が生成順に保持する { name, etoLabel, kind, image, ctme?, cumDist?, rowIndex? } 配列。
+// rows: calculatedData.flightData (プラン表示行)。
+// 戻り値: { pageToRow: ページindex→行index (対応なしは -1), rowToPage: 行index→ページindex }
+// - アンカー付きページ (rowIndex を持つ = 「+」で追加生成したページ): 押された
+//   行へ最優先で対応づける (同名行が複数あっても押した行が確実に点灯する)。
+// - 出発空港 (kind 'departure'): 先頭行が同名の場合だけ行に紐づける。プラン
+//   中ほどの同名行は CFP 改ページ由来のダブり行 (名前だけ空港コード) のこと
+//   があるため本物とみなさず、帯ボタンに回す。
+// - 到着空港 (kind 'arrival'): 末尾行が同名の場合だけ行に紐づける。それ以外は帯ボタンに回す。
+// - エンルート (kind 'waypoint'): 生成順 = プラン順なので出現順に同名行へ
+//   対応づける (同名の重複にも強い)。ただし名前が出発/到着空港コードと一致
+//   するページは対象から外す。改ページのダブり行は座標を持つためバッチ選定
+//   が通常地点として拾って空港名のページを作ることがあり (ANA0215 14日便で
+//   RJTT 名のページが2枚できた)、それを行に付けると「ルート途中に空港の
+//   SK が出る」誤表示になるため。外したページは帯ボタンにもならず、ビューア
+//   の矢印移動でのみ辿れる。
+const matchSkewtPagesToRows = (pages, rows, depIcao, destIcao) => {
+    const pageList = Array.isArray(pages) ? pages : [];
+    const rowList = Array.isArray(rows) ? rows : [];
+    const pageToRow = new Array(pageList.length).fill(-1);
+    const rowToPage = {};
+    if (pageList.length === 0 || rowList.length === 0) return { pageToRow, rowToPage };
+    const usedRows = new Set();
+    // 0) アンカー付きページ (追加生成) を最優先で押された行へ
+    pageList.forEach((page, pi) => {
+        const ri = page ? page.rowIndex : undefined;
+        if (Number.isInteger(ri) && ri >= 0 && ri < rowList.length && !usedRows.has(ri) && rowList[ri].wp === page.name) {
+            pageToRow[pi] = ri; usedRows.add(ri);
+        }
+    });
+    // 1) 出発/到着空港ページは先頭行/末尾行だけ
+    pageList.forEach((page, pi) => {
+        if (pageToRow[pi] >= 0) return;
+        if (page.kind === 'departure') {
+            if (rowList[0] && rowList[0].wp === page.name && !usedRows.has(0)) {
+                pageToRow[pi] = 0; usedRows.add(0);
+            }
+        } else if (page.kind === 'arrival') {
+            const li = rowList.length - 1;
+            if (rowList[li] && rowList[li].wp === page.name && !usedRows.has(li)) {
+                pageToRow[pi] = li; usedRows.add(li);
+            }
+        }
+    });
+    // 2) エンルートは出現順に同名行へ。空港名ページは対象外 (上記コメント参照)
+    let cursor = 0;
+    pageList.forEach((page, pi) => {
+        if (page.kind !== 'waypoint' || pageToRow[pi] >= 0) return;
+        if ((depIcao && page.name === depIcao) || (destIcao && page.name === destIcao)) return;
+        for (let r = cursor; r < rowList.length; r++) {
+            if (!usedRows.has(r) && rowList[r].wp === page.name) {
+                pageToRow[pi] = r; usedRows.add(r); cursor = r + 1; break;
+            }
+        }
+    });
+    pageToRow.forEach((r, pi) => { if (r >= 0) rowToPage[r] = pi; });
+    return { pageToRow, rowToPage };
+};
+
+// SKEW-T ビューア (2026-11-15 fixed-v9): App が保持する生成済みページ画像を
+// そのまま表示する (再取得・再描画はしない)。◀ ▶ で全ページを生成順に移動でき、
+// 端では矢印を無効化する。閉じるのは × と背景タップ。
+const SkewTViewerModal = ({ pages, index, onClose, onNavigate }) => {
+    if (!Array.isArray(pages) || pages.length === 0 || index === null || index === undefined || !pages[index]) return null;
+    const page = pages[index];
+    const total = pages.length;
+    const navBtnBase = "px-4 py-2 rounded-lg font-bold text-sm transition-colors shadow-sm";
+    return (
+        <div className="fixed inset-0 bg-black/85 z-[110] flex items-center justify-center p-2 sm:p-4 backdrop-blur-sm" onClick={onClose}>
+            <div className="bg-slate-800 border border-slate-600 rounded-xl shadow-2xl flex flex-col max-h-[97vh]" onClick={(e) => e.stopPropagation()}>
+                <div className="flex justify-between items-center px-3 py-2 border-b border-slate-700 gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                        <SafeIcon name="CloudRain" className="w-5 h-5 text-teal-400 shrink-0" />
+                        <span className="text-white font-black font-mono truncate">{page.name}</span>
+                        {page.etoLabel && <span className="text-slate-400 text-[11px] font-mono whitespace-nowrap">{page.etoLabel}</span>}
+                        <span className="text-slate-500 text-[11px] font-mono whitespace-nowrap">{index + 1} / {total}</span>
+                    </div>
+                    <button onClick={onClose} className="text-slate-400 hover:text-white font-bold text-2xl leading-none px-1">&times;</button>
+                </div>
+                <div className="flex items-center justify-center bg-slate-900/70 p-1 overflow-hidden">
+                    <img src={page.image} alt={`${page.name} SKEW-T`} draggable={false}
+                        className="object-contain select-none"
+                        style={{ maxHeight: 'calc(97vh - 118px)', maxWidth: 'min(94vw, 700px)' }} />
+                </div>
+                <div className="flex items-center justify-between gap-2 px-3 py-2 border-t border-slate-700">
+                    <button disabled={index <= 0} onClick={() => onNavigate(index - 1)}
+                        className={`${navBtnBase} ${index <= 0 ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-slate-700 hover:bg-slate-600 text-white'}`}>◀ 前へ</button>
+                    <span className="text-slate-400 text-[11px] font-mono truncate">{page.name}{page.etoLabel ? ` ・ ${page.etoLabel}` : ''}</span>
+                    <button disabled={index >= total - 1} onClick={() => onNavigate(index + 1)}
+                        className={`${navBtnBase} ${index >= total - 1 ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-slate-700 hover:bg-slate-600 text-white'}`}>次へ ▶</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, navlogData, skewtPages, onRequestSkewtPoint }) => {
   const [takeoffTime, setTakeoffTime] = useState('');
   const [actuals, setActuals] = useState({});
   const [toastMessage, setToastMessage] = useState("");
@@ -668,6 +765,8 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
   const [isGraphOpen, setIsGraphOpen] = useState(false);
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const [isDistCheckOpen, setIsDistCheckOpen] = useState(false);
+  const [skewtViewerIndex, setSkewtViewerIndex] = useState(null); // SKEW-T ビューアで表示中のページindex (null=閉)
+  const [skewtPendingRow, setSkewtPendingRow] = useState(null); // SKEW-T 追加生成中の行index (null=なし、2026-11-15 fixed-v10)
   const [memoModal, setMemoModal] = useState({ isOpen: false, wp: '', text: '' });
 
   const [activeAlerts, setActiveAlerts] = useState({});
@@ -821,6 +920,9 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
 
     return { flightData: data, totalBurnDiff, lastValidWpIndex, estLandingTimeStr: minutesToTime(estLandingTimeMins), estBlockInStr: minutesToTime(estBlockInMins), estBlockInMins, estLandingTimeMins, latestAtoTimeDiffStr: formatTimeDiff(latestAtoTimeDiff), latestAtoTimeDiff, isNearestAirportEligible, takeoffMinutes };
   }, [takeoffTime, actuals, flightPlan, parsedPzfw, parsedReg, is15gLimit, parsedTaxiIn]);
+
+  // SKEW-T ページ ↔ プラン行の対応 (SKEWT 列のボタン配置用)
+  const skewtMatch = useMemo(() => matchSkewtPagesToRows(skewtPages, calculatedData.flightData, parsedDepIcao, parsedDestIcao), [skewtPages, calculatedData.flightData, parsedDepIcao, parsedDestIcao]);
 
   const etopsTimeDiff = useMemo(() => {
     const hasAto = Object.values(actuals).some(v => v && v.ato);
@@ -1713,6 +1815,13 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
         destIcao={parsedDestIcao}
       />
 
+      <SkewTViewerModal
+        pages={skewtPages}
+        index={skewtViewerIndex}
+        onClose={() => setSkewtViewerIndex(null)}
+        onNavigate={setSkewtViewerIndex}
+      />
+
       <WpAlertModal 
         wpName={popupWp} 
         onClose={() => setPopupWp(null)} 
@@ -1952,6 +2061,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
               <div className="sticky top-0 z-30 bg-[#0f172a] border-b border-slate-700 shadow-md rounded-t-lg">
                 <div className="flex p-1.5 font-black text-slate-400 text-[11px] text-center items-center leading-tight justify-between">
                   <div className="w-[175px] shrink-0 text-center">WAYPOINT</div>
+                  <div className="w-[36px] shrink-0 text-teal-300">SKEWT</div>
                   <div className="w-[42px] text-cyan-400 shrink-0">GS<br/><span className="text-[9px] text-cyan-500">TAS</span></div>
                   <div className="w-[48px] text-slate-400 flex flex-col items-center justify-center shrink-0">
                     <span>CTME</span>
@@ -1967,6 +2077,15 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                 </div>
               </div>
               
+              {Array.isArray(skewtPages) && skewtPages.map((page, pi) => (
+                page.kind === 'departure' && skewtMatch.pageToRow[pi] === -1 ? (
+                    <button key={`skstrip-dep-${pi}`} onClick={() => setSkewtViewerIndex(pi)}
+                        className="w-full flex items-center justify-center gap-2 py-1.5 mb-1 rounded-lg bg-teal-900/40 hover:bg-teal-800/50 border border-teal-700/60 text-teal-200 text-[11px] font-bold transition-colors">
+                        <SafeIcon name="CloudRain" className="w-3.5 h-3.5" /> 出発地 {page.name} SKEW-T
+                    </button>
+                ) : null
+              ))}
+
               <div className="divide-y divide-slate-800/80 bg-slate-900/60 rounded-b-lg border-x border-b border-slate-700/80">
                 {calculatedData.flightData.map((row, idx) => {
                   const isTriggered = triggeredAlerts[row.wp] && !row.ato;
@@ -1982,6 +2101,27 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                       const firOriginalEto = toMins + fir.mins;
                       return firOriginalEto > prevOriginalEto && firOriginalEto <= currentOriginalEto;
                   });
+
+                  // SKEWT 列の表示判定 (2026-11-15 fixed-v10): 生成済みの行は SK、
+                  // 未生成で座標のある行は「+」(その地点だけ追加生成)、生成中は
+                  // 「…」。プラン中ほどの空港名ダブり行 (出発/到着と同名) には
+                  // 「+」を出さない (matcher の空港名ページ除外と同じ方針)。
+                  const skewtHasPage = skewtMatch.rowToPage[idx] !== undefined;
+                  let skewtCanAdd = false;
+                  if (!skewtHasPage && typeof onRequestSkewtPoint === 'function') {
+                      const coord = parseCoordString(row.latLon) || parseCoordString(row.wp);
+                      const isMidAirportRow = (parsedDepIcao && row.wp === parsedDepIcao && idx !== 0)
+                          || (parsedDestIcao && row.wp === parsedDestIcao && idx !== calculatedData.flightData.length - 1);
+                      skewtCanAdd = !!coord && !(coord.lat === 0 && coord.lon === 0) && !isMidAirportRow;
+                  }
+                  const skewtIsPending = skewtPendingRow === idx;
+                  const handleSkewtAdd = () => {
+                      if (skewtPendingRow !== null) return; // 生成中は他の行も受け付けない
+                      setSkewtPendingRow(idx);
+                      Promise.resolve(onRequestSkewtPoint({ name: row.wp, latLon: row.latLon || null, ctme: row.ctme, rowIndex: idx }))
+                          .catch(() => {})
+                          .finally(() => setSkewtPendingRow(null));
+                  };
 
                   return (
                   <React.Fragment key={idx}>
@@ -2033,6 +2173,29 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                         )}
                     </div>
                     
+                    <div className="w-[36px] shrink-0 flex items-center justify-center">
+                        {skewtHasPage ? (
+                            <button
+                                onClick={() => setSkewtViewerIndex(skewtMatch.rowToPage[idx])}
+                                className="px-1.5 py-1 rounded bg-teal-700/80 hover:bg-teal-600 border border-teal-500/60 text-white text-[10px] font-black leading-none shadow-sm transition-colors"
+                                title={`${row.wp} の SKEW-T を表示`}
+                            >SK</button>
+                        ) : skewtCanAdd ? (
+                            skewtIsPending ? (
+                                <button disabled
+                                    className="px-1.5 py-1 rounded bg-slate-800 border border-slate-600 text-slate-400 text-[10px] font-black leading-none cursor-wait opacity-70"
+                                    title="SKEW-Tを作成中..."
+                                >…</button>
+                            ) : (
+                                <button
+                                    onClick={handleSkewtAdd}
+                                    className="px-1.5 py-1 rounded bg-transparent hover:bg-slate-700/70 border border-slate-500/70 text-slate-300 hover:text-white text-[11px] font-black leading-none shadow-sm transition-colors"
+                                    title={`${row.wp} の SKEW-T を作成`}
+                                >+</button>
+                            )
+                        ) : null}
+                    </div>
+
                     <div className="w-[42px] shrink-0 flex flex-col items-center justify-center leading-none py-0.5 font-mono">
                         <span className="text-[14px] text-cyan-300 font-bold">{row.gs || '-'}</span>
                         <span className="text-xs text-cyan-500/80 font-medium mt-0.5">{row.tas || '-'}</span>
@@ -2155,6 +2318,15 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                   </React.Fragment>
                 )})}
               </div>
+
+              {Array.isArray(skewtPages) && skewtPages.map((page, pi) => (
+                page.kind === 'arrival' && skewtMatch.pageToRow[pi] === -1 ? (
+                    <button key={`skstrip-arr-${pi}`} onClick={() => setSkewtViewerIndex(pi)}
+                        className="w-full flex items-center justify-center gap-2 py-1.5 mt-1 rounded-lg bg-teal-900/40 hover:bg-teal-800/50 border border-teal-700/60 text-teal-200 text-[11px] font-bold transition-colors">
+                        <SafeIcon name="CloudRain" className="w-3.5 h-3.5" /> 到着地 {page.name} SKEW-T
+                    </button>
+                ) : null
+              ))}
             </div>
         </div>
       </div>

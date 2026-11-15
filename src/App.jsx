@@ -1,8 +1,8 @@
-// App-12.jsx — 2026-11-13 (App-11.jsx + SKEW-T ハンドラ v6: 到着空港のページも必ず末尾に追加 — v3 の出発空港保証と対。パーサが到着行の座標を付け損ねても到着地ページと詳細ホドグラフが落ちない)
+// App-15.jsx — 2026-11-15 (App-14.jsx + パーサ修正: CFP改ページ位置でページ見出し「ANA0215//14 RJTT - LFPG」の空港コードを名前として拾い、次行の座標・CTMEを複写した空港名ダブり行 (dist=0) がプラン中ほどに混入する問題を、parseNavlogPDFText 内のクリーンアップで除去。除去条件は保守的に限定: 出発/到着と同名でも先頭行・末尾行ではなく、隣接行と latLon・ctme が完全一致し dist=0 の行のみ。これにより NavlogView の一覧・DIST CHECK、RDR のルート線 (空港名行が ICAO_COORDS で空港座標に解決され RJTT へ直線が引かれていた)、SKEW-T バッチ選定 (RJTT 名の余分なページ) が同時に解消する。他コンポーネントは無変更 (従来の回避策はダブり行が無ければ無害な no-op))
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import * as LucideIcons from 'lucide-react';
 
-const APP_VERSION = "13.6"; 
+const APP_VERSION = "13.7"; 
 
 import { RAW_CSV_DATA, aircraftRegistrationList, BUDDYCOM_LINKS, ICAO_COORDS } from './data/flightData';
 import { aircraftPerformanceData, defaultCruiseWeights, defaultLandingWeights, modelKeyMap, AIRCRAFT_DIMENSIONS, SEAT_DATA, CRUISE_PERF_DATA, VREF_DATA, HOLD_SPD_DATA_RAW, MANEUVER_1_3G_MACH_DATA, TARGET_PITCH_N1_DATA_RAW, LANDING_DIST_DATA_RAW, B777_WIND_LIMITS, MAX_MAN_DATA } from './data/perfData';
@@ -23,6 +23,94 @@ import { TarmacView } from './components/TarmacView';
 import { SidView } from './components/SidView'; 
 import { WeatherRadarView } from './components/WeatherRadarView';
  import { fetchProfiles, renderWaypointPagePortrait, hourKey } from './utils/skewt';
+
+// =========================================================================
+// SKEW-T ビューア用ページの永続化 (2026-11-15 App-13)
+// 生成した SKEW-T ページ画像 (JPEG data URL × 30枚前後) は localStorage に
+// 入り切らないため、IndexedDB に1件だけ保持し、アプリの再起動・クラッシュ
+// 後も同じフライトであれば NavlogView のビューアで再表示できるようにする。
+// レコードは { identity, savedAt, pages }。identity が現在の navlog と一致
+// する場合だけ復元し、他便のページは決して出さない。
+// =========================================================================
+const SKEWT_IDB_NAME = '7pt-skewt';
+const SKEWT_IDB_STORE = 'pages';
+const SKEWT_IDB_KEY = 'latest';
+
+const skewtIdbOpen = () => new Promise((resolve, reject) => {
+    if (typeof indexedDB === 'undefined') { reject(new Error('IndexedDB unavailable')); return; }
+    const req = indexedDB.open(SKEWT_IDB_NAME, 1);
+    req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(SKEWT_IDB_STORE)) db.createObjectStore(SKEWT_IDB_STORE);
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+});
+
+const skewtIdbSave = async (record) => {
+    const db = await skewtIdbOpen();
+    try {
+        await new Promise((resolve, reject) => {
+            const tx = db.transaction(SKEWT_IDB_STORE, 'readwrite');
+            tx.objectStore(SKEWT_IDB_STORE).put(record, SKEWT_IDB_KEY);
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error);
+        });
+    } finally { db.close(); }
+};
+
+const skewtIdbLoad = async () => {
+    const db = await skewtIdbOpen();
+    try {
+        return await new Promise((resolve, reject) => {
+            const req = db.transaction(SKEWT_IDB_STORE, 'readonly').objectStore(SKEWT_IDB_STORE).get(SKEWT_IDB_KEY);
+            req.onsuccess = () => resolve(req.result || null);
+            req.onerror = () => reject(req.error);
+        });
+    } finally { db.close(); }
+};
+
+// フライトの同一性キー。パーサが付ける loadId があればそれを使い、無い場合
+// (古いバックアップからの復元等) は NavlogView のバックアップ照合と同じ
+// 便名・出発・到着・日付の組み合わせで代替する。
+const skewtIdentityOf = (nd) => {
+    if (!nd) return null;
+    if (nd.loadId) return 'L' + nd.loadId;
+    if (nd.fNo || nd.depIcao || nd.destIcao || nd.pDate) {
+        return 'F' + [nd.fNo || '', nd.depIcao || '', nd.destIcao || '', nd.pDate || ''].join('|');
+    }
+    return null;
+};
+
+// 復元可否の判定: レコードの identity が現在の navlog の identity と一致し、
+// ページが1枚以上ある場合だけ、その pages を復元する。それ以外は null。
+const skewtRestoreDecision = (record, currentIdentity) => {
+    if (!record || !currentIdentity) return null;
+    if (record.identity !== currentIdentity) return null;
+    if (!Array.isArray(record.pages) || record.pages.length === 0) return null;
+    return record.pages;
+};
+
+// SKEW-T ページ列への航路順挿入 (2026-11-15 App-14): 追加生成した1ページを
+// ctme (離陸後経過分) の昇順になる位置へ差し込む。出発ページ (kind
+// 'departure') は常に先頭、到着ページ (kind 'arrival') は常に末尾に残す。
+// 既存ページに ctme が無い場合 (App-13 以前の復元レコード) は順序を判定
+// できないため、到着ページの直前 (無ければ末尾) に入れる。
+const skewtInsertPageInRouteOrder = (pages, page) => {
+    const list = Array.isArray(pages) ? pages.slice() : [];
+    const key = Number(page && page.ctme);
+    let insertAt = list.length;
+    for (let i = 0; i < list.length; i++) {
+        const p = list[i];
+        if (p.kind === 'arrival') { insertAt = i; break; }
+        if (p.kind === 'departure') continue;
+        const k = Number(p.ctme);
+        if (Number.isFinite(key) && Number.isFinite(k) && key < k) { insertAt = i; break; }
+    }
+    list.splice(insertAt, 0, page);
+    return list;
+};
+
 
 import TOLView from './components/TOLView';
 
@@ -248,6 +336,15 @@ export default function App() {
   const [isParsingPdf, setIsParsingPdf] = useState(false);
   const [navlogData, setNavlogData] = useState(null);
   const [skewTProgress, setSkewTProgress] = useState(null);
+  // SKEW-T ビューア用ページ { identity, pages, fresh } (2026-11-15 App-13)。
+  // pages は生成順の { name, etoLabel, kind, image } 配列。NavlogView へは
+  // identity が現在の navlog と一致する場合だけ渡す。
+  const [skewtPagesData, setSkewtPagesData] = useState(null);
+  // skewtPagesData の ref ミラー (追加生成の非同期完了時に最新のページ列と
+  // identity を参照するため) と、バッチ/単地点生成の相互排他ガード
+  // (2026-11-15 App-14)。
+  const skewtPagesRef = useRef({ identity: null, pages: null });
+  const skewtBusyRef = useRef(false);
   // SKEW-T の遅延入力はボタン押下時の確認ダイアログ (SkewTDelayDialog) に
   // 移した (2026-11-13 UX変更)。遅延 state はダイアログ内に閉じて開くたび
   // 0 から始めるため、App 側での保持や新規読込時リセットは不要になった。
@@ -401,6 +498,45 @@ export default function App() {
       } catch(e) {}
     }
   }, []);
+
+  // SKEW-T ページの復元 (2026-11-15 App-13): navlog が切り替わるたびに、
+  // その便の identity と一致する IndexedDB レコードがあればビューア用
+  // ページを state に戻す。一致しなければ null にして前便のページを残さ
+  // ない。レコード自体は消さず、次に生成した時点で上書きされる ( ＝不一致
+  // のレコードは「無視して残す」方針)。生成直後の新鮮な state (fresh) は
+  // 復元読み込みで上書きしない。
+  useEffect(() => {
+    const identity = skewtIdentityOf(navlogData);
+    // ref ミラーを現在の identity に即時同期する (2026-11-15 App-14): 便が
+    // 切り替わったら旧ページを即座に無効化し、追加生成の完了時チェックで
+    // 別便のページ列への誤挿入を防ぐ。同一便なら保持中のページはそのまま。
+    skewtPagesRef.current = (identity && skewtPagesRef.current && skewtPagesRef.current.identity === identity)
+        ? skewtPagesRef.current
+        : { identity: identity || null, pages: null };
+    if (!identity) {
+        setSkewtPagesData(null);
+        return;
+    }
+    let cancelled = false;
+    skewtIdbLoad().then((record) => {
+        if (cancelled) return;
+        const pages = skewtRestoreDecision(record, identity);
+        setSkewtPagesData((prev) => {
+            const next = (prev && prev.identity === identity && prev.fresh) ? prev : (pages ? { identity, pages } : null); // 生成済みを優先
+            skewtPagesRef.current = next ? { identity: next.identity, pages: next.pages } : { identity, pages: null };
+            return next;
+        });
+    }).catch(() => {
+        if (!cancelled) {
+            setSkewtPagesData((prev) => {
+                const next = (prev && prev.identity === identity) ? prev : null;
+                skewtPagesRef.current = next ? { identity: next.identity, pages: next.pages } : { identity, pages: null };
+                return next;
+            });
+        }
+    });
+    return () => { cancelled = true; };
+  }, [navlogData]);
 
   useEffect(() => {
     try {
@@ -943,6 +1079,29 @@ export default function App() {
         }
     }
 
+    // ▼ CFP改ページ由来の「空港名ダブり行」を除去 (2026-11-15 App-15)
+    //    改ページ位置では、寸断されたWaypoint行の後半 (CTME・座標・FOB等) の後に
+    //    次ページの見出し「ANA0215//14 RJTT - LFPG …」が割り込む。見出しの空港
+    //    コードは本物の空港行を拾うため ignoreList から外してあるので、そのまま
+    //    Waypointとして push され、寸断行の座標・CTMEを複写したダブり行になる
+    //    (本来の所有者は見出しの直後に行頭から再印刷される)。この行は
+    //    NavlogViewの一覧・DIST CHECK、RDRのルート線 (名前が ICAO_COORDS で
+    //    空港座標に解決される)、SKEW-Tの地点選定の全てを汚染するため、ここで除く。
+    //    条件は保守的に限定する: 出発/到着と同名でも先頭行・末尾行ではなく
+    //    (本物の出発/到着行は常に保持)、dist=0 で、隣接行のどちらかと
+    //    latLon・ctme が完全一致する行のみをダブりとみなす。
+    //    ダブり行は dist=0 かつ ctme が隣接行と同値のため、除去しても
+    //    距離の累計・ETO の連続性には影響しない。
+    if (newPlan.length > 2) {
+        newPlan = newPlan.filter((row, idx) => {
+            if (idx === 0 || idx === newPlan.length - 1) return true;
+            if (row.wp !== depIcao && row.wp !== destIcao) return true;
+            if (!row.latLon || row.dist !== 0) return true;
+            const dupOf = (nb) => !!nb && nb.latLon === row.latLon && nb.ctme === row.ctme;
+            return !(dupOf(newPlan[idx - 1]) || dupOf(newPlan[idx + 1]));
+        });
+    }
+
     if (!alt) {
         const toc = newPlan.find(wp => wp.plnAlt);
         if (toc && toc.plnAlt) alt = parseInt(toc.plnAlt.replace('FL', ''), 10) * 100;
@@ -1091,6 +1250,58 @@ export default function App() {
     reader.readAsArrayBuffer(file);
   };
   
+  // ---- SKEW-T 共通ヘルパー (2026-11-15 App-14) ---------------------------
+  // ETO の基準時刻・表示フォーマッタ・白紙判定は、もともとバッチハンドラ
+  // (handleGenerateSkewTPdf) の中にあった定義をそのままコンポーネント
+  // 直下へ切り出したもの。単地点の追加生成 (handleRequestSkewtPoint) と
+  // 共用するための移動で、計算式・出力は従来と同一 (バッチの生成結果は
+  // 変わらない)。
+  const SKEWT_MONTHS = { JAN: 0, FEB: 1, MAR: 2, APR: 3, MAY: 4, JUN: 5, JUL: 6, AUG: 7, SEP: 8, OCT: 9, NOV: 10, DEC: 11 };
+  const SKEWT_MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  // ETO の基準時刻 (ミリ秒): フライト日は NAVLOG 解析結果の pDate
+  // ("02NOV26" = DDMMMYY) から取る。取れない場合は今日 (UTC) で代替する
+  // (STD は Z 表示として扱う)。STD + taxi-out = 離陸時刻に遅延 (分) を加える。
+  // 出発遅延を反映すると全地点の ETO が同じだけずれる (出発空港ページは
+  // ctme = 0 なので離陸時刻そのものがずれる)。
+  const computeSkewtBaseMs = (delayMin) => {
+    let baseMs = null;
+    const dm = /^(\d{2})([A-Z]{3})(\d{2})$/i.exec((navlogData.pDate || '').trim());
+    if (dm && SKEWT_MONTHS[dm[2].toUpperCase()] !== undefined) {
+        baseMs = Date.UTC(2000 + Number(dm[3]), SKEWT_MONTHS[dm[2].toUpperCase()], Number(dm[1]), stdHours, stdMins);
+    } else {
+        const today = new Date();
+        baseMs = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), stdHours, stdMins);
+    }
+    baseMs += (Number(taxiOutMins) || 0) * 60000; // STD + taxi-out = 離陸時刻
+    baseMs += (Number(delayMin) || 0) * 60000; // 出発遅延を反映
+    return baseMs;
+  };
+  const fmtLat = (lat) => `${Math.abs(lat).toFixed(2)}°${lat >= 0 ? 'N' : 'S'}`;
+  const fmtLon = (lon) => `${Math.abs(lon).toFixed(2)}°${lon >= 0 ? 'E' : 'W'}`;
+  const fmtValid = (date) =>
+    `valid ${String(date.getUTCHours()).padStart(2, '0')}z ${String(date.getUTCDate()).padStart(2, '0')} ${SKEWT_MONTH_NAMES[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
+  const fmtEto = (date) =>
+    `${String(date.getUTCDate()).padStart(2, '0')} ${SKEWT_MONTH_NAMES[date.getUTCMonth()]} ${String(date.getUTCHours()).padStart(2, '0')}:${String(date.getUTCMinutes()).padStart(2, '0')}Z`;
+  // 描画済みキャンバスが (ほぼ) 白紙かどうかを粗いサンプリングで判定する。
+  // 通常のページは非白ピクセルが約4%あるため、0.3%未満を白紙とみなす。
+  const isBlankPageCanvas = (cv) => {
+    try {
+        const data = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data;
+        let n = 0, ink = 0;
+        for (let y = 0; y < cv.height; y += 8) {
+            const rowStart = y * cv.width * 4;
+            for (let x = 0; x < cv.width; x += 8) {
+                const i = rowStart + x * 4;
+                n++;
+                if (data[i] < 245 || data[i + 1] < 245 || data[i + 2] < 245) ink++;
+            }
+        }
+        return n === 0 || (ink / n) < 0.003;
+    } catch (e) {
+        return false; // 判定できない場合はページを出す側に倒す
+    }
+  };
+
   const handleGenerateSkewTPdf = async (delayMinArg = 0) => {
     if (!navlogData || !navlogData.newPlan || navlogData.newPlan.length === 0) {
         window.dispatchEvent(new CustomEvent('show-toast', { detail: '先にNAVLOGを読み込んでください' }));
@@ -1098,6 +1309,8 @@ export default function App() {
     }
 
     if (skewTProgress !== null) return; // 処理中はブロック
+    if (skewtBusyRef.current) return; // 単地点の追加生成中もブロック (相互排他、2026-11-15 App-14)
+    skewtBusyRef.current = true;
 
     // 出発遅延 (分): 確認ダイアログで確定した値を引数で受け取る。
     // ダイアログ側で解釈済みだが、範囲外・不正値はここでも丸める。
@@ -1239,58 +1452,19 @@ export default function App() {
     }
 
     if (selectedWps.length === 0) {
+        skewtBusyRef.current = false;
         window.dispatchEvent(new CustomEvent('show-toast', { detail: '有効なウェイポイントが見つかりません' }));
         return;
     }
 
     setSkewTProgress(0); // 進捗開始
-    window.dispatchEvent(new CustomEvent('show-toast', { detail: '画像をダウンロードしてPDFに埋め込んでいます。しばらくお待ちください...' }));
+    window.dispatchEvent(new CustomEvent('show-toast', { detail: 'SKEW-Tを作成しています。しばらくお待ちください...' }));
 
-    // ---- ETO の基準時刻を決める -------------------------------------------
-    // フライト日は NAVLOG 解析結果の pDate ("02NOV26" = DDMMMYY) から取る。
-    // 取れない場合は今日 (UTC) で代替する (STD は Z 表示として扱う)。
-    const MONTHS = { JAN: 0, FEB: 1, MAR: 2, APR: 3, MAY: 4, JUN: 5, JUL: 6, AUG: 7, SEP: 8, OCT: 9, NOV: 10, DEC: 11 };
-    const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    let baseMs = null;
-    const dm = /^(\d{2})([A-Z]{3})(\d{2})$/i.exec((navlogData.pDate || '').trim());
-    if (dm && MONTHS[dm[2].toUpperCase()] !== undefined) {
-        baseMs = Date.UTC(2000 + Number(dm[3]), MONTHS[dm[2].toUpperCase()], Number(dm[1]), stdHours, stdMins);
-    } else {
-        const today = new Date();
-        baseMs = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), stdHours, stdMins);
-    }
-    baseMs += (Number(taxiOutMins) || 0) * 60000; // STD + taxi-out = 離陸時刻
-    baseMs += delayMin * 60000; // 出発遅延を反映 (全地点の ETO が同じだけずれる。出発空港ページは ctme = 0 なので離陸時刻そのものがずれる)
-
-    const fmtLat = (lat) => `${Math.abs(lat).toFixed(2)}°${lat >= 0 ? 'N' : 'S'}`;
-    const fmtLon = (lon) => `${Math.abs(lon).toFixed(2)}°${lon >= 0 ? 'E' : 'W'}`;
-    const fmtValid = (date) =>
-        `valid ${String(date.getUTCHours()).padStart(2, '0')}z ${String(date.getUTCDate()).padStart(2, '0')} ${MONTH_NAMES[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
-    const fmtEto = (date) =>
-        `${String(date.getUTCDate()).padStart(2, '0')} ${MONTH_NAMES[date.getUTCMonth()]} ${String(date.getUTCHours()).padStart(2, '0')}:${String(date.getUTCMinutes()).padStart(2, '0')}Z`;
-
-    // 描画済みキャンバスが (ほぼ) 白紙かどうかを粗いサンプリングで判定する。
-    // 通常のページは非白ピクセルが約4%あるため、0.3%未満を白紙とみなす。
-    const isBlankPageCanvas = (cv) => {
-        try {
-            const data = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data;
-            let n = 0, ink = 0;
-            for (let y = 0; y < cv.height; y += 8) {
-                const rowStart = y * cv.width * 4;
-                for (let x = 0; x < cv.width; x += 8) {
-                    const i = rowStart + x * 4;
-                    n++;
-                    if (data[i] < 245 || data[i + 1] < 245 || data[i + 2] < 245) ink++;
-                }
-            }
-            return n === 0 || (ink / n) < 0.003;
-        } catch (e) {
-            return false; // 判定できない場合はページを出す側に倒す
-        }
-    };
+    // ETO の基準時刻 (共通ヘルパー computeSkewtBaseMs で計算。従来と同一の計算)
+    const baseMs = computeSkewtBaseMs(delayMin);
 
     // ---- ウェイポイントごとにプロファイル取得 + ページ描画 ----------------
-    const pageImages = []; // { wp, dataUrl }
+    const pageImages = []; // { wp, viewUrl (JPEG data URL), etoLabel }
     const skippedWps = []; // プロファイル欠落・白紙・描画エラーで省略した地点
     let doneCount = 0;
 
@@ -1332,7 +1506,11 @@ export default function App() {
                     // 白紙ページは出さず、省略として数える
                     skippedWps.push(wp.wp);
                 } else {
-                    pageImages.push({ wp, dataUrl: pageCanvas.toDataURL('image/png') });
+                    pageImages.push({
+                        wp,
+                        viewUrl: pageCanvas.toDataURL('image/jpeg', 0.85),
+                        etoLabel: `ETO ${fmtEto(new Date(etoMs))}`,
+                    });
                 }
             } else {
                 // プロファイルが取れなかった地点は無言で落とさず記録する
@@ -1347,25 +1525,16 @@ export default function App() {
     }
 
     if (pageImages.length === 0) {
+        skewtBusyRef.current = false;
         setSkewTProgress(null); // 進捗終了
         window.dispatchEvent(new CustomEvent('show-toast', { detail: 'SKEW-Tデータの取得に失敗しました。通信環境を確認してください。' }));
         return;
     }
 
-    // ---- PDF を pdf-lib で直接組み立てる (2026-11-13 ハンドラ v2) ----------
-    // 旧方式は印刷用 HTML をポップアップ (window.open) に流し込み、その自動
-    // 印刷で PDF 化していたが、iPad では2つの問題が出た:
-    //  (1) ページ数が倍になる: iOS Safari の印刷は @page { margin: 6mm } を
-    //      前提にした寸法では改ページせず、自前の印刷可能領域を使うため、
-    //      幅100%にした画像の高さが僅かにはみ出し、画像下端の細片だけの
-    //      ページが1地点ごとに挟まった (実測: 28地点→56ページ)。
-    //  (2) 印刷ウィンドウが消せない: スタンドアロン PWA では window.open が
-    //      アプリの上に被さるシートになり、閉じる手段がなく、アプリを
-    //      終了しないと元の画面に戻れなかった。
-    // そこで pdf-lib で A4縦・1地点1ページの PDF をその場で組み立て、
-    // 共有シート (navigator.share) またはダウンロードで渡す方式に変更した。
-    // ページ数は地点数と必ず一致し、ポップアップも印刷も使わない。
-    // pdf-lib の読み込みは NavlogView の EXPORT と同じ CDN 遅延ロード方式。
+    // ---- 生成ページをビューア用に保持する (2026-11-15 App-13 で PDF 廃止) ----
+    // 旧方式 (pdf-lib で PDF を組み立てて共有/ダウンロード) は廃止した。
+    // アプリ内でそのまま見られるようになったため、ここではページ画像を
+    // state と IndexedDB に渡すだけにする。
     setSkewTProgress(null); // 進捗終了
 
     // 省略した地点があれば、無言にせず完了時に知らせる
@@ -1375,86 +1544,159 @@ export default function App() {
         }));
     }
 
-    const pdfFileName = `SKEW-T_Report_-_${flightId ? 'ANA' + flightId : 'Flight'}.pdf`;
-
-    const loadPdfLib = () => new Promise((resolve, reject) => {
-        if (window.PDFLib) { resolve(window.PDFLib); return; }
-        const script = document.createElement('script');
-        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js';
-        script.onload = () => resolve(window.PDFLib);
-        script.onerror = () => reject(new Error('pdf-lib の読み込みに失敗しました'));
-        document.head.appendChild(script);
-    });
-
-    const dataUrlToBytes = (dataUrl) => {
-        const bin = atob(dataUrl.split(',')[1]);
-        const bytes = new Uint8Array(bin.length);
-        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-        return bytes;
-    };
-
-    try {
-        const { PDFDocument } = await loadPdfLib();
-        const pdfDoc = await PDFDocument.create();
-        pdfDoc.setTitle(`SKEW-T Report - ${flightId ? 'ANA' + flightId : 'Flight'}`);
-        // A4縦 (595.28 x 841.89 pt)、余白 6mm = 17.01 pt
-        const PAGE_W = 595.28;
-        const PAGE_H = 841.89;
-        const MARGIN = 17.01;
-        const contentW = PAGE_W - MARGIN * 2;
-        const contentH = PAGE_H - MARGIN * 2;
-        for (const page of pageImages) {
-            const png = await pdfDoc.embedPng(dataUrlToBytes(page.dataUrl));
-            // 画像 (1754x2480) を余白内に収まるよう等比縮小する。幅基準では
-            // 561.26 x 793.66 pt となり、高さ上限 807.87 pt にも余裕で収まる。
-            const scale = Math.min(contentW / png.width, contentH / png.height);
-            const drawW = png.width * scale;
-            const drawH = png.height * scale;
-            const pdfPage = pdfDoc.addPage([PAGE_W, PAGE_H]);
-            pdfPage.drawImage(png, {
-                x: (PAGE_W - drawW) / 2,
-                y: PAGE_H - MARGIN - drawH,
-                width: drawW,
-                height: drawH,
-            });
-        }
-        const pdfBytes = await pdfDoc.save();
-        const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' });
-
-        // 渡し方: まず共有シート (iPad では「ファイルに保存」等が選べる)。
-        // ユーザー操作の有効期限切れなどで共有が使えない場合は
-        // ダウンロードに自動で切り替える。キャンセル時は切り替えない。
-        let delivered = false;
-        try {
-            const file = new File([pdfBlob], pdfFileName, { type: 'application/pdf' });
-            if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                await navigator.share({ files: [file] });
-                delivered = true;
-            }
-        } catch (shareErr) {
-            if (shareErr && shareErr.name === 'AbortError') delivered = true;
-        }
-        if (!delivered) {
-            const url = URL.createObjectURL(pdfBlob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = pdfFileName;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            setTimeout(() => URL.revokeObjectURL(url), 60000);
-        }
-        window.dispatchEvent(new CustomEvent('show-toast', { detail: delayMin !== 0
-            ? `SKEW-T PDFを作成しました（${pageImages.length}ページ、遅延${delayMin > 0 ? '+' : ''}${delayMin}分で計算）`
-            : `SKEW-T PDFを作成しました（${pageImages.length}ページ）` }));
-    } catch (pdfErr) {
-        console.error('SKEW-T PDF build failed', pdfErr);
-        window.dispatchEvent(new CustomEvent('show-toast', { detail: 'PDFの作成に失敗しました。通信環境を確認してください。' }));
+    // ビューア用ページ (生成順)。kind は出発/到着空港ページの識別で、
+    // NavlogView 側で「行にボタン」か「リスト上下の帯ボタン」かを決める。
+    const skewtPages = pageImages.map((p, i) => ({
+        name: p.wp.wp,
+        etoLabel: p.etoLabel,
+        kind: (i === 0 && (p.wp.isDepartureAirport || p.wp.wp === depIcaoCode)) ? 'departure'
+            : (i === pageImages.length - 1 && (p.wp.isArrivalAirport || p.wp.wp === destIcaoCode)) ? 'arrival'
+            : 'waypoint',
+        image: p.viewUrl,
+        // 航路順キー (2026-11-15 App-14): 追加生成したページを正しい位置へ
+        // 差し込むために使う。ビューアの表示・順序には影響しない。
+        ctme: Number(p.wp.ctme) || 0,
+        cumDist: Number(p.wp.cumDist) || 0,
+    }));
+    const skewtIdentity = skewtIdentityOf(navlogData);
+    setSkewtPagesData({ identity: skewtIdentity, pages: skewtPages, fresh: true });
+    skewtPagesRef.current = { identity: skewtIdentity, pages: skewtPages };
+    if (skewtIdentity) {
+        skewtIdbSave({ identity: skewtIdentity, savedAt: Date.now(), pages: skewtPages })
+            .catch((e) => { console.error('SKEW-T IndexedDB save failed', e); });
     }
+    window.dispatchEvent(new CustomEvent('show-toast', { detail: delayMin !== 0
+        ? `SKEW-Tを作成しました（${skewtPages.length}ページ、遅延${delayMin > 0 ? '+' : ''}${delayMin}分で計算）`
+        : `SKEW-Tを作成しました（${skewtPages.length}ページ）` }));
+    skewtBusyRef.current = false;
 };
 
 
 
+
+  // ---- SKEW-T 任意地点の追加生成 (2026-11-15 App-14) ---------------------
+  // NavlogView の SKEWT 列「+」ボタンから呼ばれる。指定された1地点だけを
+  // バッチと同じ方式で生成する: Open-Meteo 取得、ETO = STD + taxiOut +
+  // ctme を最寄りの正時へ丸める (遅延シフトなし)、A4縦パネル描画、詳細
+  // ホドグラフは付けない (kind は 'waypoint')。生成できたら航路順の位置へ
+  // 差し込んで IndexedDB にも保存し直すため、再起動後も残る。成功で true、
+  // 失敗・ガード却下では理由をトーストして false を返す (呼び出し側は
+  // 戻りで pending 表示を解除する)。
+  const handleRequestSkewtPoint = async (req) => {
+    const fail = (msg) => {
+        window.dispatchEvent(new CustomEvent('show-toast', { detail: msg }));
+        return false;
+    };
+    if (!navlogData || !navlogData.newPlan || navlogData.newPlan.length === 0) {
+        return fail('先にNAVLOGを読み込んでください');
+    }
+    // バッチ生成中・別の追加生成中は受け付けない (安全側: 無言で溜めず即時却下)
+    if (skewTProgress !== null || skewtBusyRef.current) {
+        return fail('SKEW-T作成中です。完了してからお試しください');
+    }
+    if (!req || typeof req.name !== 'string' || !req.name) return false;
+
+    const plan = navlogData.newPlan;
+    // 対象行の特定: NavlogView の表示行は newPlan と 1:1 なので rowIndex を
+    // 優先し、名前が一致しない場合だけ名前 (+座標文字列) で探し直す。
+    let rowIndex = Number.isInteger(req.rowIndex) ? req.rowIndex : -1;
+    let planRow = (rowIndex >= 0 && rowIndex < plan.length && plan[rowIndex] && plan[rowIndex].wp === req.name) ? plan[rowIndex] : null;
+    if (!planRow) {
+        rowIndex = plan.findIndex((r) => r.wp === req.name && (!req.latLon || r.latLon === req.latLon));
+        planRow = rowIndex >= 0 ? plan[rowIndex] : null;
+    }
+    if (!planRow) return fail(`${req.name} のプラン行が見つかりませんでした`);
+
+    const coord = parseWaypointToLatLng(planRow);
+    if (!coord || coord.lat === null || coord.lon === null || (coord.lat === 0 && coord.lon === 0)) {
+        return fail(`${req.name} は座標がないため SKEW-T を作成できません`);
+    }
+
+    const startIdentity = skewtIdentityOf(navlogData);
+    skewtBusyRef.current = true;
+    try {
+        window.dispatchEvent(new CustomEvent('show-toast', { detail: `${req.name} のSKEW-Tを作成しています...` }));
+        const baseMs = computeSkewtBaseMs(0); // 遅延シフトなし
+        const ctme = Number(planRow.ctme) || 0;
+        const etoMs = baseMs + ctme * 60000;
+        const roundedMs = Math.round(etoMs / 3600000) * 3600000;
+        const etoDate = new Date(roundedMs);
+
+        // このウェイポイントのプロファイルを1回だけ取得 (ETO±1h)。バッチと同一
+        const profiles = await fetchProfiles(
+            coord.lat, coord.lon,
+            new Date(roundedMs - 3600000), new Date(roundedMs + 3600000));
+        const profile = profiles[hourKey(etoDate)] || null;
+        if (!profile) return fail(`${req.name} のデータが取得できませんでした`);
+
+        // 累積距離 (バッチと同じくプラン各行の dist を積算)
+        let cumDist = 0;
+        for (let i = 0; i <= rowIndex; i++) {
+            const d = Number(plan[i].dist);
+            if (Number.isFinite(d) && d > 0) cumDist += d;
+        }
+
+        // A4縦 (1754x2480 px) のページに ETO パネル1枚を描く (バッチと同一形式)
+        const pageCanvas = document.createElement('canvas');
+        pageCanvas.width = 1754;
+        pageCanvas.height = 2480;
+        renderWaypointPagePortrait(pageCanvas, {
+            wp: {
+                name: planRow.wp,
+                lat: coord.lat,
+                lon: coord.lon,
+                header: `${flightId ? 'ANA' + flightId : 'Flight'} ${navlogData.depIcao || ''}-${navlogData.destIcao || ''}  —  ${planRow.wp}  ${fmtLat(coord.lat)}, ${fmtLon(coord.lon)}  dist ${Math.round(cumDist)} NM`,
+                subline: `ETO ${fmtEto(new Date(etoMs))}  —  ${fmtValid(etoDate)}`,
+                panelTitle: `GFS Sounding ${fmtLat(coord.lat)}, ${fmtLon(coord.lon)}`,
+                validLabel: fmtValid(etoDate),
+                footer: 'Data: Open-Meteo GFS (gfs_seamless). Panel: ETO only (rounded to the nearest hour). Hodograph (≤5,000 ft) on departure/arrival pages only.',
+            },
+            profile,
+            detailed: false,
+        });
+        if (isBlankPageCanvas(pageCanvas)) return fail(`${req.name} のSKEW-Tを描画できませんでした`);
+
+        const page = {
+            name: planRow.wp,
+            etoLabel: `ETO ${fmtEto(new Date(etoMs))}`,
+            kind: 'waypoint',
+            image: pageCanvas.toDataURL('image/jpeg', 0.85),
+            ctme,
+            cumDist,
+            // 押された行へ確実に対応づけるためのアンカー。NavlogView の
+            // matcher は同名行の出現順より rowIndex を優先する。
+            rowIndex,
+        };
+
+        // 生成中に便が切り替わっていたら、別便のページ列には混ぜない
+        const cur = skewtPagesRef.current;
+        if (cur && cur.identity && startIdentity && cur.identity !== startIdentity) {
+            return fail('フライトが切り替わったため、追加を取りやめました');
+        }
+        const basePages = (cur && cur.identity === startIdentity && Array.isArray(cur.pages))
+            ? cur.pages
+            : (skewtPagesData && skewtPagesData.identity === startIdentity && Array.isArray(skewtPagesData.pages) ? skewtPagesData.pages : []);
+        // 同じ行のアンカー付きページが既にあれば差し替え、無ければ航路順に挿入
+        const dupIdx = basePages.findIndex((p) => p && Number.isInteger(p.rowIndex) && p.rowIndex === rowIndex);
+        const newPages = dupIdx >= 0
+            ? basePages.map((p, i) => (i === dupIdx ? page : p))
+            : skewtInsertPageInRouteOrder(basePages, page);
+
+        setSkewtPagesData({ identity: startIdentity, pages: newPages, fresh: true });
+        skewtPagesRef.current = { identity: startIdentity, pages: newPages };
+        if (startIdentity) {
+            skewtIdbSave({ identity: startIdentity, savedAt: Date.now(), pages: newPages })
+                .catch((e) => { console.error('SKEW-T IndexedDB save failed', e); });
+        }
+        window.dispatchEvent(new CustomEvent('show-toast', { detail: `SKEW-Tを追加しました（${page.name}）` }));
+        return true;
+    } catch (err) {
+        console.error('SKEW-T single point generation failed', req && req.name, err);
+        return fail(`${req.name} のSKEW-T取得に失敗しました。通信環境を確認してください。`);
+    } finally {
+        skewtBusyRef.current = false;
+    }
+  };
 
   const parsedFlightData = useMemo(() => {
     if (typeof RAW_CSV_DATA === 'undefined' || !RAW_CSV_DATA) return [];
@@ -1929,7 +2171,9 @@ export default function App() {
               state={state} 
               updateState={updateState} 
               onApplyFlightPlan={handleApplyFlightPlan} 
-              navlogData={navlogData} 
+              navlogData={navlogData}
+              skewtPages={skewtPagesData && skewtIdentityOf(navlogData) && skewtPagesData.identity === skewtIdentityOf(navlogData) ? skewtPagesData.pages : null}
+              onRequestSkewtPoint={handleRequestSkewtPoint}
             />
           </div>
         )}
