@@ -1,4 +1,4 @@
-// NavlogView.fixed-v5.jsx — 2026-11-13 (TAKEOFF TIME が前便のまま残る不具合の第2の穴を修正： アプリ再起動後のセッション復元（isNew:false）でも loadId の一致を必須とし、loadId で確定できない場合は便名・日付・出発/到着地で照合する。fixed-v4 の後継)
+// NavlogView.fixed-v8.jsx — 2026-11-14 (DIST CHECK: 出発/到着空港（ICAOが一致する行）は絶対に区切りにしない。CFPの改ページで座標行が重複し、ページ見出しの空港コードを名前として拾ったダブり行が緯度経度Waypointに隣接すると、v7の隣接ルールで区切りに昇格して「7740N → RJTT: 0」のような偽区間が出たため。空港行はETP等と同様に距離の累積のみに使う。fixed-v7 の内容＝DIST隣接ルール・到着地の天気の前便値無効化・EXPORT修正・TAKEOFF TIME復元ガードはそのまま維持)
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { SafeIcon } from './SharedComponents';
 import { 
@@ -341,11 +341,42 @@ const SyncModal = ({ isOpen, onClose, actuals, onSync, showMessage }) => {
     );
 };
 
-const DistCheckModal = ({ isOpen, onClose, flightData }) => {
+const DistCheckModal = ({ isOpen, onClose, flightData, depIcao, destIcao }) => {
     const segments = useMemo(() => {
         const segs = [];
         let accumulatedDist = 0;
         let lastBoundaryWp = null;
+
+        // ▼ DIST CHECK の区切り（チェックポイント）の決定（v7）
+        //    対象は「緯度経度Waypointを含むLEG」。区切りになるのは次の2種類のみ。
+        //      (a) 緯度経度Waypoint（名前が座標形式のもの全て）
+        //      (b) 緯度経度Waypointの直前・直後に隣接する通常のWaypoint（例: JUJXI / RATSU）
+        //    ETP・EEP・EXP・TOC・TOD 等の挿入ポイントとオフ経路行は、緯度経度Waypointに
+        //    隣接していても絶対に区切りにせず、距離の累積にだけ使う
+        //    （例: 71N60 → ETP → 7020N はETPで割らず、合計距離で1区間にする）。
+        //    出発/到着空港の行も同様に絶対に区切りにしない（詳細は下の v8 の注記）。
+        //    緯度経度Waypointの判定はWaypoint名のパターンでのみ行う。
+        //    （wp.latLon はCFPに印刷された座標でパーサが全行に付与するため、
+        //      条件に含めると全行が対象になり、全LEGが表示されてしまう）
+        const isExcludeWp = (wp) => wp.isOffRoute || /^(TOC|TOD|CLM|DEC|WPT|EEP\d*|ETP\d*|EXP\d*)$/i.test(wp.wp);
+        const isLatLonWp = (wp) => /^\d{2}[A-Z]\d{2}$|^\d{4}[A-Z]$|^\d{2}[NS]\d{2}[EW]$|^(\d{2})(\d{3})([NSWE])(\d{3})(\d{3})$/i.test(wp.wp);
+        // ▼ 空港行は絶対に区切りにしない（v8）
+        //    CFPの改ページ位置では座標行が重複印刷され、間のページ見出し
+        //    「ANA0215//14 RJTT - LFPG …」の空港コードを名前として拾った
+        //    ダブり行（dist=0）がプラン中に混入する。その行が緯度経度Waypointに
+        //    隣接すると隣接ルールで区切りに昇格し、「7740N → RJTT: 0 NM」のような
+        //    偽の区間が出てしまうため、出発/到着空港の行はETP等と同様に
+        //    距離の累積だけに使う（隣接判定の対象からも外す）。
+        //    到着空港はプランの最終行でもあるため、そちらも予備として含める。
+        const airportNames = new Set([depIcao, destIcao, flightData.length > 0 ? flightData[flightData.length - 1].wp : null].filter(Boolean));
+        const isAirportWp = (wp) => airportNames.has(wp.wp);
+        const isCoordWp = (wp) => !!wp && !isExcludeWp(wp) && !isAirportWp(wp) && isLatLonWp(wp);
+        const checkpointFlags = flightData.map((wp, idx) => {
+            if (isExcludeWp(wp) || isAirportWp(wp)) return false;
+            if (isLatLonWp(wp)) return true;
+            if (isCoordWp(flightData[idx - 1]) || isCoordWp(flightData[idx + 1])) return true;
+            return false;
+        });
 
         for (let i = 0; i < flightData.length; i++) {
             const wp = flightData[i];
@@ -354,29 +385,24 @@ const DistCheckModal = ({ isOpen, onClose, flightData }) => {
                 accumulatedDist += wp.dist;
             }
 
-            const isExclude = wp.isOffRoute || /^(TOC|TOD|CLM|DEC|WPT|EEP\d*|ETP\d*|EXP\d*)$/i.test(wp.wp);
-            const isLatLon = /^\d{2}[A-Z]\d{2}$|^\d{4}[A-Z]$|^\d{2}[NS]\d{2}[EW]$|^(\d{2})(\d{3})([NSWE])(\d{3})(\d{3})$/i.test(wp.wp) || wp.latLon;
-
-            if (isExclude) {
+            // 除外Waypointは区切りにならず、距離の累積だけが進む
+            if (!checkpointFlags[i]) {
                 continue;
             }
 
             if (lastBoundaryWp) {
-                const wasLatLon = /^\d{2}[A-Z]\d{2}$|^\d{4}[A-Z]$|^\d{2}[NS]\d{2}[EW]$|^(\d{2})(\d{3})([NSWE])(\d{3})(\d{3})$/i.test(lastBoundaryWp.wp) || lastBoundaryWp.latLon;
-                if (wasLatLon || isLatLon) {
-                    segs.push({
-                        from: lastBoundaryWp.wp,
-                        to: wp.wp,
-                        dist: accumulatedDist
-                    });
-                }
+                segs.push({
+                    from: lastBoundaryWp.wp,
+                    to: wp.wp,
+                    dist: accumulatedDist
+                });
             }
 
             lastBoundaryWp = wp;
             accumulatedDist = 0;
         }
         return segs;
-    }, [flightData]);
+    }, [flightData, depIcao, destIcao]);
 
     if (!isOpen) return null;
 
@@ -678,6 +704,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
   const [destWeather, setDestWeather] = useState(null);
   const [lastFetchedBlockInMins, setLastFetchedBlockInMins] = useState(null);
   const [lastFetchedDestIcao, setLastFetchedDestIcao] = useState(null);
+  const [lastFetchedDate, setLastFetchedDate] = useState(null);
   const [parsedEtopsInfo, setParsedEtopsInfo] = useState(null);
   
   const [flightTimeStr, setFlightTimeStr] = useState("");
@@ -1217,12 +1244,20 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
         setDestWeather(null);
         setLastFetchedBlockInMins(null);
         setLastFetchedDestIcao(null);
+        setLastFetchedDate(null);
         return;
+    }
+
+    // ▼ 到着地または日付が前回取得時と変わっていたら、前便の天気を即座に無効化する。
+    //    （従来は destWeather が残り続け、新しい到着地のラベルの下に前便の気温が
+    //      表示されてしまう不具合があったため）
+    if (destWeather !== null && lastFetchedDestIcao !== null && (lastFetchedDestIcao !== parsedDestIcao || lastFetchedDate !== parsedDate)) {
+        setDestWeather(null);
     }
 
     const currentBlockInMins = calculatedData.estBlockInMins;
 
-    if (lastFetchedDestIcao === parsedDestIcao && lastFetchedBlockInMins !== null && destWeather !== null) {
+    if (lastFetchedDestIcao === parsedDestIcao && lastFetchedDate === parsedDate && lastFetchedBlockInMins !== null && destWeather !== null) {
         let diff = Math.abs(currentBlockInMins - lastFetchedBlockInMins);
         if (diff > 720) diff = 1440 - diff;
         
@@ -1262,6 +1297,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                     setDestWeather(wxCache[cacheKeyStr].data);
                     setLastFetchedBlockInMins(currentBlockInMins);
                     setLastFetchedDestIcao(parsedDestIcao);
+                    setLastFetchedDate(parsedDate);
                 }
                 return;
             }
@@ -1323,6 +1359,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                     setDestWeather(wxDataToSave);
                     setLastFetchedBlockInMins(currentBlockInMins);
                     setLastFetchedDestIcao(parsedDestIcao);
+                    setLastFetchedDate(parsedDate);
                 } else {
                     setDestWeather(null);
                 }
@@ -1336,7 +1373,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
 
     fetchWeather();
     return () => { isMounted = false; };
-  }, [parsedDestIcao, parsedDate, calculatedData.estBlockInMins, lastFetchedBlockInMins, lastFetchedDestIcao, destWeather]);
+  }, [parsedDestIcao, parsedDate, calculatedData.estBlockInMins, lastFetchedBlockInMins, lastFetchedDestIcao, lastFetchedDate, destWeather]);
 
   useEffect(() => {
     let newLocalBlockIn = "";
@@ -1672,6 +1709,8 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
         isOpen={isDistCheckOpen}
         onClose={() => setIsDistCheckOpen(false)}
         flightData={calculatedData.flightData}
+        depIcao={parsedDepIcao}
+        destIcao={parsedDestIcao}
       />
 
       <WpAlertModal 
@@ -1782,7 +1821,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
               <div className="flex flex-col items-center justify-center px-2 min-w-[130px] shrink-0">
                 <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">{parsedDestIcao} WX</span>
                 <div className="flex items-center justify-center w-full">
-                  {destWeather ? (
+                  {destWeather && lastFetchedDestIcao === parsedDestIcao && lastFetchedDate === parsedDate ? (
                     <div className="flex items-center gap-1.5 whitespace-nowrap" title={destWeather.text}>
                       <span className="text-xl leading-none">{destWeather.icon}</span>
                       <span className={`text-[13px] font-mono font-bold ${destWeather.color}`}>
