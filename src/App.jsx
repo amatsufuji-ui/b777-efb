@@ -1,8 +1,8 @@
-// App-16.jsx — 2026-11-15 (App-15.jsx + NH8402 実運航テストのフィードバック対応2点: (B) ISA DEV の符号欠落を修正: CFP の ISA 偏差列は負値が "(- 5)" の形で印刷され、従来の空白除去 ( "(" 直後のみ) では "(-" と "5)" に分割されて正規表現に一致せず、負の偏差が全て isaDev=0 に化けていた。トークン化前に括弧内数値を正規化し、あわせて括弧パース側の二重反転 (parseInt が拾った "-" を再度反転していた) を修正。これにより負の ISA DEV がそのまま MAX ALT 計算 (interpolateAlt) に渡る。(E) PWA オフライン時のロックアウト対策: controllerchange による自動リロードを オフライン時は行わず "online" イベントへ延期し、sessionStorage のワンショットガードで同一セッション内の再リロードを防止。UPDT ボタンもオフライン時は SW 登録解除を行わず中断する)
+// App-17.jsx — 2026-11-16 (App-16.jsx + pdf.js を CDN 読込から npm バンドル (pdfjs-dist@3.11.174) へ移行: LOAD 時の PDF テキスト抽出で cdnjs から都度ロードしていた pdf.js を静的 import に替え、ワーカーもバンドル内アセット (?url) を指すようにした。オフラインで起動したセッションでも LOAD が動作する。バージョンは CDN で実績のある 3.11.174 に固定し、抽出処理と呼び出し側の挙動は不変)
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import * as LucideIcons from 'lucide-react';
 
-const APP_VERSION = "13.8"; 
+const APP_VERSION = "13.9"; 
 
 import { RAW_CSV_DATA, aircraftRegistrationList, BUDDYCOM_LINKS, ICAO_COORDS } from './data/flightData';
 import { aircraftPerformanceData, defaultCruiseWeights, defaultLandingWeights, modelKeyMap, AIRCRAFT_DIMENSIONS, SEAT_DATA, CRUISE_PERF_DATA, VREF_DATA, HOLD_SPD_DATA_RAW, MANEUVER_1_3G_MACH_DATA, TARGET_PITCH_N1_DATA_RAW, LANDING_DIST_DATA_RAW, B777_WIND_LIMITS, MAX_MAN_DATA } from './data/perfData';
@@ -23,6 +23,15 @@ import { TarmacView } from './components/TarmacView';
 import { SidView } from './components/SidView'; 
 import { WeatherRadarView } from './components/WeatherRadarView';
  import { fetchProfiles, renderWaypointPagePortrait, hourKey } from './utils/skewt';
+
+// ▼ pdf.js は npm バンドルから静的 import する (2026-11-16 App-17)。
+//    従来は cdnjs から都度ロードしていたため、オフラインで起動した
+//    セッションでは LOAD 自体が失敗していた。ワーカーもバンドル内の
+//    アセットを指すため、precache に含まれオフラインで動作する。
+import * as pdfjsLib from 'pdfjs-dist';
+import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.js?url';
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 // =========================================================================
 // SKEW-T ビューア用ページの永続化 (2026-11-15 App-13)
@@ -1217,19 +1226,12 @@ export default function App() {
     const reader = new FileReader();
     reader.onload = async (event) => {
       try {
-        if (!window.pdfjsLib) {
-          const script = document.createElement('script');
-          script.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
-          await new Promise(res => { script.onload = res; document.head.appendChild(script); });
-          window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-        }
-        
         // ★データ所有権(Detached ArrayBuffer)が奪われないように完全に分離(slice)する
         const buffer = event.target.result;
         const pdfJsArray = new Uint8Array(buffer.slice(0));
         const exportArray = new Uint8Array(buffer.slice(0));
         
-        const pdf = await window.pdfjsLib.getDocument(pdfJsArray).promise;
+        const pdf = await pdfjsLib.getDocument(pdfJsArray).promise;
         
         let fullText = "";
         let textPositions = []; 

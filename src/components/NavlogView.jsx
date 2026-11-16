@@ -1,8 +1,18 @@
-// NavlogView.fixed-v13.jsx — 2026-11-16 (fixed-v12 + EXPORT 用の元PDFを IndexedDB に永続化: 従来は再起動を跨ぐと originalPdfBytes / textPositions が失われ、再起動後の初回 EXPORT で必ずファイル再選択が必要だった。運航中にアプリが落ちても再選択なしで EXPORT できるよう、本人の指示で設計を変更する。フレッシュ読込時と手動選択 (同一便チェック通過時) に、PDF バイト列とテキスト座標を loadId と紐付けて専用 DB (7pt-cfp-pdf / store: pdf / key: latest) に1件だけ保存し、セッション復元時は loadId の一致 (fixed-v12 の利用時ガードと同じ規則: 両側にあれば一致必須、片側だけでは使わない) を確認できた場合のみ exportPdfCache へ復元する。座標も一緒に保存するため、復元に pdf.js (CDN) は不要。SKEW-T 用 DB (7pt-skewt) は App 側が version 1 で開くため、バージョン競合を避けて別 DB とした。fixed-v12 以前の内容はそのまま維持)
+// NavlogView.fixed-v14.jsx — 2026-11-16 (fixed-v13 + pdf-lib / pdf.js を CDN 読込から npm バンドルへ移行: EXPORT 書込の pdf-lib@1.17.1 と手動選択時のテキスト抽出の pdfjs-dist@3.11.174 を静的 import に替え、CDN 読込専用だった失敗分岐とトーストを撤去。これで再起動を跨いでもオフラインのまま EXPORT が完結する。あわせて手動選択側の cMapUrl (CDN の cmaps) を廃止し、App 側 LOAD と同じ cmap なしの条件に統一した (実 CFP で検証した抽出差分は各ページ末尾の「ページ」という語のみで、同一便チェックと座標には無関係)。バージョンは CDN で実績のあるものに固定。fixed-v13 以前の内容はそのまま維持)
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { SafeIcon } from './SharedComponents';
 import { renderQRCode } from './qrcode';
 import jsQR from './jsqr';
+
+// ▼ pdf-lib / pdf.js は npm バンドルから静的 import する (2026-11-16 fixed-v14)。
+//    従来は cdnjs から都度ロードしていたため、オフラインで起動したセッションでは
+//    EXPORT の書き込みと手動選択の解析が失敗していた。ワーカーもバンドル内
+//    アセットを指すため、precache に含まれオフラインで動作する。
+import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import * as pdfjsLib from 'pdfjs-dist';
+import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.js?url';
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 import { 
     WMO_CODES, 
     ICAO_COORDS, 
@@ -780,8 +790,8 @@ const SkewTViewerModal = ({ pages, index, onClose, onNavigate }) => {
 // いたため、アプリ再起動のたびに EXPORT の初回でファイル再選択が必要
 // だった。運航中の再起動でも即座に EXPORT できるよう、本人の指示で設計を
 // 変更し、PDF バイト列とテキスト座標を loadId と紐付けて IndexedDB に
-// 1件だけ保持する。座標も一緒に保存するのは、復元時に pdf.js (CDN 読込で
-// オフライン時は取得できない) で再抽出せずに済ませるため。
+// 1件だけ保持する。座標も一緒に保存するのは、復元時に pdf.js で
+// 再抽出せずに済ませるため。
 // DB は SKEW-T 画像用の '7pt-skewt' (App 側が version 1 で開く) とは分けた
 // 専用 DB とする。同じ DB を別バージョンで開くと VersionError になり、
 // App 側の SKEW-T 永続化を壊す恐れがあるため。
@@ -1735,20 +1745,6 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
       try {
           window.dispatchEvent(new CustomEvent('show-toast', { detail: 'PDFを作成しています...' }));
 
-          if (!window.PDFLib) {
-              const script = document.createElement('script');
-              script.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js";
-              try {
-                  await new Promise((res, rej) => { script.onload = res; script.onerror = rej; document.head.appendChild(script); });
-              } catch (e) {
-                  // CDN から読むため、オフライン (かつ未読込) ではここで失敗する。
-                  // 原因が分かる文言で投げ直し、下の catch のトーストに表示する。
-                  throw new Error('PDF生成ライブラリを読み込めませんでした。オフラインでは、地上で一度開いたセッションでのみ出力できます。');
-              }
-          }
-
-          const { PDFDocument, rgb, StandardFonts } = window.PDFLib;
-          
           const safeBytes = originalBytes instanceof Uint8Array 
               ? originalBytes 
               : new Uint8Array(originalBytes);
@@ -1909,24 +1905,8 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
               const pdfjsArray = new Uint8Array(buffer.slice(0));
               const originalArray = new Uint8Array(buffer.slice(0));
 
-              if (!window.pdfjsLib) {
-                  const script = document.createElement('script');
-                  script.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
-                  try {
-                      await new Promise((res, rej) => { script.onload = res; script.onerror = rej; document.head.appendChild(script); });
-                  } catch (loadErr) {
-                      // CDN 読込はオフラインでは失敗する。従来はこの reject が
-                      // 未処理のまま無言で終わっていた (2026-11-15 fixed-v11 で明示)。
-                      showToast('PDF解析ライブラリを読み込めませんでした。オフラインでは、地上で一度開いたセッションでのみ選択できます。');
-                      return;
-                  }
-                  window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-              }
-
-              const loadingTask = window.pdfjsLib.getDocument({
-                  data: pdfjsArray,
-                  cMapUrl: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/",
-                  cMapPacked: true
+              const loadingTask = pdfjsLib.getDocument({
+                  data: pdfjsArray
               });
               const pdf = await loadingTask.promise;
 
@@ -1967,7 +1947,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
               }
 
               // ▼ 検証済みの PDF をセッション内保持する (2026-11-16 fixed-v12)。
-              //    書き出し自体が失敗しても (pdf-lib の CDN 読込失敗など)、
+              //    書き出し自体が失敗しても (書き込み処理の失敗など)、
               //    再 EXPORT でファイルを選ばずに再試行できるよう、書き出しの
               //    前に保持する。loadId は選択時点の読み込み中便のものを記録し、
               //    利用時に現在の便と一致することを確認する。
