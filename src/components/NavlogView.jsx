@@ -1,4 +1,4 @@
-// NavlogView.fixed-v14.jsx — 2026-11-16 (fixed-v13 + pdf-lib / pdf.js を CDN 読込から npm バンドルへ移行: EXPORT 書込の pdf-lib@1.17.1 と手動選択時のテキスト抽出の pdfjs-dist@3.11.174 を静的 import に替え、CDN 読込専用だった失敗分岐とトーストを撤去。これで再起動を跨いでもオフラインのまま EXPORT が完結する。あわせて手動選択側の cMapUrl (CDN の cmaps) を廃止し、App 側 LOAD と同じ cmap なしの条件に統一した (実 CFP で検証した抽出差分は各ページ末尾の「ページ」という語のみで、同一便チェックと座標には無関係)。バージョンは CDN で実績のあるものに固定。fixed-v13 以前の内容はそのまま維持)
+// NavlogView.fixed-v17.jsx — 2026-11-17 (fixed-v16 から TAXI BRIEFING を全て削除: 本人判断により機能を廃止。TAXI ボタン・TaxiBriefModal・軌跡取得/CSV取込・専用 IndexedDB '7pt-taxi' のキャッシュ・src/utils/taxiBrief.js の import を除去した。それ以外の EXPORT / SKEWT / DIST CHECK / SYNC / 到着地天気・セッション復元は fixed-v16 のまま)
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { SafeIcon } from './SharedComponents';
 import { renderQRCode } from './qrcode';
@@ -13,6 +13,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.js?url';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+
 import { 
     WMO_CODES, 
     ICAO_COORDS, 
@@ -854,6 +855,7 @@ const cfpPdfRestoreDecision = (record, currentLoadId) => {
     if (!cfpPdfLoadIdMatches(record.loadId, currentLoadId)) return null;
     return { loadId: record.loadId ?? null, bytes: record.bytes, textPositions: record.textPositions };
 };
+
 
 export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, navlogData, skewtPages, onRequestSkewtPoint }) => {
   const [takeoffTime, setTakeoffTime] = useState('');
