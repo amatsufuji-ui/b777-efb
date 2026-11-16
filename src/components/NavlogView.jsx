@@ -1,4 +1,4 @@
-// NavlogView.fixed-v11.jsx — 2026-11-15 (fixed-v10 + NH8402 実運航テストのフィードバック対応3点: (A) DIST CHECK の最終区間欠落を修正: 座標Waypointの前後にある通常Waypointを区切りにする判定で、間に ETP/EXP 等の挿入ポイントがある場合も読み飛ばして到達する最初の通常Waypointを区切りにする (例: ANA8402 の 50N40 → EXP2 → PRETY が 50N40→PRETY として表示される)。空港行は読み飛ばさず壁として扱うため、空港をまたぐ区間は作らない。(C) SYNC の QR を完全ローカル化: 表示側 QRious / 読取側 jsQR の CDN 読込を廃止し、同フォルダの qrcode.js / jsqr.js (ベンダー化モジュール) を使用。ペイロード形式 (7PT|…) は不変。(D) EXPORT の手動ファイル選択に同一便チェックを追加: 選択した PDF の便名・出発地・到着地・日付を読み取り中の便と比較し、食い違う項目名と両値をトーストで明示して中止する。あわせて CDN ライブラリ読込失敗時の無言失敗を、原因が分かるトーストに変更。fixed-v10 以前の内容はそのまま維持)
+// NavlogView.fixed-v13.jsx — 2026-11-16 (fixed-v12 + EXPORT 用の元PDFを IndexedDB に永続化: 従来は再起動を跨ぐと originalPdfBytes / textPositions が失われ、再起動後の初回 EXPORT で必ずファイル再選択が必要だった。運航中にアプリが落ちても再選択なしで EXPORT できるよう、本人の指示で設計を変更する。フレッシュ読込時と手動選択 (同一便チェック通過時) に、PDF バイト列とテキスト座標を loadId と紐付けて専用 DB (7pt-cfp-pdf / store: pdf / key: latest) に1件だけ保存し、セッション復元時は loadId の一致 (fixed-v12 の利用時ガードと同じ規則: 両側にあれば一致必須、片側だけでは使わない) を確認できた場合のみ exportPdfCache へ復元する。座標も一緒に保存するため、復元に pdf.js (CDN) は不要。SKEW-T 用 DB (7pt-skewt) は App 側が version 1 で開くため、バージョン競合を避けて別 DB とした。fixed-v12 以前の内容はそのまま維持)
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { SafeIcon } from './SharedComponents';
 import { renderQRCode } from './qrcode';
@@ -774,6 +774,77 @@ const SkewTViewerModal = ({ pages, index, onClose, onNavigate }) => {
     );
 };
 
+// =========================================================================
+// EXPORT 用の元PDF (CFP) の IndexedDB 永続化 (2026-11-16 fixed-v13)
+// 従来、元PDFのバイト列とテキスト座標はセッション復元で意図的に落として
+// いたため、アプリ再起動のたびに EXPORT の初回でファイル再選択が必要
+// だった。運航中の再起動でも即座に EXPORT できるよう、本人の指示で設計を
+// 変更し、PDF バイト列とテキスト座標を loadId と紐付けて IndexedDB に
+// 1件だけ保持する。座標も一緒に保存するのは、復元時に pdf.js (CDN 読込で
+// オフライン時は取得できない) で再抽出せずに済ませるため。
+// DB は SKEW-T 画像用の '7pt-skewt' (App 側が version 1 で開く) とは分けた
+// 専用 DB とする。同じ DB を別バージョンで開くと VersionError になり、
+// App 側の SKEW-T 永続化を壊す恐れがあるため。
+// =========================================================================
+const CFP_PDF_IDB_NAME = '7pt-cfp-pdf';
+const CFP_PDF_IDB_STORE = 'pdf';
+const CFP_PDF_IDB_KEY = 'latest';
+
+const cfpPdfIdbOpen = () => new Promise((resolve, reject) => {
+    if (typeof indexedDB === 'undefined') { reject(new Error('IndexedDB unavailable')); return; }
+    const req = indexedDB.open(CFP_PDF_IDB_NAME, 1);
+    req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(CFP_PDF_IDB_STORE)) db.createObjectStore(CFP_PDF_IDB_STORE);
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+});
+
+const cfpPdfIdbSave = async (record) => {
+    const db = await cfpPdfIdbOpen();
+    try {
+        await new Promise((resolve, reject) => {
+            const tx = db.transaction(CFP_PDF_IDB_STORE, 'readwrite');
+            tx.objectStore(CFP_PDF_IDB_STORE).put(record, CFP_PDF_IDB_KEY);
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error);
+        });
+    } finally { db.close(); }
+};
+
+const cfpPdfIdbLoad = async () => {
+    const db = await cfpPdfIdbOpen();
+    try {
+        return await new Promise((resolve, reject) => {
+            const req = db.transaction(CFP_PDF_IDB_STORE, 'readonly').objectStore(CFP_PDF_IDB_STORE).get(CFP_PDF_IDB_KEY);
+            req.onsuccess = () => resolve(req.result || null);
+            req.onerror = () => reject(req.error);
+        });
+    } finally { db.close(); }
+};
+
+// loadId の一致判定。fixed-v12 の handleExportPDF の利用時ガードと同一の
+// 規則: 両側にあれば一致が必須、片側だけにある場合は別便の可能性を排除
+// できないため一致とみなさない。どちらにも無い場合のみ一致とみなす。
+const cfpPdfLoadIdMatches = (recordLoadId, currentLoadId) => {
+    const a = recordLoadId ?? null;
+    const b = currentLoadId ?? null;
+    return (a === null && b === null) || (a !== null && a === b);
+};
+
+// 永続化レコードの復元可否: レコードがあり、バイト列が空でなく、テキスト
+// 座標が配列で、loadId が現在の便と一致する場合だけ、exportPdfCache に
+// そのまま入れられる形で返す。それ以外 (別便のレコード等) は null を
+// 返し、レコード自体は消さない (次の保存で上書きされる)。
+const cfpPdfRestoreDecision = (record, currentLoadId) => {
+    if (!record) return null;
+    if (!record.bytes || record.bytes.length === 0) return null;
+    if (!Array.isArray(record.textPositions)) return null;
+    if (!cfpPdfLoadIdMatches(record.loadId, currentLoadId)) return null;
+    return { loadId: record.loadId ?? null, bytes: record.bytes, textPositions: record.textPositions };
+};
+
 export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, navlogData, skewtPages, onRequestSkewtPoint }) => {
   const [takeoffTime, setTakeoffTime] = useState('');
   const [actuals, setActuals] = useState({});
@@ -797,6 +868,29 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
   const hasAutoScrolled = useRef(false);
   const lastLoadId = useRef(null);
   const pdfExportInputRef = useRef(null); 
+  // ▼ EXPORT 用に手動選択した元PDFの保持 (2026-11-16 fixed-v12)。
+  //    セッション復元では navlogData.originalPdfBytes が復元されないため、従来は
+  //    EXPORT のたびに再選択が必要だった。同一便チェックを通過した PDF の
+  //    バイト列とテキスト座標を、選択時点の loadId と一緒に保持し、同じ
+  //    セッション内の再 EXPORT では再選択なしで書き出す。別便の読込で破棄し、
+  //    利用時にも loadId の一致を確認する (v5 の同一性ガードと同じ考え方)。
+  // ▼ fixed-v13: このメモリ内保持の下に IndexedDB 永続化を追加した。
+  //    フレッシュ読込・手動選択のたびに同じ内容を専用 DB (7pt-cfp-pdf) へ
+  //    保存し、セッション復元時は loadId の一致を確認してこの保持へ復元
+  //    する。そのため再起動後の初回 EXPORT でも再選択は不要になる。
+  const [exportPdfCache, setExportPdfCache] = useState(null);
+  // 永続化済みの (loadId, バイト列参照) を記録し、同じ内容の再保存を避ける。
+  const cfpPdfSavedRef = useRef(null);
+
+  // 元PDFを IndexedDB へ永続化する (fire-and-forget: 失敗しても EXPORT 自体は
+  // メモリ内保持で継続できるため、呼び出し側は待たない)。
+  const persistExportPdf = (loadId, bytes, textPositions) => {
+      if (!bytes || bytes.length === 0 || !Array.isArray(textPositions)) return;
+      const saved = cfpPdfSavedRef.current;
+      if (saved && saved.loadId === (loadId ?? null) && saved.bytes === bytes) return;
+      cfpPdfSavedRef.current = { loadId: loadId ?? null, bytes };
+      cfpPdfIdbSave({ loadId: loadId ?? null, savedAt: Date.now(), bytes, textPositions }).catch(() => {});
+  };
 
   const [flightPlan, setFlightPlan] = useState(DEFAULT_FLIGHT_PLAN_DATA);
   const [flightNo, setFlightNo] = useState("ANA0110");
@@ -1042,6 +1136,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
             lastLoadId.current = navlogData.loadId;
 
             setActuals({});
+            setExportPdfCache(null); // 別便の PDF を保持し続けない (fixed-v12)
             setMemoModal({ isOpen: false, wp: '', text: '' });
             setIsDistCheckOpen(false);
             setIsGraphOpen(false);
@@ -1061,6 +1156,44 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
             setActuals(prev => ({ ...prev }));
         }
     }
+  }, [navlogData]);
+
+  // ▼ フレッシュ読込で元PDFが得られたら IndexedDB へ永続化する (fixed-v13)。
+  //    セッション復元では navlogData にバイト列が無いため、その場合は何も
+  //    しない (下の復元 effect が担当する)。
+  useEffect(() => {
+    if (!navlogData) return;
+    const bytes = navlogData.originalPdfBytes;
+    if (bytes && bytes.length > 0 && Array.isArray(navlogData.textPositions)) {
+        persistExportPdf(navlogData.loadId ?? null, bytes, navlogData.textPositions);
+    }
+  }, [navlogData]);
+
+  // ▼ セッション復元時 (navlogData に元PDFが無い場合) は IndexedDB から
+  //    復元する (fixed-v13)。loadId が現在の便と一致するレコードだけを
+  //    exportPdfCache へ入れ、EXPORT を再選択なしで書き出せるようにする。
+  //    一致しないレコードは無視し、消さない (次の保存で上書きされる)。
+  //    既に同じ便の保持がある場合 (手動選択済み等) はそちらを優先する。
+  useEffect(() => {
+    if (!navlogData) return;
+    if (navlogData.originalPdfBytes && navlogData.originalPdfBytes.length > 0) return;
+    const currentLoadId = navlogData.loadId ?? null;
+    let cancelled = false;
+    (async () => {
+        try {
+            const record = await cfpPdfIdbLoad();
+            if (cancelled) return;
+            const restored = cfpPdfRestoreDecision(record, currentLoadId);
+            if (!restored) return;
+            setExportPdfCache(prev => {
+                if (prev && prev.bytes && prev.bytes.length > 0 && cfpPdfLoadIdMatches(prev.loadId, currentLoadId)) return prev;
+                return restored;
+            });
+        } catch (e) {
+            // IndexedDB が使えない環境では従来の手動選択フローにフォールバックする。
+        }
+    })();
+    return () => { cancelled = true; };
   }, [navlogData]);
 
   useEffect(() => {
@@ -1833,6 +1966,16 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                   return;
               }
 
+              // ▼ 検証済みの PDF をセッション内保持する (2026-11-16 fixed-v12)。
+              //    書き出し自体が失敗しても (pdf-lib の CDN 読込失敗など)、
+              //    再 EXPORT でファイルを選ばずに再試行できるよう、書き出しの
+              //    前に保持する。loadId は選択時点の読み込み中便のものを記録し、
+              //    利用時に現在の便と一致することを確認する。
+              setExportPdfCache({ loadId: navlogData?.loadId ?? null, bytes: originalArray, textPositions });
+
+              // ▼ 再起動後も使えるよう IndexedDB へも永続化する (fixed-v13)。
+              persistExportPdf(navlogData?.loadId ?? null, originalArray, textPositions);
+
               await processAndDownloadPdf(originalArray, textPositions);
           } catch (err) {
               console.error(err);
@@ -1846,18 +1989,35 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
 
   const handleExportPDF = async () => {
       window.dispatchEvent(new CustomEvent('show-toast', { detail: 'PDF作成準備中...' }));
-      
-      const targetPdfBytes = navlogData?.originalPdfBytes;
-      
+
+      let targetPdfBytes = navlogData?.originalPdfBytes;
+      let targetTextPositions = navlogData?.textPositions;
+
+      // ▼ フレッシュ読込時のバイト列が無い場合 (セッション復元後など) は、
+      //    手動選択で保持した PDF を使う (2026-11-16 fixed-v12)。保持が現在の
+      //    便のものであることは loadId で確認する: 両側にあれば一致が必須、
+      //    片側だけにある場合は別便の可能性を排除できないため使わない
+      //    (v5 の同一性ガードと同じ優先順位)。どちらにも無い場合のみ使用可。
+      if ((!targetPdfBytes || targetPdfBytes.length === 0) && exportPdfCache) {
+          const cacheLoadId = exportPdfCache.loadId ?? null;
+          const currentLoadId = navlogData?.loadId ?? null;
+          const idMatch = (cacheLoadId === null && currentLoadId === null)
+              || (cacheLoadId !== null && cacheLoadId === currentLoadId);
+          if (idMatch) {
+              targetPdfBytes = exportPdfCache.bytes;
+              targetTextPositions = exportPdfCache.textPositions;
+          }
+      }
+
       if (!targetPdfBytes || targetPdfBytes.length === 0) {
           if (pdfExportInputRef.current) {
               window.dispatchEvent(new CustomEvent('show-toast', { detail: '元データが見つかりません。ベースとなるPDFファイルを再度選択してください。' }));
-              pdfExportInputRef.current.click(); 
+              pdfExportInputRef.current.click();
           }
           return;
       }
-      
-      await processAndDownloadPdf(targetPdfBytes, navlogData.textPositions);
+
+      await processAndDownloadPdf(targetPdfBytes, targetTextPositions);
   };
 
   return (
