@@ -1,4 +1,4 @@
-// skewt.js — 2026-11-13 v5.5 (A4 portrait, ETO only, hodograph auto-scale, cap 40 kt)
+// skewt.js — 2026-11-17 v5.6 (A4 portrait, ETO only, hodograph auto-scale, cap 40 kt, day/night themes)
 // skewt.js — self-contained Skew-T / hodograph rendering for the 7PT PWA.
 //
 // No external dependencies. Fetches GFS pressure-level profiles from the
@@ -17,6 +17,11 @@
 // Page renderers: renderWaypointPagePortrait (A4 portrait, ETO panel
 // only — the current app layout) and renderWaypointPage (the earlier
 // A4-landscape 3-panel page, kept for reference).
+//
+// Themes (v5.6): every renderer accepts theme: 'day' (default) or
+// 'night'. 'day' is the v5.5 palette, value for value, so day pages
+// are unchanged; 'night' swaps in a dark cockpit palette (near-black
+// blue-grey, bright sounding curves) with identical layout/geometry.
 //
 // Conventions match the Python/MetPy trial generator
 // (~/workspace/skew-t-trial/skewt_from_navlog.py): wind speeds in knots,
@@ -50,6 +55,52 @@ const HODO_SCALE_STEPS = [15, 20, 25, 30, 40, 50, 60, 80, 100];
 // to print "3000"/"6000"/"9000"/"10000" — removed).
 const FT_TO_KM = 0.0003048;  // hodograph height annotations are in feet
 const KT_TO_MS = 0.514444;
+
+// ---------------------------------------------------------------------------
+// Colour palettes (v5.6). PALETTE_DAY reproduces the v5.5 literals value
+// for value — day rendering is byte-identical to v5.5. PALETTE_NIGHT is
+// the night-cockpit variant: near-black blue-grey surfaces, dimmed slate
+// grid, bright sounding curves, soft light-grey text, no pure white.
+// ---------------------------------------------------------------------------
+const PALETTE_DAY = {
+  pageBg: '#fff', panelBg: '#fff',
+  border: '#999', isotherm: '#c9c9c9', isobar: '#bbb',
+  dryAdiabat: 'rgba(230,120,110,0.55)',
+  moistAdiabat: 'rgba(90,110,230,0.5)',
+  mixRatio: 'rgba(30,160,60,0.6)',
+  temp: '#e00', dewpoint: '#0a0', wetbulb: '#24c',
+  fl: '#7B1FA2', flLabelBg: 'rgba(255,255,255,0.75)',
+  barb: '#000',
+  text: '#111', textDim: '#333', textCaption: '#555',
+  noData: '#64748b',
+  hodoRing: '#999', hodoRingLabel: '#666',
+  hodoCurve: '#d62728',
+  hodoLayers: ['#d62728', '#e6550d', '#2ca02c', '#9467bd', '#1f77b4'],
+  marker: '#000',
+  legendDry: 'rgba(230,120,110,0.9)',
+  legendMoist: 'rgba(90,110,230,0.85)',
+  legendMix: 'rgba(30,160,60,0.9)',
+};
+const PALETTE_NIGHT = {
+  pageBg: '#0a0f1a', panelBg: '#0d1524',
+  border: '#3b4c68', isotherm: '#263449', isobar: '#2e3d59',
+  dryAdiabat: 'rgba(240,130,120,0.45)',
+  moistAdiabat: 'rgba(120,140,250,0.45)',
+  mixRatio: 'rgba(74,222,128,0.45)',
+  temp: '#ff6b5e', dewpoint: '#4ade80', wetbulb: '#60a5fa',
+  fl: '#9d7bd8', flLabelBg: 'rgba(10,15,26,0.8)',
+  barb: '#cbd5e1',
+  text: '#e2e8f0', textDim: '#94a3b8', textCaption: '#94a3b8',
+  noData: '#94a3b8',
+  hodoRing: '#3b4c68', hodoRingLabel: '#94a3b8',
+  hodoCurve: '#f87171',
+  hodoLayers: ['#f87171', '#fb923c', '#4ade80', '#c084fc', '#60a5fa'],
+  marker: '#f8fafc',
+  legendDry: 'rgba(240,130,120,0.9)',
+  legendMoist: 'rgba(120,140,250,0.9)',
+  legendMix: 'rgba(74,222,128,0.9)',
+};
+const paletteFor = (theme) => (theme === 'night' ? PALETTE_NIGHT : PALETTE_DAY);
 
 // ---------------------------------------------------------------------------
 // Small numeric helpers
@@ -536,11 +587,12 @@ export function indicesText(profile) {
 // Canvas rendering
 // ---------------------------------------------------------------------------
 
-/** Draw one wind barb at (x, y). spd in kt, wdir = direction FROM (deg). */
-function drawBarb(ctx, x, y, spd, wdirDeg) {
+/** Draw one wind barb at (x, y). spd in kt, wdir = direction FROM (deg).
+ *  color: shaft/feather colour (palette barb; '#000' in day). */
+function drawBarb(ctx, x, y, spd, wdirDeg, color = '#000') {
   ctx.save();
-  ctx.strokeStyle = '#000';
-  ctx.fillStyle = '#000';
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
   ctx.lineWidth = 1.4;
   if (!Number.isFinite(spd) || spd < 2.5) { // calm: small circle
     ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.stroke();
@@ -589,7 +641,8 @@ function drawBarb(ctx, x, y, spd, wdirDeg) {
 
 /**
  * Draw one Skew-T panel into the given canvas (the canvas is filled).
- * opts: { title, validLabel }. profile may be null -> "No data" panel.
+ * opts: { title, validLabel, theme }. profile may be null -> "No data"
+ * panel. theme: 'day' (default, v5.5 palette) or 'night' (dark palette).
  * Layout mirrors the Python design: skewed isotherms, dry adiabats
  * (theta lines), moist adiabats (theta-e lines, approximate), mixing
  * ratio lines, T red / Td green / Tw blue, barb column on the right,
@@ -597,9 +650,10 @@ function drawBarb(ctx, x, y, spd, wdirDeg) {
  * (white-backed, clear of the barb column on the right).
  */
 export function drawSkewTPanel(canvas, profile, opts = {}) {
+  const pal = paletteFor(opts.theme);
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
-  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = pal.panelBg; ctx.fillRect(0, 0, W, H);
 
   // Left margin fits the 21 px pressure numerals (drawn right-aligned
   // at x0-8, so "1000" needs ~55 px); bottom margin fits the 23 px
@@ -622,13 +676,13 @@ export function drawSkewTPanel(canvas, profile, opts = {}) {
   const xPix = (T, p) => x0 + ((T + 40) / 85) * pw + skew * (y1 - yPix(p));
 
   ctx.save();
-  ctx.strokeStyle = '#999'; ctx.lineWidth = 1;
+  ctx.strokeStyle = pal.border; ctx.lineWidth = 1;
   ctx.strokeRect(x0, y0, pw, ph);
   ctx.beginPath(); ctx.rect(x0, y0, pw, ph); ctx.clip();
 
   // Isotherms (skewed) every 10 degC
-  ctx.strokeStyle = '#c9c9c9'; ctx.lineWidth = 0.7;
-  ctx.fillStyle = '#555'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+  ctx.strokeStyle = pal.isotherm; ctx.lineWidth = 0.7;
+  ctx.fillStyle = pal.textCaption; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
   for (let T = -80; T <= 40; T += 10) {
     ctx.beginPath();
     ctx.moveTo(xPix(T, 1050), yPix(1050));
@@ -636,7 +690,7 @@ export function drawSkewTPanel(canvas, profile, opts = {}) {
     ctx.stroke();
   }
   // Dry adiabats: theta = const (light salmon)
-  ctx.strokeStyle = 'rgba(230,120,110,0.55)';
+  ctx.strokeStyle = pal.dryAdiabat;
   for (let th = 210; th <= 350; th += 10) {
     ctx.beginPath();
     let started = false;
@@ -648,7 +702,7 @@ export function drawSkewTPanel(canvas, profile, opts = {}) {
     ctx.stroke();
   }
   // Moist adiabats: theta-e = const (light blue dashed, approximate)
-  ctx.strokeStyle = 'rgba(90,110,230,0.5)';
+  ctx.strokeStyle = pal.moistAdiabat;
   ctx.setLineDash([5, 4]);
   for (let twC = -20; twC <= 36; twC += 4) {
     const thE = satThetaE(twC, 1000);
@@ -669,7 +723,7 @@ export function drawSkewTPanel(canvas, profile, opts = {}) {
   }
   ctx.setLineDash([]);
   // Mixing-ratio lines (green dotted), lower troposphere only
-  ctx.strokeStyle = 'rgba(30,160,60,0.6)';
+  ctx.strokeStyle = pal.mixRatio;
   ctx.setLineDash([2, 3]);
   for (const w of [1, 2, 4, 6, 8, 10, 13, 16, 20, 24, 30, 36]) {
     ctx.beginPath();
@@ -689,7 +743,7 @@ export function drawSkewTPanel(canvas, profile, opts = {}) {
   // released, below — numerals sitting left of the plot border would
   // be clipped away entirely if drawn here, inside the plot clip.
   // The bottom temperature scale is post-clip for the same reason.)
-  ctx.strokeStyle = '#bbb'; ctx.lineWidth = 0.7;
+  ctx.strokeStyle = pal.isobar; ctx.lineWidth = 0.7;
   for (const p of LEVELS_HPA) {
     const Y = yPix(p);
     ctx.beginPath(); ctx.moveTo(x0, Y); ctx.lineTo(x1, Y); ctx.stroke();
@@ -698,7 +752,7 @@ export function drawSkewTPanel(canvas, profile, opts = {}) {
   if (profile) {
     // FL lines first (under the sounding curves), labels drawn later.
     const fls = flPressures(profile);
-    ctx.strokeStyle = FL_COLOR; ctx.lineWidth = 1.2;
+    ctx.strokeStyle = pal.fl; ctx.lineWidth = 1.2;
     ctx.setLineDash([6, 4]); ctx.globalAlpha = 0.9;
     for (const fl of FLIGHT_LEVELS) {
       const pFl = fls[fl];
@@ -719,17 +773,17 @@ export function drawSkewTPanel(canvas, profile, opts = {}) {
       }
       ctx.stroke();
     };
-    plotCurve(profile.t, '#e00', 2.2);
-    plotCurve(profile.td, '#0a0', 2.2);
+    plotCurve(profile.t, pal.temp, 2.2);
+    plotCurve(profile.td, pal.dewpoint, 2.2);
     plotCurve(profile.t.map((T, i) => wetBulbStull(T, profile.td[i])),
-      '#24c', 1.2);
+      pal.wetbulb, 1.2);
     ctx.restore(); // unclip for barbs / FL labels
     // Wind barbs: one per profile level, anchored in their own column
     // just OUTSIDE the plot's right border (MetPy style).
     for (let i = 0; i < profile.p.length; i++) {
       const spd = Math.hypot(profile.u[i], profile.v[i]);
       const wdir = (Math.atan2(-profile.u[i], -profile.v[i]) * 180 / Math.PI + 360) % 360;
-      drawBarb(ctx, x1 + flStrip + 14, yPix(profile.p[i]), spd, wdir);
+      drawBarb(ctx, x1 + flStrip + 14, yPix(profile.p[i]), spd, wdir, pal.barb);
     }
     // FL labels: LEFT inside edge of the plot, on a semi-transparent
     // white box so gridlines / curves cannot obscure them (and well
@@ -743,15 +797,15 @@ export function drawSkewTPanel(canvas, profile, opts = {}) {
         const Y = yPix(pFl);
         const label = `FL${fl}`;
         const tw = ctx.measureText(label).width;
-        ctx.fillStyle = 'rgba(255,255,255,0.75)';
+        ctx.fillStyle = pal.flLabelBg;
         ctx.fillRect(x0 + 2, Y - 17, tw + 9, 34);
-        ctx.fillStyle = FL_COLOR;
+        ctx.fillStyle = pal.fl;
         ctx.fillText(label, x0 + 6, Y + 9);
       }
     }
   } else {
     ctx.restore();
-    ctx.fillStyle = '#64748b'; ctx.font = 'bold 22px sans-serif';
+    ctx.fillStyle = pal.noData; ctx.font = 'bold 22px sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('No data', (x0 + x1) / 2, (y0 + y1) / 2);
   }
@@ -760,7 +814,7 @@ export function drawSkewTPanel(canvas, profile, opts = {}) {
   // just left of the plot border, one per isobar. Drawn here
   // (post-restore) so the clip cannot eat them. The FL labels sit
   // INSIDE the left edge of the plot, so there is no collision.
-  ctx.fillStyle = '#333'; ctx.font = '21px sans-serif'; ctx.textAlign = 'right';
+  ctx.fillStyle = pal.textDim; ctx.font = '21px sans-serif'; ctx.textAlign = 'right';
   for (const p of LEVELS_HPA) {
     ctx.fillText(String(p), x0 - 8, yPix(p) + 7);
   }
@@ -769,8 +823,8 @@ export function drawSkewTPanel(canvas, profile, opts = {}) {
   // bottom border and a horizontal °C label just under it, for every
   // isotherm where it crosses the 1000 hPa line within the plot width.
   // Drawn here (post-restore) so the clip cannot eat the labels.
-  ctx.strokeStyle = '#333'; ctx.lineWidth = 1;
-  ctx.fillStyle = '#333'; ctx.font = 'bold 23px sans-serif'; ctx.textAlign = 'center';
+  ctx.strokeStyle = pal.textDim; ctx.lineWidth = 1;
+  ctx.fillStyle = pal.textDim; ctx.font = 'bold 23px sans-serif'; ctx.textAlign = 'center';
   for (let T = -40; T <= 40; T += 10) {
     const X = xPix(T, 1000);
     if (X < x0 || X > x1) continue;
@@ -779,11 +833,11 @@ export function drawSkewTPanel(canvas, profile, opts = {}) {
   }
 
   // Titles
-  ctx.fillStyle = '#111'; ctx.textAlign = 'left';
+  ctx.fillStyle = pal.text; ctx.textAlign = 'left';
   ctx.font = '15px sans-serif';
   if (opts.title) ctx.fillText(opts.title, x0, 20);
   if (opts.validLabel) ctx.fillText(opts.validLabel, x0, 40);
-  ctx.font = '18px sans-serif'; ctx.fillStyle = '#555';
+  ctx.font = '18px sans-serif'; ctx.fillStyle = pal.textCaption;
   ctx.textAlign = 'center';
   ctx.fillText('Temperature (°C)', (x0 + x1) / 2, H - 6);
   return canvas;
@@ -819,9 +873,10 @@ function hodographData(profile) {
  * the departure / arrival pages.
  */
 export function drawHodograph(canvas, profile, opts = {}) {
+  const pal = paletteFor(opts.theme);
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
-  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = pal.panelBg; ctx.fillRect(0, 0, W, H);
   const titleH = 24;
   const size = Math.min(W, H - titleH);
   const cx = W / 2, cy = titleH + size / 2;
@@ -846,7 +901,7 @@ export function drawHodograph(canvas, profile, opts = {}) {
   for (let r = ringStep; r < scale; r += ringStep) ringVals.push(r);
   ringVals.push(scale); // outer ring is always drawn, even off-step (15/25)
 
-  ctx.strokeStyle = '#999'; ctx.fillStyle = '#666';
+  ctx.strokeStyle = pal.hodoRing; ctx.fillStyle = pal.hodoRingLabel;
   ctx.font = '26px sans-serif'; ctx.lineWidth = 0.8;
   for (const r of ringVals) {
     ctx.beginPath(); ctx.arc(cx, cy, (r / scale) * R, 0, Math.PI * 2);
@@ -864,9 +919,9 @@ export function drawHodograph(canvas, profile, opts = {}) {
       const [, ty] = toPx(0, s); ctx.fillText(String(s), cx - R - 34, ty + 9);
     }
   }
-  ctx.fillStyle = '#111'; ctx.font = '13px sans-serif';
+  ctx.fillStyle = pal.text; ctx.font = '13px sans-serif';
   ctx.fillText('Hodograph (≤5,000 ft, wind in kt, height ×1000 ft)', cx, 16);
-  ctx.font = '20px sans-serif'; ctx.fillStyle = '#666';
+  ctx.font = '20px sans-serif'; ctx.fillStyle = pal.hodoRingLabel;
   ctx.textAlign = 'left';
   ctx.fillText('kt', cx + R + 12, cy + R + 34);
 
@@ -874,7 +929,9 @@ export function drawHodograph(canvas, profile, opts = {}) {
   if (pts.length >= 2) {
     if (opts.detailed) {
       const top = pts[pts.length - 1].zKm;
-      for (const [lo, hi, color] of HODO_LAYERS) {
+      for (let li = 0; li < HODO_LAYERS.length; li++) {
+        const [lo, hi] = HODO_LAYERS[li];
+        const color = pal.hodoLayers[li];
         const hiEff = hi === null ? top : Math.min(hi, top);
         if (hiEff <= lo || lo >= top) continue;
         const segH = [lo,
@@ -889,7 +946,7 @@ export function drawHodograph(canvas, profile, opts = {}) {
         });
         ctx.stroke();
       }
-      ctx.fillStyle = '#111'; ctx.font = '26px sans-serif';
+      ctx.fillStyle = pal.text; ctx.font = '26px sans-serif';
       ctx.textAlign = 'left';
       const zs = pts.map(p => p.zKm);
       for (const hFt of HODO_LABEL_HEIGHTS_FT) {
@@ -905,20 +962,20 @@ export function drawHodograph(canvas, profile, opts = {}) {
         ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
         for (const [m, tag] of [[rm, 'RM'], [lm, 'LM']]) {
           const [X, Y] = toPx(m.u, m.v);
-          ctx.strokeStyle = '#000'; ctx.lineWidth = 1;
+          ctx.strokeStyle = pal.marker; ctx.lineWidth = 1;
           ctx.beginPath(); ctx.arc(X, Y, 11, 0, Math.PI * 2); ctx.stroke();
-          ctx.fillStyle = '#000'; ctx.fillText(tag, X, Y + 3.5);
+          ctx.fillStyle = pal.marker; ctx.fillText(tag, X, Y + 3.5);
         }
       } catch (e) { /* markers are best-effort */ }
     } else {
-      ctx.strokeStyle = '#d62728'; ctx.lineWidth = 1.8;
+      ctx.strokeStyle = pal.hodoCurve; ctx.lineWidth = 1.8;
       ctx.beginPath();
       pts.forEach((pt, i) => {
         const [X, Y] = toPx(pt.u, pt.v);
         if (i === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
       });
       ctx.stroke();
-      ctx.fillStyle = '#111'; ctx.font = '26px sans-serif';
+      ctx.fillStyle = pal.text; ctx.font = '26px sans-serif';
       ctx.textAlign = 'left';
       const zs = pts.map(p => p.zKm);
       const top = pts[pts.length - 1].zKm;
@@ -952,13 +1009,14 @@ export function renderWaypointPage(wp, profiles3, opts = {}) {
   if (typeof document === 'undefined') {
     throw new Error('renderWaypointPage requires a DOM (browser) canvas');
   }
+  const pal = paletteFor(opts.theme);
   const PW = 2550, PH = 1575;
   const page = document.createElement('canvas');
   page.width = PW; page.height = PH;
   const ctx = page.getContext('2d');
-  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, PW, PH);
+  ctx.fillStyle = pal.pageBg; ctx.fillRect(0, 0, PW, PH);
 
-  ctx.fillStyle = '#111'; ctx.textAlign = 'center';
+  ctx.fillStyle = pal.text; ctx.textAlign = 'center';
   ctx.font = 'bold 44px sans-serif';
   ctx.fillText(wp.header || wp.name || '', PW / 2, 62);
 
@@ -967,12 +1025,12 @@ export function renderWaypointPage(wp, profiles3, opts = {}) {
   // drawSkewTPanel uses, followed by its label. Sounding lines first
   // (Temperature / Dewpoint / Wet-bulb), then the grid references.
   const legendEntries = [
-    { color: '#e00', width: 3.2, dash: [], label: 'Temperature' },
-    { color: '#0a0', width: 3.2, dash: [], label: 'Dewpoint' },
-    { color: '#24c', width: 2.4, dash: [], label: 'Wet-bulb' },
-    { color: 'rgba(230,120,110,0.9)', width: 2, dash: [], label: 'Dry Adiabats' },
-    { color: 'rgba(90,110,230,0.85)', width: 2, dash: [7, 5], label: 'Moist Adiabats' },
-    { color: 'rgba(30,160,60,0.9)', width: 2.6, dash: [2, 3], label: 'Sat. Mix. Ratio' },
+    { color: pal.temp, width: 3.2, dash: [], label: 'Temperature' },
+    { color: pal.dewpoint, width: 3.2, dash: [], label: 'Dewpoint' },
+    { color: pal.wetbulb, width: 2.4, dash: [], label: 'Wet-bulb' },
+    { color: pal.legendDry, width: 2, dash: [], label: 'Dry Adiabats' },
+    { color: pal.legendMoist, width: 2, dash: [7, 5], label: 'Moist Adiabats' },
+    { color: pal.legendMix, width: 2.6, dash: [2, 3], label: 'Sat. Mix. Ratio' },
   ];
   ctx.font = '24px sans-serif';
   const swatchW = 46, swatchGap = 12, entryGap = 38;
@@ -988,7 +1046,7 @@ export function renderWaypointPage(wp, profiles3, opts = {}) {
     ctx.setLineDash(e.dash);
     ctx.beginPath(); ctx.moveTo(lx, 84); ctx.lineTo(lx + swatchW, 84); ctx.stroke();
     ctx.setLineDash([]);
-    ctx.fillStyle = '#111';
+    ctx.fillStyle = pal.text;
     ctx.fillText(e.label, lx + swatchW + swatchGap, 92);
     lx += swatchW + swatchGap + e.textW + entryGap;
   }
@@ -1003,9 +1061,9 @@ export function renderWaypointPage(wp, profiles3, opts = {}) {
   // English header legend above.
   const keyY = panelY + panelH + 30; // text baseline
   const keyEntries = [
-    { color: '#e00', width: 3.2, label: '気温 Temperature' },
-    { color: '#0a0', width: 3.2, label: '露点 Dewpoint' },
-    { color: '#24c', width: 2.4, label: '湿球 Wet-bulb' },
+    { color: pal.temp, width: 3.2, label: '気温 Temperature' },
+    { color: pal.dewpoint, width: 3.2, label: '露点 Dewpoint' },
+    { color: pal.wetbulb, width: 2.4, label: '湿球 Wet-bulb' },
   ];
   ctx.font = '24px sans-serif';
   const kSwatch = 40, kGap = 10, kEntryGap = 44;
@@ -1019,7 +1077,7 @@ export function renderWaypointPage(wp, profiles3, opts = {}) {
   for (const e of keyEntries) {
     ctx.strokeStyle = e.color; ctx.lineWidth = e.width;
     ctx.beginPath(); ctx.moveTo(kx, keyY - 8); ctx.lineTo(kx + kSwatch, keyY - 8); ctx.stroke();
-    ctx.fillStyle = '#111';
+    ctx.fillStyle = pal.text;
     ctx.fillText(e.label, kx + kSwatch + kGap, keyY);
     kx += kSwatch + kGap + e.textW + kEntryGap;
   }
@@ -1035,6 +1093,7 @@ export function renderWaypointPage(wp, profiles3, opts = {}) {
     drawSkewTPanel(pc, prof, {
       title: (wp.panelTitles && wp.panelTitles[i]) || '',
       validLabel: (wp.validLabels && wp.validLabels[i]) || '',
+      theme: opts.theme,
     });
     ctx.drawImage(pc, x, panelY);
 
@@ -1046,17 +1105,17 @@ export function renderWaypointPage(wp, profiles3, opts = {}) {
     if (opts.detailed) {
       const hc = document.createElement('canvas');
       hc.width = 470; hc.height = subH;
-      drawHodograph(hc, prof, { detailed: true });
+      drawHodograph(hc, prof, { detailed: true, theme: opts.theme });
       ctx.drawImage(hc, x, subY);
       textX = x + 478;
       // Notation note directly under the hodograph: its height
       // figures are thousands of feet, not feet.
-      ctx.fillStyle = '#333'; ctx.textAlign = 'left';
+      ctx.fillStyle = pal.textDim; ctx.textAlign = 'left';
       ctx.font = '20px sans-serif';
       ctx.fillText('高度の数字は×1000 ft（1=1000ft、5=5000ft）', x, subY + subH + 26);
     }
 
-    ctx.fillStyle = '#111'; ctx.textAlign = 'left';
+    ctx.fillStyle = pal.text; ctx.textAlign = 'left';
     // 23px monospace: the widest line ("SRH 0-10000ft: ... m2/s2",
     // 27 chars) is ~375 px, so starting at textX it stays inside the
     // 850 px column — at 29px the third column's values ran off the
@@ -1068,7 +1127,7 @@ export function renderWaypointPage(wp, profiles3, opts = {}) {
     });
   }
 
-  ctx.fillStyle = '#333'; ctx.textAlign = 'center';
+  ctx.fillStyle = pal.textDim; ctx.textAlign = 'center';
   ctx.font = 'italic 25px sans-serif';
   ctx.fillText(wp.footer || '', PW / 2, PH - 28);
   return page.toDataURL('image/png');
@@ -1088,7 +1147,8 @@ export function renderWaypointPage(wp, profiles3, opts = {}) {
  * indices start at the left edge.
  *
  * canvas: caller-provided canvas (resized to 1754 x 2480 if needed).
- * args: { wp, profile, detailed }
+ * args: { wp, profile, detailed, theme } — theme: 'day' (default,
+ * the v5.5 palette) or 'night' (dark cockpit palette, same layout).
  *   wp: { name, lat, lon, header, subline, panelTitle, validLabel,
  *         footer } — header carries the waypoint name / lat / lon /
  *         cumulative NM, subline the ETO valid time.
@@ -1100,31 +1160,32 @@ export function renderWaypointPagePortrait(canvas, args = {}) {
   }
   const wp = args.wp || {};
   const profile = args.profile || null;
+  const pal = paletteFor(args.theme);
   const PW = 1754, PH = 2480; // A4 portrait at 150 dpi
   if (canvas.width !== PW || canvas.height !== PH) {
     canvas.width = PW; canvas.height = PH;
   }
   const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, PW, PH);
+  ctx.fillStyle = pal.pageBg; ctx.fillRect(0, 0, PW, PH);
 
   // Page title + ETO sub-line
-  ctx.fillStyle = '#111'; ctx.textAlign = 'center';
+  ctx.fillStyle = pal.text; ctx.textAlign = 'center';
   ctx.font = 'bold 46px sans-serif';
   ctx.fillText(wp.header || wp.name || '', PW / 2, 66);
   if (wp.subline) {
-    ctx.fillStyle = '#333'; ctx.font = '28px sans-serif';
+    ctx.fillStyle = pal.textDim; ctx.font = '28px sans-serif';
     ctx.fillText(wp.subline, PW / 2, 110);
   }
 
   // Line-colour legend strip — the same 6 entries as the landscape
   // page, centred under the sub-line.
   const legendEntries = [
-    { color: '#e00', width: 3.2, dash: [], label: 'Temperature' },
-    { color: '#0a0', width: 3.2, dash: [], label: 'Dewpoint' },
-    { color: '#24c', width: 2.4, dash: [], label: 'Wet-bulb' },
-    { color: 'rgba(230,120,110,0.9)', width: 2, dash: [], label: 'Dry Adiabats' },
-    { color: 'rgba(90,110,230,0.85)', width: 2, dash: [7, 5], label: 'Moist Adiabats' },
-    { color: 'rgba(30,160,60,0.9)', width: 2.6, dash: [2, 3], label: 'Sat. Mix. Ratio' },
+    { color: pal.temp, width: 3.2, dash: [], label: 'Temperature' },
+    { color: pal.dewpoint, width: 3.2, dash: [], label: 'Dewpoint' },
+    { color: pal.wetbulb, width: 2.4, dash: [], label: 'Wet-bulb' },
+    { color: pal.legendDry, width: 2, dash: [], label: 'Dry Adiabats' },
+    { color: pal.legendMoist, width: 2, dash: [7, 5], label: 'Moist Adiabats' },
+    { color: pal.legendMix, width: 2.6, dash: [2, 3], label: 'Sat. Mix. Ratio' },
   ];
   ctx.font = '24px sans-serif';
   const swatchW = 46, swatchGap = 12, entryGap = 30;
@@ -1140,7 +1201,7 @@ export function renderWaypointPagePortrait(canvas, args = {}) {
     ctx.setLineDash(e.dash);
     ctx.beginPath(); ctx.moveTo(lx, 138); ctx.lineTo(lx + swatchW, 138); ctx.stroke();
     ctx.setLineDash([]);
-    ctx.fillStyle = '#111';
+    ctx.fillStyle = pal.text;
     ctx.fillText(e.label, lx + swatchW + swatchGap, 146);
     lx += swatchW + swatchGap + e.textW + entryGap;
   }
@@ -1156,6 +1217,7 @@ export function renderWaypointPagePortrait(canvas, args = {}) {
   drawSkewTPanel(pc, profile, {
     title: wp.panelTitle || '',
     validLabel: wp.validLabel || '',
+    theme: args.theme,
   });
   ctx.drawImage(pc, panelX, panelY);
 
@@ -1166,18 +1228,18 @@ export function renderWaypointPagePortrait(canvas, args = {}) {
   if (args.detailed) {
     const hc = document.createElement('canvas');
     hc.width = 680; hc.height = 720;
-    drawHodograph(hc, profile, { detailed: true });
+    drawHodograph(hc, profile, { detailed: true, theme: args.theme });
     ctx.drawImage(hc, panelX, stripY);
     // Notation note directly under the hodograph: its height
     // figures are thousands of feet, not feet.
-    ctx.fillStyle = '#333'; ctx.textAlign = 'left';
+    ctx.fillStyle = pal.textDim; ctx.textAlign = 'left';
     ctx.font = '22px sans-serif';
     ctx.fillText('高度の数字は×1000 ft（1=1000ft、5=5000ft）',
       panelX, stripY + 720 + 34);
     textX = panelX + 680 + 24;
   }
 
-  ctx.fillStyle = '#111'; ctx.textAlign = 'left';
+  ctx.fillStyle = pal.text; ctx.textAlign = 'left';
   ctx.font = '25px monospace';
   const text = profile ? indicesText(profile) : 'No data';
   text.split('\n').forEach((line, li) => {
@@ -1185,7 +1247,7 @@ export function renderWaypointPagePortrait(canvas, args = {}) {
   });
 
   // Footer
-  ctx.fillStyle = '#333'; ctx.textAlign = 'center';
+  ctx.fillStyle = pal.textDim; ctx.textAlign = 'center';
   ctx.font = 'italic 25px sans-serif';
   ctx.fillText(wp.footer || '', PW / 2, PH - 34);
   return canvas;
