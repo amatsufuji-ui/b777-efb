@@ -1,4 +1,4 @@
-// NavlogView.fixed-v18.jsx — 2026-11-17 (fixed-v17 + SKEW-T ビューアに NIGHT MODE: ヘッダーの NIGHT トグルで App-18 が渡す skewtNightPages (夜間テーマ版ページ列) に表示を切り替え、モーダルの外枠も暗くする。選択は localStorage '7pt-skewt-theme' に保存され、未保存時のデフォルトは NIGHT (夜間コクピットでの眩しさ対策)。night 画像が無いページは day 画像にフォールバック。それ以外の EXPORT / SKEWT 列 / DIST CHECK / SYNC / 到着地天気・セッション復元は fixed-v17 のまま)
+// NavlogView.fixed-v19.jsx — 2026-11-18 (ALT/TMP/WND 入力に inputMode を追加し英語数字キーボード固定、WNDは数字のみで自動スラッシュ整形。それ以外は fixed-v18 と同一)
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { SafeIcon } from './SharedComponents';
 import { renderQRCode } from './qrcode';
@@ -2507,6 +2507,8 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                             <span className="absolute -top-3.5 text-[10px] text-slate-500 font-mono leading-none">{row.plnAlt || ""}</span>
                             <input 
                               type="text" 
+                              inputMode="numeric" 
+                              pattern="\d*" 
                               lang="en"
                               autoCapitalize="characters" 
                               autoCorrect="off"
@@ -2521,6 +2523,8 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                             <span className="absolute -top-3.5 text-[10px] text-slate-500 font-mono leading-none">{row.plnTmp || ""}</span>
                             <input 
                               type="text" 
+                              inputMode="numeric" 
+                              pattern="[-0-9]*" 
                               lang="en"
                               autoCapitalize="characters" 
                               autoCorrect="off"
@@ -2535,13 +2539,16 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                             <span className="absolute -top-3.5 text-[10px] text-slate-500 font-mono leading-none">{row.plnWind || ""}</span>
                             <input 
                               type="text" 
+                              inputMode="numeric" 
+                              pattern="\d*" 
                               lang="en"
                               autoCapitalize="characters" 
                               autoCorrect="off"
                               spellCheck={false}
                               placeholder="WND" 
+                              maxLength={7}
                               value={row.actWind} 
-                              onChange={(e) => handleUpdateActual(row.wp, 'actWind', e.target.value)} 
+                              onChange={(e) => { const d = e.target.value.replace(/[^0-9]/g, '').slice(0, 6); handleUpdateActual(row.wp, 'actWind', d.length > 3 ? `${d.slice(0, 3)}/${d.slice(3)}` : d); }} 
                               className="w-full bg-[#05070a] border border-slate-700 rounded text-center text-[13px] font-mono font-bold py-1 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-inner px-0.5" 
                             />
                         </div>
