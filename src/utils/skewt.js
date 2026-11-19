@@ -1,4 +1,4 @@
-// skewt.js — 2026-11-17 v5.6 (A4 portrait, ETO only, hodograph auto-scale, cap 40 kt, day/night themes)
+// skewt.js — 2026-11-19 v6.1 (v6.0 + Open-Meteo 取得を cache: 'no-store' に変更: ブラウザの HTTP キャッシュを使わず、生成のたびに最新の GFS データを取り直す。それ以外の描画・挙動は v6.0 のまま)
 // skewt.js — self-contained Skew-T / hodograph rendering for the 7PT PWA.
 //
 // No external dependencies. Fetches GFS pressure-level profiles from the
@@ -15,8 +15,16 @@
 //     u: [kt...], v: [kt...], z: [m...] }
 //
 // Page renderers: renderWaypointPagePortrait (A4 portrait, ETO panel
-// only — the current app layout) and renderWaypointPage (the earlier
+// only — the v5.x app layout) and renderWaypointPage (the earlier
 // A4-landscape 3-panel page, kept for reference).
+// v6.0 adds renderWaypointPageWide: a 2480x2900 page whose plot tilt
+// is fixed at the friend-app balance (isotherms ~57 deg from
+// horizontal, identical on every page so stability can be judged by
+// tilt), with thick sounding curves, FL labels at the RIGHT inside
+// edge, an 8-entry legend strip above the panel, ML parcel path and
+// DGZ markers on the panel, an indices box, a theta-e panel, and —
+// on detailed pages — the hodograph scaled to the <=5,000 ft curve
+// maximum (opts.curveScale in drawHodograph).
 //
 // Themes (v5.6): every renderer accepts theme: 'day' (default) or
 // 'night'. 'day' is the v5.5 palette, value for value, so day pages
@@ -77,6 +85,7 @@ const PALETTE_DAY = {
   hodoCurve: '#d62728',
   hodoLayers: ['#d62728', '#e6550d', '#2ca02c', '#9467bd', '#1f77b4'],
   marker: '#000',
+  parcel: '#9333ea', dgz: '#dc2626', thetaE: '#0891b2',
   legendDry: 'rgba(230,120,110,0.9)',
   legendMoist: 'rgba(90,110,230,0.85)',
   legendMix: 'rgba(30,160,60,0.9)',
@@ -96,6 +105,7 @@ const PALETTE_NIGHT = {
   hodoCurve: '#f87171',
   hodoLayers: ['#f87171', '#fb923c', '#4ade80', '#c084fc', '#60a5fa'],
   marker: '#f8fafc',
+  parcel: '#c084fc', dgz: '#f87171', thetaE: '#22d3ee',
   legendDry: 'rgba(240,130,120,0.9)',
   legendMoist: 'rgba(120,140,250,0.9)',
   legendMix: 'rgba(74,222,128,0.9)',
@@ -258,7 +268,7 @@ async function fetchOneDay(baseUrl, lat, lon, dayISO, vars) {
     timezone: 'GMT',
     wind_speed_unit: 'kn',
   });
-  const resp = await fetch(`${baseUrl}?${params.toString()}`);
+  const resp = await fetch(`${baseUrl}?${params.toString()}`, { cache: 'no-store' });
   if (!resp.ok) throw new Error(`Open-Meteo fetch failed: HTTP ${resp.status}`);
   const json = await resp.json();
   if (!json.hourly || !Array.isArray(json.hourly.time)) {
@@ -305,7 +315,7 @@ export async function fetchProfiles(lat, lon, startISO, endISO) {
       timezone: 'GMT',
       wind_speed_unit: 'kn',
     });
-    const resp = await fetch(`${API_URL}?${params.toString()}`);
+    const resp = await fetch(`${API_URL}?${params.toString()}`, { cache: 'no-store' });
     if (!resp.ok) throw new Error(`Open-Meteo fetch failed: HTTP ${resp.status}`);
     const json = await resp.json();
     if (!json.hourly) throw new Error('Open-Meteo fetch failed: no hourly data');
@@ -588,23 +598,25 @@ export function indicesText(profile) {
 // ---------------------------------------------------------------------------
 
 /** Draw one wind barb at (x, y). spd in kt, wdir = direction FROM (deg).
- *  color: shaft/feather colour (palette barb; '#000' in day). */
-function drawBarb(ctx, x, y, spd, wdirDeg, color = '#000') {
+ *  color: shaft/feather colour (palette barb; '#000' in day).
+ *  k: size multiplier (1 = the original v5.x size; the wide panel
+ *  passes ~1.9 so barbs match its thicker line work). */
+function drawBarb(ctx, x, y, spd, wdirDeg, color = '#000', k = 1) {
   ctx.save();
   ctx.strokeStyle = color;
   ctx.fillStyle = color;
-  ctx.lineWidth = 1.4;
+  ctx.lineWidth = 1.4 * k;
   if (!Number.isFinite(spd) || spd < 2.5) { // calm: small circle
-    ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(x, y, 3 * k, 0, Math.PI * 2); ctx.stroke();
     ctx.restore(); return;
   }
   const dirRad = wdirDeg * Math.PI / 180;
   const fx = Math.sin(dirRad), fy = -Math.cos(dirRad); // screen "from" unit
-  const L = 30;
+  const L = 30 * k;
   const ex = x + fx * L, ey = y + fy * L; // shaft outer end
   ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(ex, ey); ctx.stroke();
   // Feather direction: angled back from the shaft (cosmetic convention).
-  const featherLen = 10;
+  const featherLen = 10 * k;
   const back = Math.atan2(-fy, -fx) + (fx >= 0 ? -1 : 1) * 1.05;
   const fdx = Math.cos(back), fdy = Math.sin(back);
   let total = Math.round(spd / 5) * 5;
@@ -612,7 +624,7 @@ function drawBarb(ctx, x, y, spd, wdirDeg, color = '#000') {
   const longs = Math.floor(total / 10); total -= longs * 10;
   const shorts = total >= 5 ? 1 : 0;
   let d = 0; // distance from outer end, stepping toward the station
-  const step = 5.2;
+  const step = 5.2 * k;
   for (let i = 0; i < pennants; i++) {
     const bx = ex - fx * d, by = ey - fy * d;
     const tx = bx - fx * step * 1.6, ty = by - fy * step * 1.6;
@@ -882,10 +894,13 @@ export function drawHodograph(canvas, profile, opts = {}) {
   const cx = W / 2, cy = titleH + size / 2;
   const R = size / 2 - 58; // margin fits the 26 px ring numerals
   // Auto scale (v5.5): fit the outer ring to this page's strongest wind.
+  // opts.curveScale (v6.0, wide pages): fit the ring to the <=5,000 ft
+  // CURVE maximum only — RM/LM storm-motion markers no longer stretch
+  // the scale, and markers outside the ring are not drawn.
   const pts = profile ? hodographData(profile) : [];
   let maxSpd = 0;
   for (const p of pts) maxSpd = Math.max(maxSpd, Math.hypot(p.u, p.v));
-  if (profile) {
+  if (profile && !opts.curveScale) {
     try {
       const { rm, lm } = bunkersStormMotion(profile);
       maxSpd = Math.max(maxSpd, Math.hypot(rm.u, rm.v),
@@ -961,6 +976,7 @@ export function drawHodograph(canvas, profile, opts = {}) {
         const { rm, lm } = bunkersStormMotion(profile);
         ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
         for (const [m, tag] of [[rm, 'RM'], [lm, 'LM']]) {
+          if (opts.curveScale && Math.hypot(m.u, m.v) > scale) continue;
           const [X, Y] = toPx(m.u, m.v);
           ctx.strokeStyle = pal.marker; ctx.lineWidth = 1;
           ctx.beginPath(); ctx.arc(X, Y, 11, 0, Math.PI * 2); ctx.stroke();
@@ -1250,5 +1266,428 @@ export function renderWaypointPagePortrait(canvas, args = {}) {
   ctx.fillStyle = pal.textDim; ctx.textAlign = 'center';
   ctx.font = 'italic 25px sans-serif';
   ctx.fillText(wp.footer || '', PW / 2, PH - 34);
+  return canvas;
+}
+
+// ---------------------------------------------------------------------------
+// v6.0 wide layout (2026-11-19). Geometry is FIXED for every page: the
+// plot is 2060 x 1966 px, so with the shared skew factor (0.62) the
+// isotherms sit at ~57 deg from horizontal — the balance of the
+// friend's app, which the user judged "just right" for reading
+// stability by tilt. Because the dimensions never change, the tilt
+// is identical on every page and every flight.
+// ---------------------------------------------------------------------------
+
+/**
+ * Wide Skew-T panel (2408 x 2174 canvas). Same grid construction as
+ * drawSkewTPanel, but: thicker lines throughout (curves 4.6 px),
+ * FL labels at the RIGHT inside edge (the left labels collided with
+ * the sounding curves), ML parcel path (dashed) and DGZ band markers
+ * drawn on the panel, and barbs scaled up (drawBarb k=1.9).
+ * opts: { title, validLabel, theme }. profile may be null.
+ */
+export function drawSkewTPanelWide(canvas, profile, opts = {}) {
+  const pal = paletteFor(opts.theme);
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.fillStyle = pal.panelBg; ctx.fillRect(0, 0, W, H);
+
+  const mL = 132, mT = 96, mB = 112;
+  const flStrip = 66, barbCol = 150;
+  const x0 = mL, x1 = W - flStrip - barbCol;
+  const y0 = mT, y1 = H - mB;
+  const pw = x1 - x0, ph = y1 - y0;
+  const lnBot = Math.log(1050), lnTop = Math.log(100);
+  const yPix = (p) => y0 + (Math.log(p) - lnTop) / (lnBot - lnTop) * ph;
+  const skew = 0.62 * pw / ph; // ~0.65 -> isotherms ~57 deg, fixed
+  const xPix = (T, p) => x0 + ((T + 40) / 85) * pw + skew * (y1 - yPix(p));
+
+  ctx.save();
+  ctx.strokeStyle = pal.border; ctx.lineWidth = 2;
+  ctx.strokeRect(x0, y0, pw, ph);
+  ctx.beginPath(); ctx.rect(x0, y0, pw, ph); ctx.clip();
+
+  // Isotherms (skewed) every 10 degC
+  ctx.strokeStyle = pal.isotherm; ctx.lineWidth = 1.3;
+  for (let T = -80; T <= 40; T += 10) {
+    ctx.beginPath();
+    ctx.moveTo(xPix(T, 1050), yPix(1050));
+    ctx.lineTo(xPix(T, 100), yPix(100));
+    ctx.stroke();
+  }
+  // Dry adiabats
+  ctx.strokeStyle = pal.dryAdiabat; ctx.lineWidth = 1.7;
+  for (let th = 210; th <= 350; th += 10) {
+    ctx.beginPath();
+    let started = false;
+    for (let p = 1050; p >= 100; p -= 12) {
+      const T = th * Math.pow(p / 1000, 0.2857) - 273.15;
+      const X = xPix(T, p), Y = yPix(p);
+      if (!started) { ctx.moveTo(X, Y); started = true; } else ctx.lineTo(X, Y);
+    }
+    ctx.stroke();
+  }
+  // Moist adiabats (dashed)
+  ctx.strokeStyle = pal.moistAdiabat; ctx.lineWidth = 1.7;
+  ctx.setLineDash([10, 8]);
+  for (let twC = -20; twC <= 36; twC += 4) {
+    const thE = satThetaE(twC, 1000);
+    ctx.beginPath();
+    let started = false;
+    for (let p = 1000; p >= 100; p -= 15) {
+      let lo = -100, hi = 45;
+      for (let i = 0; i < 28; i++) {
+        const mid = 0.5 * (lo + hi);
+        if (satThetaE(mid, p) < thE) lo = mid; else hi = mid;
+      }
+      const T = 0.5 * (lo + hi);
+      const X = xPix(T, p), Y = yPix(p);
+      if (X < x0 - 60 || X > x1 + 60) { started = false; continue; }
+      if (!started) { ctx.moveTo(X, Y); started = true; } else ctx.lineTo(X, Y);
+    }
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
+  // Mixing-ratio lines (dotted), lower troposphere only
+  ctx.strokeStyle = pal.mixRatio; ctx.lineWidth = 1.7;
+  ctx.setLineDash([4, 6]);
+  for (const w of [1, 2, 4, 6, 8, 10, 13, 16, 20, 24, 30, 36]) {
+    ctx.beginPath();
+    let started = false;
+    for (let p = 1000; p >= 600; p -= 10) {
+      const e = (w / (w + 622)) * p;
+      const lnE = Math.log(e / 6.112);
+      const Td = (243.5 * lnE) / (17.67 - lnE);
+      const X = xPix(Td, p), Y = yPix(p);
+      if (X < x0 || X > x1) { started = false; continue; }
+      if (!started) { ctx.moveTo(X, Y); started = true; } else ctx.lineTo(X, Y);
+    }
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
+  // Isobars
+  ctx.strokeStyle = pal.isobar; ctx.lineWidth = 1.3;
+  for (const p of LEVELS_HPA) {
+    const Y = yPix(p);
+    ctx.beginPath(); ctx.moveTo(x0, Y); ctx.lineTo(x1, Y); ctx.stroke();
+  }
+
+  if (profile) {
+    // FL lines (under the sounding curves); labels drawn post-clip.
+    const fls = flPressures(profile);
+    ctx.strokeStyle = pal.fl; ctx.lineWidth = 2.2;
+    ctx.setLineDash([12, 8]); ctx.globalAlpha = 0.9;
+    for (const fl of FLIGHT_LEVELS) {
+      const pFl = fls[fl];
+      if (pFl >= 100 && pFl <= 1050) {
+        const Y = yPix(pFl);
+        ctx.beginPath(); ctx.moveTo(x0, Y); ctx.lineTo(x1, Y); ctx.stroke();
+      }
+    }
+    ctx.setLineDash([]); ctx.globalAlpha = 1;
+    // Sounding curves — thick (user request, 2026-11-19)
+    const plotCurve = (vals, color, lw) => {
+      ctx.strokeStyle = color; ctx.lineWidth = lw;
+      ctx.beginPath();
+      let started = false;
+      for (let i = 0; i < profile.p.length; i++) {
+        const X = xPix(vals[i], profile.p[i]), Y = yPix(profile.p[i]);
+        if (!started) { ctx.moveTo(X, Y); started = true; } else ctx.lineTo(X, Y);
+      }
+      ctx.stroke();
+    };
+    plotCurve(profile.t, pal.temp, 4.6);
+    plotCurve(profile.td, pal.dewpoint, 4.6);
+    plotCurve(profile.t.map((T, i) => wetBulbStull(T, profile.td[i])),
+      pal.wetbulb, 2.6);
+
+    // DGZ band: dashed lines where T crosses -20 / -10 degC
+    const crossP = (Tv) => {
+      for (let i = 0; i + 1 < profile.p.length; i++) {
+        const t1 = profile.t[i], t2 = profile.t[i + 1];
+        if ((t1 - Tv) * (t2 - Tv) <= 0 && t1 !== t2) {
+          const f = (Tv - t1) / (t2 - t1);
+          return Math.exp(Math.log(profile.p[i]) +
+            f * (Math.log(profile.p[i + 1]) - Math.log(profile.p[i])));
+        }
+      }
+      return null;
+    };
+    const pDgzTop = crossP(-20), pDgzBot = crossP(-10);
+    if (pDgzTop && pDgzBot) {
+      ctx.strokeStyle = pal.dgz; ctx.lineWidth = 3;
+      ctx.setLineDash([16, 10]);
+      for (const p of [pDgzTop, pDgzBot]) {
+        ctx.beginPath(); ctx.moveTo(x0, yPix(p)); ctx.lineTo(x1, yPix(p)); ctx.stroke();
+      }
+      ctx.setLineDash([]);
+      ctx.fillStyle = pal.dgz; ctx.font = 'bold 40px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('DGZ', x0 + 24, (yPix(pDgzTop) + yPix(pDgzBot)) / 2 + 14);
+    }
+
+    // ML parcel path (mixed layer = lowest 100 hPa, as computeIndices)
+    const pSfc = profile.p[0];
+    const layerIdx = profile.p.map((p, i) => i)
+      .filter(i => profile.p[i] >= pSfc - 100);
+    const tMl = layerIdx.reduce((s, i) => s + profile.t[i], 0) / layerIdx.length;
+    const tdMl = layerIdx.reduce((s, i) => s + profile.td[i], 0) / layerIdx.length;
+    const Tlcl = lclTemperatureK(tMl, tdMl);
+    const pLcl = pSfc * Math.pow(Tlcl / (tMl + 273.15), 3.5);
+    const thE0 = thetaE(tMl, tdMl, pSfc);
+    ctx.strokeStyle = pal.parcel; ctx.lineWidth = 5;
+    ctx.setLineDash([20, 12]);
+    ctx.beginPath();
+    let startedP = false;
+    for (let p = pSfc; p >= 150; p *= 0.99) {
+      const Tp = parcelTempAt(p, pSfc, tMl, tdMl, pLcl, thE0);
+      const X = xPix(Tp, p), Y = yPix(p);
+      if (!startedP) { ctx.moveTo(X, Y); startedP = true; } else ctx.lineTo(X, Y);
+    }
+    ctx.stroke(); ctx.setLineDash([]);
+
+    ctx.restore(); // unclip for barbs / FL labels
+    // Wind barbs in their column outside the right border, scaled up
+    for (let i = 0; i < profile.p.length; i++) {
+      const spd = Math.hypot(profile.u[i], profile.v[i]);
+      const wdir = (Math.atan2(-profile.u[i], -profile.v[i]) * 180 / Math.PI + 360) % 360;
+      drawBarb(ctx, x1 + flStrip + 10, yPix(profile.p[i]), spd, wdir, pal.barb, 1.9);
+    }
+    // FL labels: RIGHT inside edge, on a backing box (v6.0 — the
+    // left-side labels collided with the sounding curves).
+    ctx.font = 'bold 46px sans-serif'; ctx.textAlign = 'left';
+    for (const fl of FLIGHT_LEVELS) {
+      const pFl = fls[fl];
+      if (pFl >= 100 && pFl <= 1050) {
+        const Y = yPix(pFl);
+        const label = `FL${fl}`;
+        const tw = ctx.measureText(label).width;
+        ctx.fillStyle = pal.flLabelBg;
+        ctx.fillRect(x1 - 2 - (tw + 18), Y - 29, tw + 18, 58);
+        ctx.fillStyle = pal.fl;
+        ctx.fillText(label, x1 - 2 - tw - 9, Y + 16);
+      }
+    }
+  } else {
+    ctx.restore();
+    ctx.fillStyle = pal.noData; ctx.font = 'bold 44px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('No data', (x0 + x1) / 2, (y0 + y1) / 2);
+  }
+
+  // Pressure-level labels along the left axis
+  ctx.fillStyle = pal.textDim; ctx.font = '40px sans-serif'; ctx.textAlign = 'right';
+  for (const p of LEVELS_HPA) {
+    ctx.fillText(String(p), x0 - 14, yPix(p) + 13);
+  }
+  // Temperature scale along the bottom edge
+  ctx.strokeStyle = pal.textDim; ctx.lineWidth = 1.6;
+  ctx.fillStyle = pal.textDim; ctx.font = 'bold 42px sans-serif'; ctx.textAlign = 'center';
+  for (let T = -40; T <= 40; T += 10) {
+    const X = xPix(T, 1000);
+    if (X < x0 || X > x1) continue;
+    ctx.beginPath(); ctx.moveTo(X, y1 - 5); ctx.lineTo(X, y1 + 7); ctx.stroke();
+    ctx.fillText(String(T), X, y1 + 52);
+  }
+  // Titles
+  ctx.fillStyle = pal.text; ctx.textAlign = 'left';
+  ctx.font = '30px sans-serif';
+  if (opts.title) ctx.fillText(opts.title, x0, 38);
+  ctx.font = '26px sans-serif'; ctx.fillStyle = pal.textDim;
+  if (opts.validLabel) ctx.fillText(opts.validLabel, x0, 74);
+  ctx.font = '32px sans-serif'; ctx.fillStyle = pal.textCaption;
+  ctx.textAlign = 'center';
+  ctx.fillText('Temperature (°C)', (x0 + x1) / 2, H - 12);
+  return canvas;
+}
+
+/** Theta-e profile panel (self-contained: fills bg + border). */
+function drawThetaEPanel(canvas, profile, opts = {}) {
+  const pal = paletteFor(opts.theme);
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.fillStyle = pal.panelBg; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = pal.border; ctx.lineWidth = 1.5;
+  ctx.strokeRect(0, 0, W, H);
+  ctx.fillStyle = pal.textDim; ctx.font = 'bold 28px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('EQUIV. POT. TEMP (K)', 24, 44);
+  if (!profile) return canvas;
+  const th = profile.p.map((p, i) => thetaE(profile.t[i], profile.td[i], p));
+  const plotted = th.filter((_, i) => profile.p[i] >= 250);
+  if (!plotted.length) return canvas;
+  const lo = Math.floor((Math.min(...plotted) - 4) / 5) * 5;
+  const hi = Math.ceil((Math.max(...plotted) + 4) / 5) * 5;
+  const px0 = 96, px1 = W - 28, py0 = 66, py1 = H - 52;
+  const X = (v) => px0 + (v - lo) / (hi - lo) * (px1 - px0);
+  const Y = (p) => py0 + (Math.log(p) - Math.log(250)) /
+    (Math.log(1000) - Math.log(250)) * (py1 - py0);
+  ctx.strokeStyle = pal.isobar; ctx.lineWidth = 1;
+  ctx.fillStyle = pal.textDim; ctx.font = '24px sans-serif';
+  for (const p of [1000, 850, 700, 500, 300]) {
+    ctx.beginPath(); ctx.moveTo(px0, Y(p)); ctx.lineTo(px1, Y(p)); ctx.stroke();
+    ctx.textAlign = 'right'; ctx.fillText(String(p), px0 - 10, Y(p) + 8);
+    ctx.textAlign = 'left';
+  }
+  for (let v = Math.ceil(lo / 10) * 10; v <= hi; v += 10) {
+    ctx.fillText(String(v), X(v) - 14, py1 + 38);
+  }
+  ctx.strokeStyle = pal.thetaE; ctx.lineWidth = 5;
+  ctx.beginPath();
+  let started = false;
+  profile.p.forEach((p, i) => {
+    if (p < 250) return;
+    const Xv = X(th[i]), Yv = Y(p);
+    if (!started) { ctx.moveTo(Xv, Yv); started = true; } else ctx.lineTo(Xv, Yv);
+  });
+  ctx.stroke();
+  return canvas;
+}
+
+/** Indices box drawn directly on the page context at (x, y, w, h). */
+function drawIndicesBox(ctx, x, y, w, h, profile, pal) {
+  ctx.fillStyle = pal.panelBg; ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = pal.border; ctx.lineWidth = 1.5;
+  ctx.strokeRect(x, y, w, h);
+  ctx.textAlign = 'left';
+  ctx.fillStyle = pal.textDim; ctx.font = 'bold 28px sans-serif';
+  ctx.fillText('I N D I C E S', x + 28, y + 48);
+  if (!profile) {
+    ctx.fillStyle = pal.noData; ctx.font = '28px sans-serif';
+    ctx.fillText('No data', x + 28, y + 112);
+    return;
+  }
+  const idx = computeIndices(profile);
+  const f = (v, d = 0) => (Number.isFinite(v) ? v.toFixed(d) : 'n/a');
+  const sfcF = (cv) => Math.round(cv * 9 / 5 + 32);
+  const items = [
+    ['SRH 0-3000ft:', `${f(idx.srh3000ft)} m²/s²`, pal.text],
+    ['SRH 0-10000ft:', `${f(idx.srh10000ft)} m²/s²`, pal.text],
+    ['SHR 200-850:', `${f(idx.shr)} kt`, pal.text],
+    ['SBCAPE:', `${f(idx.sbcape)} J/kg`, pal.temp],
+    ['MLCAPE:', `${f(idx.mlcape)} J/kg`, pal.temp],
+    ['MUCAPE:', `${f(idx.mucape)} J/kg`, pal.temp],
+    ['SBCIN:', `${f(idx.sbcin)} J/kg`, pal.wetbulb],
+    ['MLCIN:', `${f(idx.mlcin)} J/kg`, pal.wetbulb],
+    ['PWAT:', `${f(idx.pwatIn, 2)} in`, pal.text],
+    ['SFC T/Td:', `${sfcF(profile.t[0])}°F / ${sfcF(profile.td[0])}°F`, pal.text],
+  ];
+  // 2 columns in the narrow box (detailed pages), 3 in the wide one
+  const cols = w > 1000
+    ? [[0, 1, 2], [3, 4, 5], [6, 7, 8, 9]]
+    : [[0, 3, 5, 7, 8], [1, 4, 6, 2, 9]];
+  const colX = w > 1000
+    ? [x + 28, x + 28 + (w - 56) / 3, x + 28 + 2 * (w - 56) / 3]
+    : [x + 28, x + Math.round(w * 0.52)];
+  const valDx = w > 1000 ? 224 : 216;
+  cols.forEach((colItems, ci) => {
+    colItems.forEach((ii, ri) => {
+      const [label, value, color] = items[ii];
+      const by = y + 112 + ri * 63;
+      ctx.font = '28px sans-serif'; ctx.fillStyle = pal.textDim;
+      ctx.fillText(label, colX[ci], by);
+      ctx.font = 'bold 28px sans-serif'; ctx.fillStyle = color;
+      ctx.fillText(value, colX[ci] + valDx, by);
+    });
+  });
+}
+
+/**
+ * Render one wide waypoint page (2480 x 2900) and return the canvas.
+ * Same args contract as renderWaypointPagePortrait:
+ * args: { wp, profile, detailed, theme }.
+ * Layout: header + subline, 8-entry legend strip, the wide panel,
+ * then a bottom strip — detailed (departure / arrival) pages get the
+ * curve-scaled hodograph beside the indices box; every page gets the
+ * theta-e panel at the right.
+ */
+export function renderWaypointPageWide(canvas, args = {}) {
+  if (typeof document === 'undefined') {
+    throw new Error('renderWaypointPageWide requires a DOM (browser) canvas');
+  }
+  const wp = args.wp || {};
+  const profile = args.profile || null;
+  const pal = paletteFor(args.theme);
+  const PW = 2480, PH = 2900;
+  if (canvas.width !== PW || canvas.height !== PH) {
+    canvas.width = PW; canvas.height = PH;
+  }
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = pal.pageBg; ctx.fillRect(0, 0, PW, PH);
+
+  // Page title + ETO sub-line
+  ctx.fillStyle = pal.text; ctx.textAlign = 'center';
+  ctx.font = 'bold 56px sans-serif';
+  ctx.fillText(wp.header || wp.name || '', PW / 2, 76);
+  if (wp.subline) {
+    ctx.fillStyle = pal.textDim; ctx.font = '32px sans-serif';
+    ctx.fillText(wp.subline, PW / 2, 124);
+  }
+
+  // Legend strip (8 entries, incl. ML Parcel and DGZ), centred
+  const legendEntries = [
+    { color: pal.temp, width: 3.6, dash: [], label: 'Temperature' },
+    { color: pal.dewpoint, width: 3.6, dash: [], label: 'Dewpoint' },
+    { color: pal.wetbulb, width: 2.8, dash: [], label: 'Wet-bulb' },
+    { color: pal.parcel, width: 3.4, dash: [10, 7], label: 'ML Parcel' },
+    { color: pal.legendDry, width: 2.4, dash: [], label: 'Dry Adiabats' },
+    { color: pal.legendMoist, width: 2.4, dash: [8, 6], label: 'Moist Adiabats' },
+    { color: pal.legendMix, width: 3, dash: [2, 4], label: 'Sat. Mix. Ratio' },
+    { color: pal.dgz, width: 3.4, dash: [10, 7], label: 'DGZ' },
+  ];
+  ctx.font = '29px sans-serif';
+  const swatchW = 54, swatchGap = 12, entryGap = 34;
+  let legendW = -entryGap;
+  for (const e of legendEntries) {
+    e.textW = ctx.measureText(e.label).width;
+    legendW += swatchW + swatchGap + e.textW + entryGap;
+  }
+  let lx = (PW - legendW) / 2;
+  ctx.textAlign = 'left';
+  for (const e of legendEntries) {
+    ctx.strokeStyle = e.color; ctx.lineWidth = e.width;
+    ctx.setLineDash(e.dash);
+    ctx.beginPath(); ctx.moveTo(lx, 156); ctx.lineTo(lx + swatchW, 156); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = pal.text;
+    ctx.fillText(e.label, lx + swatchW + swatchGap, 164);
+    lx += swatchW + swatchGap + e.textW + entryGap;
+  }
+
+  // The wide Skew-T panel
+  const panelX = 36, panelY = 184, panelW = 2408, panelH = 2174;
+  const pc = document.createElement('canvas');
+  pc.width = panelW; pc.height = panelH;
+  drawSkewTPanelWide(pc, profile, {
+    title: wp.panelTitle || '',
+    validLabel: wp.validLabel || '',
+    theme: args.theme,
+  });
+  ctx.drawImage(pc, panelX, panelY);
+
+  // Bottom strip: [hodograph] indices box | theta-e panel
+  const stripY = panelY + panelH + 24, stripH = 440;
+  if (args.detailed) {
+    const hc = document.createElement('canvas');
+    hc.width = 820; hc.height = stripH;
+    drawHodograph(hc, profile, {
+      detailed: true, theme: args.theme, curveScale: true,
+    });
+    ctx.drawImage(hc, panelX, stripY);
+    ctx.strokeStyle = pal.border; ctx.lineWidth = 1.5;
+    ctx.strokeRect(panelX, stripY, 820, stripH);
+    drawIndicesBox(ctx, panelX + 844, stripY, 760, stripH, profile, pal);
+  } else {
+    drawIndicesBox(ctx, panelX, stripY, 1604, stripH, profile, pal);
+  }
+  const tc = document.createElement('canvas');
+  tc.width = 780; tc.height = stripH;
+  drawThetaEPanel(tc, profile, { theme: args.theme });
+  ctx.drawImage(tc, panelX + panelW - 780, stripY);
+
+  // Footer
+  ctx.fillStyle = pal.textDim; ctx.textAlign = 'center';
+  ctx.font = 'italic 28px sans-serif';
+  ctx.fillText(wp.footer || '', PW / 2, PH - 30);
   return canvas;
 }

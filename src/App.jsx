@@ -1,8 +1,8 @@
-// App-18.jsx — 2026-11-17 (App-17.jsx + SKEW-T の NIGHT MODE: 生成時 (バッチ・単地点とも) に各ページを day / night の両テーマで描画し (skewt.js v5.6)、night ページ列を state と IndexedDB レコードに nightPages として並行保持する。NavlogView へ skewtNightPages prop を追加。App-17 以前のレコード (nightPages 無し) は nightPages = null で復元され、ビューア側で day 画像にフォールバックする。それ以外の挙動は App-17 のまま)
+// App-21.jsx — 2026-11-19 (App-20.jsx + SKEW-T のキャッシュ消去: バッチ生成の開始が確定した時点で、その便の保存済み SKEW-T (IndexedDB の 7pt-skewt レコードとメモリ上のページ列) を先に消してから作り直す。あわせて skewt.js v6.1 で Open-Meteo 取得を no-store 化し、常に最新の GFS を使う。単地点の追加生成 (+) と CFP PDF の保存 (7pt-cfp-pdf) は対象外。それ以外の挙動は App-20 のまま)
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import * as LucideIcons from 'lucide-react';
 
-const APP_VERSION = "14.1"; 
+const APP_VERSION = "14.0"; 
 
 import { RAW_CSV_DATA, aircraftRegistrationList, BUDDYCOM_LINKS, ICAO_COORDS } from './data/flightData';
 import { aircraftPerformanceData, defaultCruiseWeights, defaultLandingWeights, modelKeyMap, AIRCRAFT_DIMENSIONS, SEAT_DATA, CRUISE_PERF_DATA, VREF_DATA, HOLD_SPD_DATA_RAW, MANEUVER_1_3G_MACH_DATA, TARGET_PITCH_N1_DATA_RAW, LANDING_DIST_DATA_RAW, B777_WIND_LIMITS, MAX_MAN_DATA } from './data/perfData';
@@ -22,7 +22,7 @@ import { NavlogView } from './components/NavlogView';
 import { TarmacView } from './components/TarmacView'; 
 import { SidView } from './components/SidView'; 
 import { WeatherRadarView } from './components/WeatherRadarView';
- import { fetchProfiles, renderWaypointPagePortrait, hourKey } from './utils/skewt';
+ import { fetchProfiles, renderWaypointPageWide, hourKey } from './utils/skewt';
 
 // ▼ pdf.js は npm バンドルから静的 import する (2026-11-16 App-17)。
 //    従来は cdnjs から都度ロードしていたため、オフラインで起動した
@@ -80,6 +80,18 @@ const skewtIdbLoad = async () => {
             const req = db.transaction(SKEWT_IDB_STORE, 'readonly').objectStore(SKEWT_IDB_STORE).get(SKEWT_IDB_KEY);
             req.onsuccess = () => resolve(req.result || null);
             req.onerror = () => reject(req.error);
+        });
+    } finally { db.close(); }
+};
+
+const skewtIdbDelete = async () => {
+    const db = await skewtIdbOpen();
+    try {
+        await new Promise((resolve, reject) => {
+            const tx = db.transaction(SKEWT_IDB_STORE, 'readwrite');
+            tx.objectStore(SKEWT_IDB_STORE).delete(SKEWT_IDB_KEY);
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error);
         });
     } finally { db.close(); }
 };
@@ -1368,6 +1380,25 @@ export default function App() {
     // ダイアログ側で解釈済みだが、範囲外・不正値はここでも丸める。
     const delayMin = Number.isFinite(delayMinArg) ? Math.max(-120, Math.min(720, Math.trunc(delayMinArg))) : 0;
 
+    // 保存キャッシュの消去 (2026-11-19 App-21): 生成の開始が確定した時点で、
+    // 現在の便と同一 identity の保存済み SKEW-T を先に消す (IndexedDB の
+    // 7pt-skewt レコードと、メモリ上のページ列の両方)。旧レイアウトの画像や
+    // 復元された古いページが残ったまま新しい生成と混ざるのを防ぐため。
+    // 消去に失敗しても生成自体は止めない。他便のレコードには触れない。
+    // 単地点の追加生成 (+) は既存ページへの追加なので対象外とし、CFP PDF の
+    // 保存 (7pt-cfp-pdf) にも触れない。
+    try {
+        const curIdentity = skewtIdentityOf(navlogData);
+        if (curIdentity) {
+            const rec = await skewtIdbLoad();
+            if (rec && rec.identity === curIdentity) await skewtIdbDelete();
+            if (skewtPagesRef.current && skewtPagesRef.current.identity === curIdentity) {
+                skewtPagesRef.current = { identity: curIdentity, pages: null, nightPages: null };
+            }
+            setSkewtPagesData((prev) => (prev && prev.identity === curIdentity ? null : prev));
+        }
+    } catch (e) { console.error('SKEW-T cache clear failed', e); }
+
     const plan = navlogData.newPlan;
 
     // 累積距離 (NM): プラン各行の dist (レグ距離) を積算
@@ -1554,27 +1585,19 @@ export default function App() {
                     profile,
                     detailed,
                 };
-                renderWaypointPagePortrait(pageCanvas, pageArgs);
+                // NIGHT テーマのみで描く (2026-11-19 App-20: データ量
+                // 削減のため day は生成しない。従来は day/night 両方を
+                // 描いて両方保存していた)。
+                renderWaypointPageWide(pageCanvas, { ...pageArgs, theme: 'night' });
                 if (isBlankPageCanvas(pageCanvas)) {
                     // 白紙ページは出さず、省略として数える
                     skippedWps.push(wp.wp);
                 } else {
                     const viewUrl = pageCanvas.toDataURL('image/jpeg', 0.85);
-                    // NIGHT MODE 用に同じページを夜間テーマでも描く
-                    // (2026-11-17 App-18、skewt.js v5.6)。night の描画に
-                    // 失敗しても day ページは残し、night 側は null にして
-                    // ビューアのフォールバックに任せる。
-                    let nightViewUrl = null;
-                    try {
-                        renderWaypointPagePortrait(pageCanvas, { ...pageArgs, theme: 'night' });
-                        nightViewUrl = pageCanvas.toDataURL('image/jpeg', 0.85);
-                    } catch (nightErr) {
-                        console.error('SKEW-T night render failed for waypoint', wp.wp, nightErr);
-                    }
                     pageImages.push({
                         wp,
                         viewUrl,
-                        nightViewUrl,
+                        nightViewUrl: null,
                         etoLabel: `ETO ${fmtEto(new Date(etoMs))}`,
                     });
                 }
@@ -1624,9 +1647,10 @@ export default function App() {
         cumDist: Number(p.wp.cumDist) || 0,
     });
     const skewtPages = pageImages.map((p, i) => ({ ...skewtPageMeta(p, i), image: p.viewUrl }));
-    // night ページ列 (2026-11-17 App-18): day と同じ順序・メタデータで、
-    // image だけ夜間テーマ JPEG。night 描画に失敗したページは image: null
-    // になり、ビューアがそのページだけ day 画像にフォールバックする。
+    // night ページ列 (2026-11-19 App-20): NIGHT のみ運用のため、pages
+    // 自体が night 画像。nightPages 列は旧レコード・ビューアとの互換の
+    // ため形だけ維持し、全ページ image: null のプレースホルダにする
+    // (保存データは pages の1列分だけになる)。
     const skewtNightPages = pageImages.map((p, i) => ({ ...skewtPageMeta(p, i), image: p.nightViewUrl || null }));
     const skewtIdentity = skewtIdentityOf(navlogData);
     setSkewtPagesData({ identity: skewtIdentity, pages: skewtPages, nightPages: skewtNightPages, fresh: true });
@@ -1724,7 +1748,8 @@ export default function App() {
             profile,
             detailed: false,
         };
-        renderWaypointPagePortrait(pageCanvas, pageArgs);
+        // NIGHT テーマのみで描く (2026-11-19 App-20、バッチと同一方式)
+        renderWaypointPageWide(pageCanvas, { ...pageArgs, theme: 'night' });
         if (isBlankPageCanvas(pageCanvas)) return fail(`${req.name} のSKEW-Tを描画できませんでした`);
 
         const page = {
@@ -1739,16 +1764,9 @@ export default function App() {
             rowIndex,
         };
 
-        // NIGHT MODE 用の夜間テーマ版 (2026-11-17 App-18、バッチと同一方式)。
-        // day と同じメタデータで image だけ night JPEG。描画に失敗したら
-        // image: null のエントリにしてビューアのフォールバックに任せる。
+        // NIGHT のみ (2026-11-19 App-20): 上の page.image 自体が night
+        // JPEG。night 列は互換のため image: null のプレースホルダだけ作る。
         const nightPage = { ...page, image: null };
-        try {
-            renderWaypointPagePortrait(pageCanvas, { ...pageArgs, theme: 'night' });
-            nightPage.image = pageCanvas.toDataURL('image/jpeg', 0.85);
-        } catch (nightErr) {
-            console.error('SKEW-T night render failed for point', planRow.wp, nightErr);
-        }
 
         // 生成中に便が切り替わっていたら、別便のページ列には混ぜない
         const cur = skewtPagesRef.current;

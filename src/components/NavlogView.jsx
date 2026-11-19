@@ -1,4 +1,4 @@
-// NavlogView.fixed-v19.jsx — 2026-11-18 (ALT/TMP/WND 入力に inputMode を追加し英語数字キーボード固定、WNDは数字のみで自動スラッシュ整形。それ以外は fixed-v18 と同一)
+// NavlogView.fixed-v20.jsx — 2026-11-19 (SKEW-T ビューアを NIGHT のみに変更: App-20 が night テーマでだけ生成・保存するため、NIGHT トグルとテーマ切替を廃止し、常に night 画像を表示する。旧レコードに nightPages が残っている場合はそちらを優先表示。あわせて横長ページ (2480x2900) に合わせ画像の最大幅を 700px から 920px に拡大。それ以外は fixed-v19 と同一)
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { SafeIcon } from './SharedComponents';
 import { renderQRCode } from './qrcode';
@@ -751,38 +751,23 @@ const matchSkewtPagesToRows = (pages, rows, depIcao, destIcao) => {
 // SKEW-T ビューア (2026-11-15 fixed-v9): App が保持する生成済みページ画像を
 // そのまま表示する (再取得・再描画はしない)。◀ ▶ で全ページを生成順に移動でき、
 // 端では矢印を無効化する。閉じるのは × と背景タップ。
-// NIGHT MODE (2026-11-17 fixed-v18): ヘッダーの NIGHT トグルで夜間テーマ版
-// ページ (nightPages prop、App-18 が day と並行生成) に切り替える。night
-// 画像が無いページ (旧データ等) は day 画像のまま表示する。選択は
-// localStorage に保存して再起動後も引き継ぎ、保存値が無い場合の
-// デフォルトは NIGHT (夜のコクピットで白いページが眩しいため)。
-const SKEWT_THEME_STORAGE_KEY = '7pt-skewt-theme';
+// NIGHT のみ (2026-11-19 fixed-v20): データ量削減のため、App-20 以降は
+// night テーマのページだけを生成・保存する (pages 自体が night 画像)。
+// そのためテーマ切替は廃止し、ビューアは常に night 表示で固定する。
+// 旧レコード (day の pages + nightPages の2列保存) が残っている場合は
+// nightPages 側の画像を優先して表示する。localStorage の旧テーマ保存値
+// ('7pt-skewt-theme') はもう読まない。
 const SkewTViewerModal = ({ pages, nightPages, index, onClose, onNavigate }) => {
-    const [night, setNight] = useState(() => {
-        try {
-            const saved = window.localStorage.getItem(SKEWT_THEME_STORAGE_KEY);
-            if (saved === 'night') return true;
-            if (saved === 'day') return false;
-        } catch (e) { /* localStorage が使えない環境ではデフォルトに従う */ }
-        return true; // 未保存時のデフォルトは NIGHT
-    });
     if (!Array.isArray(pages) || pages.length === 0 || index === null || index === undefined || !pages[index]) return null;
     const page = pages[index];
     const nightPage = Array.isArray(nightPages) ? nightPages[index] : null;
-    const imgSrc = (night && nightPage && nightPage.image) ? nightPage.image : page.image;
+    const imgSrc = (nightPage && nightPage.image) ? nightPage.image : page.image;
     const total = pages.length;
     const navBtnBase = "px-4 py-2 rounded-lg font-bold text-sm transition-colors shadow-sm";
-    const toggleNight = () => {
-        setNight((prev) => {
-            const next = !prev;
-            try { window.localStorage.setItem(SKEWT_THEME_STORAGE_KEY, next ? 'night' : 'day'); } catch (e) { /* 保存できなくても切替自体は有効 */ }
-            return next;
-        });
-    };
     return (
         <div className="fixed inset-0 bg-black/85 z-[110] flex items-center justify-center p-2 sm:p-4 backdrop-blur-sm" onClick={onClose}>
-            <div className={`${night ? 'bg-slate-950 border-slate-800' : 'bg-slate-800 border-slate-600'} border rounded-xl shadow-2xl flex flex-col max-h-[97vh]`} onClick={(e) => e.stopPropagation()}>
-                <div className={`flex justify-between items-center px-3 py-2 border-b ${night ? 'border-slate-800' : 'border-slate-700'} gap-2`}>
+            <div className="bg-slate-950 border-slate-800 border rounded-xl shadow-2xl flex flex-col max-h-[97vh]" onClick={(e) => e.stopPropagation()}>
+                <div className="flex justify-between items-center px-3 py-2 border-b border-slate-800 gap-2">
                     <div className="flex items-center gap-2 min-w-0">
                         <SafeIcon name="CloudRain" className="w-5 h-5 text-teal-400 shrink-0" />
                         <span className="text-white font-black font-mono truncate">{page.name}</span>
@@ -790,20 +775,15 @@ const SkewTViewerModal = ({ pages, nightPages, index, onClose, onNavigate }) => 
                         <span className="text-slate-500 text-[11px] font-mono whitespace-nowrap">{index + 1} / {total}</span>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                        <button onClick={toggleNight} aria-pressed={night} title="夜間テーマ (NIGHT MODE) の切り替え"
-                            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[11px] font-bold font-mono transition-colors ${night ? 'bg-teal-500/20 text-teal-300 border-teal-500/50' : 'bg-slate-700/60 text-slate-300 border-slate-600 hover:bg-slate-700'}`}>
-                            <SafeIcon name="Moon" className="w-3.5 h-3.5" />
-                            NIGHT
-                        </button>
                         <button onClick={onClose} className="text-slate-400 hover:text-white font-bold text-2xl leading-none px-1">&times;</button>
                     </div>
                 </div>
-                <div className={`flex items-center justify-center ${night ? 'bg-black' : 'bg-slate-900/70'} p-1 overflow-hidden`}>
+                <div className="flex items-center justify-center bg-black p-1 overflow-hidden">
                     <img src={imgSrc} alt={`${page.name} SKEW-T`} draggable={false}
                         className="object-contain select-none"
-                        style={{ maxHeight: 'calc(97vh - 118px)', maxWidth: 'min(94vw, 700px)' }} />
+                        style={{ maxHeight: 'calc(97vh - 118px)', maxWidth: 'min(96vw, 920px)' }} />
                 </div>
-                <div className={`flex items-center justify-between gap-2 px-3 py-2 border-t ${night ? 'border-slate-800' : 'border-slate-700'}`}>
+                <div className="flex items-center justify-between gap-2 px-3 py-2 border-t border-slate-800">
                     <button disabled={index <= 0} onClick={() => onNavigate(index - 1)}
                         className={`${navBtnBase} ${index <= 0 ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-slate-700 hover:bg-slate-600 text-white'}`}>◀ 前へ</button>
                     <span className="text-slate-400 text-[11px] font-mono truncate">{page.name}{page.etoLabel ? ` ・ ${page.etoLabel}` : ''}</span>
