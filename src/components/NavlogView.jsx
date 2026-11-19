@@ -1,4 +1,4 @@
-// NavlogView.fixed-v20.jsx — 2026-11-19 (SKEW-T ビューアを NIGHT のみに変更: App-20 が night テーマでだけ生成・保存するため、NIGHT トグルとテーマ切替を廃止し、常に night 画像を表示する。旧レコードに nightPages が残っている場合はそちらを優先表示。あわせて横長ページ (2480x2900) に合わせ画像の最大幅を 700px から 920px に拡大。それ以外は fixed-v19 と同一)
+// NavlogView.fixed-v23.jsx — 2026-11-19 (移管高度の表示を大きく中央へ: ブランク区間では ALT/TMP/WND 欄全体が空くため、移管高度は小さいラベルではなく MAX ALT と同じ 15px・font-black の赤字で、その欄の中央 (行の真ん中) に表示する。ブランク化と EXPORT/SYNC の扱いは fixed-v22 のまま。それ以外は fixed-v22 と同一)
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { SafeIcon } from './SharedComponents';
 import { renderQRCode } from './qrcode';
@@ -23,6 +23,7 @@ import {
     ICAO_TZ, 
     DEFAULT_FLIGHT_PLAN_DATA 
 } from '../data/flightData';
+import { findTransferAlt } from '../data/transferAltData';
 
 // 主要FIRの名称マッピング
 const FIR_NAMES = {
@@ -1057,6 +1058,31 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
   // SKEW-T ページ ↔ プラン行の対応 (SKEWT 列のボタン配置用)
   const skewtMatch = useMemo(() => matchSkewtPagesToRows(skewtPages, calculatedData.flightData, parsedDepIcao, parsedDestIcao), [skewtPages, calculatedData.flightData, parsedDepIcao, parsedDestIcao]);
 
+  // 管制移管高度のブランク区間 (2026-11-19 fixed-v22): 移管高度が付く最初の
+  // 行のインデックスと、その行以降のウェイポイント名集合。表示・EXPORT・
+  // SYNC の3か所で同じ区間を使う。
+  const transferBlankFrom = useMemo(() => {
+      const fd = calculatedData && calculatedData.flightData;
+      if (!fd || !parsedDestIcao) return -1;
+      for (let i = 0; i < fd.length; i++) {
+          if (findTransferAlt(parsedDestIcao, parsedDepIcao, fd[i].wp)) return i;
+      }
+      return -1;
+  }, [calculatedData, parsedDestIcao, parsedDepIcao]);
+  const transferBlankWpSet = useMemo(() => {
+      if (transferBlankFrom < 0 || !calculatedData || !calculatedData.flightData) return new Set();
+      return new Set(calculatedData.flightData.slice(transferBlankFrom).map(r => r.wp));
+  }, [calculatedData, transferBlankFrom]);
+  // SYNC (QR) 送信用: ブランク区間の ALT/TMP/WND を落とした actuals
+  const syncActuals = useMemo(() => {
+      if (!actuals || transferBlankWpSet.size === 0) return actuals;
+      const out = {};
+      for (const [wp, v] of Object.entries(actuals)) {
+          out[wp] = transferBlankWpSet.has(wp) ? { ...v, actAlt: '', actTmp: '', actWind: '' } : v;
+      }
+      return out;
+  }, [actuals, transferBlankWpSet]);
+
   const etopsTimeDiff = useMemo(() => {
     const hasAto = Object.values(actuals).some(v => v && v.ato);
     if (!hasAto) return 0;
@@ -1817,7 +1843,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                           color: EXPORT_COLOR
                       });
                   }
-                  if (actualData.actAlt) {
+                  if (actualData.actAlt && !transferBlankWpSet.has(wp)) {
                       // 高度は「FL」を付けず数字のみ書き込む（例: FL310 → 310）
                       const altText = String(actualData.actAlt).trim().replace(/^FL/i, '');
                       if (altText) {
@@ -1839,7 +1865,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                           color: EXPORT_COLOR
                       });
                   }
-                  if (actualData.actTmp) {
+                  if (actualData.actTmp && !transferBlankWpSet.has(wp)) {
                       // 気温はマイナス符号を付けずに書き込む（例: -48 → 48）
                       const tmpText = String(actualData.actTmp).trim().replace(/^[-−]/, '');
                       if (tmpText) {
@@ -1852,7 +1878,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                           });
                       }
                   }
-                  if (actualData.actWind) {
+                  if (actualData.actWind && !transferBlankWpSet.has(wp)) {
                       page.drawText(actualData.actWind, {
                           x: WND_X, // SPOT/ZWIND列
                           y: drawY,
@@ -2032,7 +2058,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
       <SyncModal 
         isOpen={isSyncModalOpen} 
         onClose={() => setIsSyncModalOpen(false)} 
-        actuals={actuals}
+        actuals={syncActuals}
         onSync={handleSyncData}
         showMessage={(msg) => window.dispatchEvent(new CustomEvent('show-toast', { detail: msg }))}
       />
@@ -2345,6 +2371,10 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                           || (parsedDestIcao && row.wp === parsedDestIcao && idx !== calculatedData.flightData.length - 1);
                       skewtCanAdd = !!coord && !(coord.lat === 0 && coord.lon === 0) && !isMidAirportRow;
                   }
+                  // 管制移管高度 (2026-11-19 fixed-v21): 目的地の移管高度表に
+                  // この行のウェイポイントがあれば、表示文字列を引く。
+                  const transferAlt = findTransferAlt(parsedDestIcao, parsedDepIcao, row.wp);
+                  const isTransferBlank = transferBlankFrom >= 0 && idx >= transferBlankFrom;
                   const skewtIsPending = skewtPendingRow === idx;
                   const handleSkewtAdd = () => {
                       if (skewtPendingRow !== null) return; // 生成中は他の行も受け付けない
@@ -2482,7 +2512,12 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                       </span>
                     </div>
 
-                    <div className="flex-1 flex justify-center gap-1 px-1 mt-2.5 min-w-[155px] max-w-[200px]">
+                    <div className={isTransferBlank ? "flex-1 flex justify-center px-1 min-w-[155px] max-w-[200px]" : "flex-1 flex justify-center gap-1 px-1 mt-2.5 min-w-[155px] max-w-[200px]"}>
+                        {isTransferBlank ? (
+                            <div className="flex items-center justify-center w-full h-[29px]">
+                                {transferAlt ? (<span className="font-mono text-[15px] font-black text-red-400 whitespace-nowrap">{transferAlt}</span>) : null}
+                            </div>
+                        ) : (<>
                         <div className="flex flex-col items-center justify-center w-[45px] relative shrink-0">
                             <span className="absolute -top-3.5 text-[10px] text-slate-500 font-mono leading-none">{row.plnAlt || ""}</span>
                             <input 
@@ -2532,6 +2567,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
                               className="w-full bg-[#05070a] border border-slate-700 rounded text-center text-[13px] font-mono font-bold py-1 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-inner px-0.5" 
                             />
                         </div>
+                        </>)}
                     </div>
 
                     <div className="w-[60px] shrink-0 flex flex-col items-center justify-center leading-none">
