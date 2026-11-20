@@ -1,4 +1,4 @@
-// NavlogView.fixed-v23.jsx — 2026-11-19 (移管高度の表示を大きく中央へ: ブランク区間では ALT/TMP/WND 欄全体が空くため、移管高度は小さいラベルではなく MAX ALT と同じ 15px・font-black の赤字で、その欄の中央 (行の真ん中) に表示する。ブランク化と EXPORT/SYNC の扱いは fixed-v22 のまま。それ以外は fixed-v22 と同一)
+// NavlogView.fixed-v26.jsx — 2026-11-21 (時系列予報ボタンをオレンジの矢羽だけに変更: v25 のシアン塗り＋「TAF」文字は、このデータがTAFそのものではないため取りやめ。矢羽アイコン単体をオレンジ色・大きめ・線太めにして、シアン基調のヘッダーの中で異色として目に入る形にした。機能・ビューア・対象75空港は fixed-v24 と同一)
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { SafeIcon } from './SharedComponents';
 import { renderQRCode } from './qrcode';
@@ -797,6 +797,138 @@ const SkewTViewerModal = ({ pages, nightPages, index, onClose, onNavigate }) => 
 };
 
 // =========================================================================
+// 気象庁「飛行場時系列予報 / 飛行場時系列情報」ビューア (2026-11-20 fixed-v24)
+// - 画像URLは固定形式 (発行のたびに同URLが上書きされる):
+//     Part1: https://www.data.jma.go.jp/airinfo/data/pict/taf/QMCD98_<ICAO>.png
+//            (1時間刻み・約12時間、5空港のみ気温/気圧の行あり)
+//     Part2: https://www.data.jma.go.jp/airinfo/data/pict/taf/QMCJ98_<ICAO>.png
+//            (3時間刻み・その先約18時間、気温/気圧の行なし)
+// - 対象は国内75空港のみ。2026-11-20 に国内129空港候補を全数 HEAD で確認し、
+//   Part1 / Part2 とも HTTP 200 だった空港だけを下の集合に入れた
+//   (対象外は全て 404。例: RJTH 八丈島、RJAW 硫黄島、RODN 嘉手納は対象外)。
+// - 取得は <img src> 直指定ではなく fetch(cache:'no-store') → Blob URL。
+//   サーバの Cache-Control は max-age=60 しかないが、発行直後の古い画像を
+//   引かないよう毎回取り直す。CORS は Access-Control-Allow-Origin: * を確認済み。
+// - オンライン前提の機能 (RDR と同じ位置づけ)。失敗時はエラー表示+再試行。
+// =========================================================================
+const JMA_TAF_AIRPORTS = new Set([
+    'RJAA', 'RJAF', 'RJAH', 'RJBB', 'RJBD', 'RJBE', 'RJCB', 'RJCC', 'RJCH', 'RJCK',
+    'RJCM', 'RJCN', 'RJCO', 'RJCW', 'RJDB', 'RJDC', 'RJDT', 'RJEB', 'RJEC', 'RJFC',
+    'RJFE', 'RJFF', 'RJFG', 'RJFK', 'RJFM', 'RJFO', 'RJFR', 'RJFS', 'RJFT', 'RJFU',
+    'RJGG', 'RJKA', 'RJKB', 'RJKI', 'RJKN', 'RJNF', 'RJNK', 'RJNS', 'RJNT', 'RJNW',
+    'RJOA', 'RJOB', 'RJOC', 'RJOH', 'RJOI', 'RJOK', 'RJOM', 'RJOO', 'RJOR', 'RJOS',
+    'RJOT', 'RJOW', 'RJOY', 'RJSA', 'RJSC', 'RJSF', 'RJSI', 'RJSK', 'RJSM', 'RJSN',
+    'RJSR', 'RJSS', 'RJSY', 'RJTO', 'RJTT', 'ROAH', 'ROIG', 'ROKJ', 'ROMD', 'ROMY',
+    'RORK', 'RORS', 'RORT', 'RORY', 'ROYN',
+]);
+
+const jmaTafUrl = (icao, part) =>
+    `https://www.data.jma.go.jp/airinfo/data/pict/taf/${part === 2 ? 'QMCJ98' : 'QMCD98'}_${icao}.png`;
+
+// 矢羽 (wind barb) アイコン。SafeIcon (lucide) には矢羽がないため inline SVG で描く。
+// 軸の上端に長い羽と短い羽を付けた、気象庁の時系列図に出てくる記号そのものの形。
+const WindBarbIcon = ({ className }) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8"
+        strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+        <circle cx="5.5" cy="18.5" r="1.4" fill="currentColor" stroke="none" />
+        <path d="M6.8 17.2 L17 7" />
+        <path d="M17 7 L22 7" />
+        <path d="M14.4 9.6 L18.2 9.6" />
+    </svg>
+);
+
+const JmaTafViewerModal = ({ depIcao, destIcao, initialIcao, onClose }) => {
+    const airports = [];
+    if (depIcao && JMA_TAF_AIRPORTS.has(depIcao)) airports.push({ icao: depIcao, role: '出発' });
+    if (destIcao && destIcao !== depIcao && JMA_TAF_AIRPORTS.has(destIcao)) airports.push({ icao: destIcao, role: '到着' });
+    const [currentIcao, setCurrentIcao] = useState(
+        airports.some((a) => a.icao === initialIcao) ? initialIcao : (airports[0] ? airports[0].icao : initialIcao)
+    );
+    const [part, setPart] = useState(1);
+    const [imgUrl, setImgUrl] = useState(null);
+    const [status, setStatus] = useState('loading'); // 'loading' | 'ok' | 'error'
+    const [reloadKey, setReloadKey] = useState(0);
+
+    useEffect(() => {
+        let cancelled = false;
+        let objectUrl = null;
+        // 空港/パートが変わったら前の画像は即座に消す (別空港の図を新しい見出しで見せない)
+        setImgUrl(null);
+        setStatus('loading');
+        (async () => {
+            try {
+                const res = await fetch(jmaTafUrl(currentIcao, part), { cache: 'no-store' });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const blob = await res.blob();
+                if (cancelled) return;
+                objectUrl = URL.createObjectURL(blob);
+                setImgUrl(objectUrl);
+                setStatus('ok');
+            } catch (e) {
+                if (!cancelled) setStatus('error');
+            }
+        })();
+        return () => {
+            cancelled = true;
+            if (objectUrl) URL.revokeObjectURL(objectUrl);
+        };
+    }, [currentIcao, part, reloadKey]);
+
+    const toggleBtn = (active) =>
+        `px-3 py-1.5 rounded-lg font-bold text-xs sm:text-sm transition-colors shadow-sm ${active ? 'bg-cyan-600 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-600'}`;
+
+    return (
+        <div className="fixed inset-0 bg-black/85 z-[115] flex items-center justify-center p-2 sm:p-4 backdrop-blur-sm" onClick={onClose}>
+            <div className="bg-slate-950 border-slate-800 border rounded-xl shadow-2xl flex flex-col max-h-[97vh] w-full" style={{ maxWidth: 'min(96vw, 980px)' }} onClick={(e) => e.stopPropagation()}>
+                <div className="flex justify-between items-center px-3 py-2 border-b border-slate-800 gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                        <WindBarbIcon className="w-5 h-5 text-cyan-400 shrink-0" />
+                        <span className="text-white font-black font-mono truncate">{currentIcao} 飛行場時系列予報</span>
+                        <span className="text-slate-500 text-[11px] whitespace-nowrap">気象庁</span>
+                    </div>
+                    <button onClick={onClose} className="text-slate-400 hover:text-white font-bold text-2xl leading-none px-1 shrink-0">&times;</button>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-slate-800">
+                    {airports.length > 1 && (
+                        <div className="flex items-center gap-1.5">
+                            {airports.map((a) => (
+                                <button key={a.icao} onClick={() => setCurrentIcao(a.icao)} className={toggleBtn(currentIcao === a.icao)}>
+                                    {a.role} {a.icao}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                    <div className="flex items-center gap-1.5">
+                        <button onClick={() => setPart(1)} className={toggleBtn(part === 1)}>Part 1（1時間毎）</button>
+                        <button onClick={() => setPart(2)} className={toggleBtn(part === 2)}>Part 2（3時間毎）</button>
+                    </div>
+                    <button onClick={() => setReloadKey((k) => k + 1)} className="ml-auto px-3 py-1.5 rounded-lg font-bold text-xs sm:text-sm bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-600 transition-colors shadow-sm flex items-center gap-1">
+                        <SafeIcon name="RefreshCw" className="w-3.5 h-3.5" /> 再取得
+                    </button>
+                </div>
+                <div className="flex items-center justify-center bg-black p-1 overflow-hidden min-h-[200px]">
+                    {status === 'loading' && <div className="text-slate-400 font-bold text-sm py-16">読み込み中…</div>}
+                    {status === 'error' && (
+                        <div className="flex flex-col items-center gap-3 py-16 px-4 text-center">
+                            <div className="text-slate-300 font-bold text-sm">取得できませんでした。オフラインか、この空港の予報が提供されていない可能性があります。</div>
+                            <button onClick={() => setReloadKey((k) => k + 1)} className="px-4 py-2 rounded-lg font-bold text-sm bg-slate-700 hover:bg-slate-600 text-white transition-colors shadow-sm">再試行</button>
+                        </div>
+                    )}
+                    {status === 'ok' && imgUrl && (
+                        <img src={imgUrl} alt={`${currentIcao} 飛行場時系列予報 Part ${part}`} draggable={false}
+                            className="object-contain select-none w-full"
+                            style={{ maxHeight: 'calc(97vh - 170px)' }} />
+                    )}
+                </div>
+                <div className="px-3 py-2 border-t border-slate-800">
+                    <span className="text-slate-500 text-[11px]">出典：気象庁「飛行場時系列予報／飛行場時系列情報」・オンライン時のみ表示できます</span>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// =========================================================================
 // EXPORT 用の元PDF (CFP) の IndexedDB 永続化 (2026-11-16 fixed-v13)
 // 従来、元PDFのバイト列とテキスト座標はセッション復元で意図的に落として
 // いたため、アプリ再起動のたびに EXPORT の初回でファイル再選択が必要
@@ -877,6 +1009,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const [isDistCheckOpen, setIsDistCheckOpen] = useState(false);
   const [skewtViewerIndex, setSkewtViewerIndex] = useState(null); // SKEW-T ビューアで表示中のページindex (null=閉)
+  const [jmaViewerIcao, setJmaViewerIcao] = useState(null); // 気象庁時系列予報ビューアで開く空港ICAO (null=閉、2026-11-20 fixed-v24)
   const [skewtPendingRow, setSkewtPendingRow] = useState(null); // SKEW-T 追加生成中の行index (null=なし、2026-11-15 fixed-v10)
   const [memoModal, setMemoModal] = useState({ isOpen: false, wp: '', text: '' });
 
@@ -1057,6 +1190,10 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
 
   // SKEW-T ページ ↔ プラン行の対応 (SKEWT 列のボタン配置用)
   const skewtMatch = useMemo(() => matchSkewtPagesToRows(skewtPages, calculatedData.flightData, parsedDepIcao, parsedDestIcao), [skewtPages, calculatedData.flightData, parsedDepIcao, parsedDestIcao]);
+  // 気象庁時系列予報用: ヘッダー表示とボタン判定に使う出発/到着コード。パース値が無い間は routeInfo 文字列から補う (2026-11-20 fixed-v24)
+  const jmaRouteParts = String(routeInfo || '').split('-').map((t) => t.trim());
+  const jmaDepIcao = parsedDepIcao || jmaRouteParts[0] || '';
+  const jmaDestIcao = parsedDestIcao || jmaRouteParts[1] || '';
 
   // 管制移管高度のブランク区間 (2026-11-19 fixed-v22): 移管高度が付く最初の
   // 行のインデックスと、その行以降のウェイポイント名集合。表示・EXPORT・
@@ -2079,6 +2216,15 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
         onNavigate={setSkewtViewerIndex}
       />
 
+      {jmaViewerIcao !== null && (
+        <JmaTafViewerModal
+          depIcao={jmaDepIcao}
+          destIcao={jmaDestIcao}
+          initialIcao={jmaViewerIcao}
+          onClose={() => setJmaViewerIcao(null)}
+        />
+      )}
+
       <WpAlertModal 
         wpName={popupWp} 
         onClose={() => setPopupWp(null)} 
@@ -2105,8 +2251,22 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
             </div>
             
             <div className="flex gap-1.5 items-center font-mono flex-wrap">
-                <span className="text-[11px] sm:text-xs font-black text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded border border-cyan-500/30 tracking-wider">
-                    {routeInfo}
+                <span className="flex items-center gap-1 text-[11px] sm:text-xs font-black text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded border border-cyan-500/30 tracking-wider">
+                    <span>{jmaDepIcao || routeInfo}</span>
+                    {JMA_TAF_AIRPORTS.has(jmaDepIcao) && (
+                      <button type="button" onClick={() => setJmaViewerIcao(jmaDepIcao)} title={`${jmaDepIcao} 飛行場時系列予報（気象庁）`} aria-label={`${jmaDepIcao} 飛行場時系列予報`}
+                        className="w-6 h-6 -my-0.5 flex items-center justify-center rounded text-orange-400 hover:bg-orange-500/20 hover:text-orange-300 transition-colors shrink-0">
+                        <WindBarbIcon className="w-5 h-5 pointer-events-none" />
+                      </button>
+                    )}
+                    <span className="text-cyan-600">-</span>
+                    <span>{jmaDestIcao}</span>
+                    {JMA_TAF_AIRPORTS.has(jmaDestIcao) && (
+                      <button type="button" onClick={() => setJmaViewerIcao(jmaDestIcao)} title={`${jmaDestIcao} 飛行場時系列予報（気象庁）`} aria-label={`${jmaDestIcao} 飛行場時系列予報`}
+                        className="w-6 h-6 -my-0.5 flex items-center justify-center rounded text-orange-400 hover:bg-orange-500/20 hover:text-orange-300 transition-colors shrink-0">
+                        <WindBarbIcon className="w-5 h-5 pointer-events-none" />
+                      </button>
+                    )}
                 </span>
                 {flightTimeStr && <span className="text-[11px] sm:text-xs font-bold text-slate-300 bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5">F/T: {flightTimeStr}</span>}
                 <span className="text-[11px] sm:text-xs font-bold text-slate-300 bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5">{parsedReg}</span>
