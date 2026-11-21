@@ -1,4 +1,4 @@
-// NavlogView.fixed-v29.jsx — 2026-11-21 (fixed-v28 + 予想フレームのオフライン対応を Service Worker 方式に変更: 実機で GET WX の保存フレーム数が18 (実況のみ) となり、iPad では metair の no-cors 本文を読めないことが確定したため、vite.config.updated2.js の runtimeCaching (metair を CacheFirst で opaque 保存) と対で、GET WX 完了時に予想フレームを <img> で先読みして SW キャッシュへ載せるようにした。ビューア側は従来通り保存分→Cache Storage→直接表示の順で、オフライン時は直接表示が SW キャッシュから返る。それ以外は fixed-v28 のまま)
+// NavlogView.fixed-v30.jsx — 2026-11-21 (fixed-v29 + フレーム先読みの強化: 実機で「一度開いたフレームはオフラインでも見られる」ことが分かり、SW runtime cache 自体は機能していた。そこで先読みのタイミングを増やし、開かなくてもキャッシュに載るようにした: (1) 便が読み込まれた時点で自動選択分を先読み、(2) WX ビューアで路線・経度・FL を切り替えた時点でそのセットを先読み、(3) GET WX 完了時は従来通り。あわせて vite.config.updated3.js で実況 (maiji) も SW キャッシュ対象にし、自動選択以外のフレームも一度オンラインで触れれば残るようにした。それ以外は fixed-v29 のまま)
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { SafeIcon } from './SharedComponents';
 import { renderQRCode } from './qrcode';
@@ -963,6 +963,17 @@ const wxCacheDelete = async (url) => {
     } catch (e) { /* noop */ }
 };
 
+// フレーム先読み (2026-11-21 fixed-v30): <img> として読み込むことで
+// Service Worker の runtime cache (vite.config.updated3.js) に載せ、
+// オフラインでも直接表示できるようにする。あわせて従来の Cache Storage
+// にも入れる (対応ブラウザ向けの補助)。
+const wxPreloadFrames = (frames) => {
+    (frames || []).forEach((f) => {
+        wxCachePut(f.url);
+        try { const img = new Image(); img.src = f.url; } catch (e) { /* noop */ }
+    });
+};
+
 // フレーム画像: GET WX の保存分 (dataURL) があればそれを最優先で表示し、
 // 無ければ Cache Storage → 直接読み込みの順にフォールバックする
 // (2026-11-21 fixed-v28: v27 の Cache Storage 主軸は実機で効かなかった)
@@ -1136,6 +1147,11 @@ const WxViewerModal = ({ depIcao, destIcao, initialTab, initialIcao, autoRouteTy
         })();
         return () => { cancelled = true; if (objectUrl) URL.revokeObjectURL(objectUrl); };
     }, [tab, cmntKey, cmntReloadKey, wxRecord]);
+
+    // ビューアで開いたセットは、その場で全フレームを先読みして SW
+    // キャッシュに載せる (2026-11-21 fixed-v30)
+    useEffect(() => { if (tab === 'lc') wxPreloadFrames(lcFrames); }, [tab, lcFrames]);
+    useEffect(() => { if (tab === 'lf') wxPreloadFrames(lfFrames); }, [tab, lfFrames]);
 
     // GET WX 保存フレーム (validMs -> dataURL) を、コードが一致する時だけ引く
     const storedImgsFor = (setKey, code) => {
@@ -1632,6 +1648,24 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
       return Math.max(5, Math.min(45, code));
   }, [calculatedData]);
 
+  // 便が読み込まれた時点でも自動選択分を先読みする (2026-11-21 fixed-v30):
+  // GET WX を押す前に SW が有効化されているとは限らないため、表示の機会が
+  // あるうちにキャッシュを温めておく。identity ごとに1回だけ。
+  const wxWarmupIdentityRef = useRef(null);
+  useEffect(() => {
+      const id = wxIdentityOf(navlogData);
+      if (!id || wxWarmupIdentityRef.current === id) return;
+      // 自動選択 (特に FL と経度) が確定してから温める。行がまだ無い段階で
+      // 既定値のまま先読みしてしまうと、identity ガードで二度目が効かない。
+      if (!calculatedData || !Array.isArray(calculatedData.flightData) || calculatedData.flightData.length === 0) return;
+      wxWarmupIdentityRef.current = id;
+      wxPreloadFrames([
+          ...wxBuildFrames('lc', wxAutoRouteType),
+          ...wxBuildFrames('lc', wxAutoLonType),
+          ...wxBuildFrames('lf', wxAutoFlCode),
+      ]);
+  }, [navlogData, wxAutoRouteType, wxAutoLonType, wxAutoFlCode]);
+
   // GET WX で保存された時系列レコード (同一 identity のものだけ保持)
   const [wxRecord, setWxRecord] = useState(null);
   const wxRefreshRecord = async () => {
@@ -1651,16 +1685,7 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
               ...wxBuildFrames('lc', wxAutoLonType),
               ...wxBuildFrames('lf', wxAutoFlCode),
           ];
-          frames.forEach((f) => {
-              wxCachePut(f.url);
-              // 予想フレーム (metair) は <img> でも先読みし、Service Worker の
-              // runtime cache (vite.config.updated2.js) に載せる (2026-11-21
-              // fixed-v29)。ページ側 fetch では本文を読めないブラウザでも、
-              // SW が応答を保存すればオフラインで <img> 表示できる。
-              if (f.kind === 'fcst') {
-                  try { const img = new Image(); img.src = f.url; } catch (e) { /* noop */ }
-              }
-          });
+          wxPreloadFrames(frames);
           wxRefreshRecord();
       };
       window.addEventListener('getwx-preload', handler);

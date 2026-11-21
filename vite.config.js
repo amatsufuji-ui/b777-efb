@@ -30,6 +30,19 @@ export default defineConfig({
               cacheableResponse: { statuses: [0, 200] },
               expiration: { maxEntries: 160, maxAgeSeconds: 60 * 60 * 48 }
             }
+          },
+          {
+            // 実況の断面・平面 (data.jma.go.jp maiji) も同じ方式で保存する。
+            // GET WX の IndexedDB 保存は自動選択した3セット分だけだが、SW
+            // キャッシュならビューアで一度開いた (または先読みした) 路線・
+            // 経度・FL のフレームもオフラインで再表示できる (2026-11-21 追加)。
+            urlPattern: /^https:\/\/www\.data\.jma\.go\.jp\/airinfo\/data\/pict\/maiji\/.*\.PNG$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'wx-jma-anl-v1',
+              cacheableResponse: { statuses: [0, 200] },
+              expiration: { maxEntries: 240, maxAgeSeconds: 60 * 60 * 48 }
+            }
           }
         ]
       },
