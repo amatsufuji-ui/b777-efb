@@ -1,4 +1,4 @@
-// NavlogView.fixed-v28.jsx — 2026-11-21 (fixed-v27 + 実機フィードバック反映: (1) 断面・平面の既定フレームを最新の実況から最初の予想フレームへ変更 (予想の白背景チャートが先に目に入る形)。(2) オフライン表示を IndexedDB '7pt-wx' の保存分優先に変更 (v27 の Cache Storage 方式は実機で効かなかったため、GET WX で保存した dataURL を validMs で引いて表示。Cache Storage は補助として残置)。(3) タブ名「時系列」を「飛行場時系列予報」に変更。(4) 解説図タブを追加: FBJP 国内SIGWX・空域気象解説 (qyya82)・福岡FIR気象解説 (qyya83) をライブ取得し、失敗時は GET WX の保存分を表示。それ以外は fixed-v27 のまま)
+// NavlogView.fixed-v29.jsx — 2026-11-21 (fixed-v28 + 予想フレームのオフライン対応を Service Worker 方式に変更: 実機で GET WX の保存フレーム数が18 (実況のみ) となり、iPad では metair の no-cors 本文を読めないことが確定したため、vite.config.updated2.js の runtimeCaching (metair を CacheFirst で opaque 保存) と対で、GET WX 完了時に予想フレームを <img> で先読みして SW キャッシュへ載せるようにした。ビューア側は従来通り保存分→Cache Storage→直接表示の順で、オフライン時は直接表示が SW キャッシュから返る。それ以外は fixed-v28 のまま)
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { SafeIcon } from './SharedComponents';
 import { renderQRCode } from './qrcode';
@@ -1646,11 +1646,21 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
   // Cache Storage に入れ (オフライン再表示用)、時系列レコードも読み直す
   useEffect(() => {
       const handler = () => {
-          const urls = [];
-          for (const f of wxBuildFrames('lc', wxAutoRouteType)) urls.push(f.url);
-          for (const f of wxBuildFrames('lc', wxAutoLonType)) urls.push(f.url);
-          for (const f of wxBuildFrames('lf', wxAutoFlCode)) urls.push(f.url);
-          urls.forEach((u) => { wxCachePut(u); });
+          const frames = [
+              ...wxBuildFrames('lc', wxAutoRouteType),
+              ...wxBuildFrames('lc', wxAutoLonType),
+              ...wxBuildFrames('lf', wxAutoFlCode),
+          ];
+          frames.forEach((f) => {
+              wxCachePut(f.url);
+              // 予想フレーム (metair) は <img> でも先読みし、Service Worker の
+              // runtime cache (vite.config.updated2.js) に載せる (2026-11-21
+              // fixed-v29)。ページ側 fetch では本文を読めないブラウザでも、
+              // SW が応答を保存すればオフラインで <img> 表示できる。
+              if (f.kind === 'fcst') {
+                  try { const img = new Image(); img.src = f.url; } catch (e) { /* noop */ }
+              }
+          });
           wxRefreshRecord();
       };
       window.addEventListener('getwx-preload', handler);
