@@ -1,4 +1,4 @@
-// NavlogView.fixed-v30.jsx — 2026-11-21 (fixed-v29 + フレーム先読みの強化: 実機で「一度開いたフレームはオフラインでも見られる」ことが分かり、SW runtime cache 自体は機能していた。そこで先読みのタイミングを増やし、開かなくてもキャッシュに載るようにした: (1) 便が読み込まれた時点で自動選択分を先読み、(2) WX ビューアで路線・経度・FL を切り替えた時点でそのセットを先読み、(3) GET WX 完了時は従来通り。あわせて vite.config.updated3.js で実況 (maiji) も SW キャッシュ対象にし、自動選択以外のフレームも一度オンラインで触れれば残るようにした。それ以外は fixed-v29 のまま)
+// NavlogView.fixed-v31.jsx — 2026-11-21 (fixed-v30 + GET WX の先読みを全路線に拡大: 実機確認で「ビューアで一度開いた (切り替えた) 路線は未来フレームまで読めるが、触れていない路線はオフラインで出ない」ことが分かった。本人の運航では福岡→羽田でも鹿児島-東京の断面が参考になるなど、他路線の断面も使うため、GET WX (明示操作) のタイミングで路線断面だけは全10種 (199・101〜109) を先読みする。経度断面と平面図は自動選択分のみ (便の読み込み時の先読みも従来通り自動選択分のみ)。それ以外は fixed-v30 のまま)
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { SafeIcon } from './SharedComponents';
 import { renderQRCode } from './qrcode';
@@ -1680,8 +1680,11 @@ export const NavlogView = ({ flightId, state, updateState, onApplyFlightPlan, na
   // Cache Storage に入れ (オフライン再表示用)、時系列レコードも読み直す
   useEffect(() => {
       const handler = () => {
+          // 路線断面は全種を先読みする (2026-11-21 fixed-v31)。他路線の
+          // 断面も運航の参考になるため (例: 福岡→羽田で鹿児島-東京を見る)。
+          // 経度断面・平面図は自動選択分のみ。
           const frames = [
-              ...wxBuildFrames('lc', wxAutoRouteType),
+              ...WX_LC_ROUTES.flatMap((r) => wxBuildFrames('lc', r.type)),
               ...wxBuildFrames('lc', wxAutoLonType),
               ...wxBuildFrames('lf', wxAutoFlCode),
           ];
