@@ -1,8 +1,8 @@
-// App-21.jsx — 2026-11-19 (App-20.jsx + SKEW-T のキャッシュ消去: バッチ生成の開始が確定した時点で、その便の保存済み SKEW-T (IndexedDB の 7pt-skewt レコードとメモリ上のページ列) を先に消してから作り直す。あわせて skewt.js v6.1 で Open-Meteo 取得を no-store 化し、常に最新の GFS を使う。単地点の追加生成 (+) と CFP PDF の保存 (7pt-cfp-pdf) は対象外。それ以外の挙動は App-20 のまま)
+// App-22.jsx — 2026-11-21 (App-21.jsx + GET WX 化: SKEW-T ボタンを GET WX に改称し、確認ダイアログで SKEW-T 生成と気象図取得を選べるようにした。気象図は出発・到着空港の気象庁「飛行場時系列予報」Part 1 / Part 2 (計4枚) を取得して IndexedDB '7pt-wx' に便の identity と一緒に保存し (オフラインでも WX ビューアで見られる)、あわせて 'getwx-preload' イベントで NavlogView 側の断面・平面フレームのキャッシュを促す。SKEW-T 単体の従来動作はそのまま)
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import * as LucideIcons from 'lucide-react';
 
-const APP_VERSION = "14.2"; 
+const APP_VERSION = "14.3"; 
 
 import { RAW_CSV_DATA, aircraftRegistrationList, BUDDYCOM_LINKS, ICAO_COORDS } from './data/flightData';
 import { aircraftPerformanceData, defaultCruiseWeights, defaultLandingWeights, modelKeyMap, AIRCRAFT_DIMENSIONS, SEAT_DATA, CRUISE_PERF_DATA, VREF_DATA, HOLD_SPD_DATA_RAW, MANEUVER_1_3G_MACH_DATA, TARGET_PITCH_N1_DATA_RAW, LANDING_DIST_DATA_RAW, B777_WIND_LIMITS, MAX_MAN_DATA } from './data/perfData';
@@ -128,6 +128,96 @@ const skewtRestoreNightPages = (record, dayPages) => {
     return record.nightPages;
 };
 
+// =========================================================================
+// GET WX: 気象庁「飛行場時系列予報」の取得と永続化 (2026-11-21 App-22)
+// GET WX で SKEW-T と一緒に、出発・到着空港の時系列予報 Part 1 / Part 2
+// (最大4枚) を取得し、便の identity と一緒に IndexedDB '7pt-wx' へ保存
+// する。機内 (オフライン) でも NavlogView の WX ビューアで保存分を見ら
+// れるようにするため。対象は国内75空港のみ (2026-11-20 に国内129空港
+// 候補を全数 HEAD 確認し、Part1 / Part2 とも 200 だった空港だけ)。
+// 断面図・平面図のフレームは NavlogView 側の Cache Storage
+// ('7pt-wx-img') に任せ、App は 'getwx-preload' イベントで合図だけ出す。
+// =========================================================================
+const WX_TAF_AIRPORTS = new Set([
+    'RJAA', 'RJAF', 'RJAH', 'RJBB', 'RJBD', 'RJBE', 'RJCB', 'RJCC', 'RJCH', 'RJCK',
+    'RJCM', 'RJCN', 'RJCO', 'RJCW', 'RJDB', 'RJDC', 'RJDT', 'RJEB', 'RJEC', 'RJFC',
+    'RJFE', 'RJFF', 'RJFG', 'RJFK', 'RJFM', 'RJFO', 'RJFR', 'RJFS', 'RJFT', 'RJFU',
+    'RJGG', 'RJKA', 'RJKB', 'RJKI', 'RJKN', 'RJNF', 'RJNK', 'RJNS', 'RJNT', 'RJNW',
+    'RJOA', 'RJOB', 'RJOC', 'RJOH', 'RJOI', 'RJOK', 'RJOM', 'RJOO', 'RJOR', 'RJOS',
+    'RJOT', 'RJOW', 'RJOY', 'RJSA', 'RJSC', 'RJSF', 'RJSI', 'RJSK', 'RJSM', 'RJSN',
+    'RJSR', 'RJSS', 'RJSY', 'RJTO', 'RJTT', 'ROAH', 'ROIG', 'ROKJ', 'ROMD', 'ROMY',
+    'RORK', 'RORS', 'RORT', 'RORY', 'ROYN',
+]);
+
+const wxTafUrl = (icao, part) =>
+    `https://www.data.jma.go.jp/airinfo/data/pict/taf/${part === 2 ? 'QMCJ98' : 'QMCD98'}_${icao}.png`;
+
+const WX_IDB_NAME = '7pt-wx';
+const WX_IDB_STORE = 'wx';
+const WX_IDB_KEY = 'latest';
+
+const wxIdbOpen = () => new Promise((resolve, reject) => {
+    if (typeof indexedDB === 'undefined') { reject(new Error('IndexedDB unavailable')); return; }
+    const req = indexedDB.open(WX_IDB_NAME, 1);
+    req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(WX_IDB_STORE)) db.createObjectStore(WX_IDB_STORE);
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+});
+
+const wxIdbSave = async (record) => {
+    const db = await wxIdbOpen();
+    try {
+        await new Promise((resolve, reject) => {
+            const tx = db.transaction(WX_IDB_STORE, 'readwrite');
+            tx.objectStore(WX_IDB_STORE).put(record, WX_IDB_KEY);
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error);
+        });
+    } finally { db.close(); }
+};
+
+const wxFetchDataUrl = async (url) => {
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const blob = await res.blob();
+    return await new Promise((resolve, reject) => {
+        const fr = new FileReader();
+        fr.onload = () => resolve(fr.result);
+        fr.onerror = () => reject(fr.error);
+        fr.readAsDataURL(blob);
+    });
+};
+
+// 出発・到着 (対象空港のみ) の Part 1 / Part 2 を取得して保存する。
+// 戻り値は保存できた枚数 (0〜4)。失敗した画像は黙って欠落させる
+// (呼び出し側が枚数で成否を知らせる)。
+const wxFetchAndSaveTaf = async (identity, depIcao, destIcao) => {
+    const targets = [];
+    for (const icao of [depIcao, destIcao]) {
+        if (icao && WX_TAF_AIRPORTS.has(icao) && !targets.includes(icao)) targets.push(icao);
+    }
+    const taf = {};
+    let count = 0;
+    for (const icao of targets) {
+        const entry = {};
+        for (const part of [1, 2]) {
+            try {
+                entry[part === 1 ? 'p1' : 'p2'] = await wxFetchDataUrl(wxTafUrl(icao, part));
+                count++;
+            } catch (e) { console.error('WX TAF fetch failed', icao, part, e); }
+        }
+        if (entry.p1 || entry.p2) taf[icao] = entry;
+    }
+    if (identity && count > 0) {
+        try { await wxIdbSave({ identity, savedAt: Date.now(), taf }); }
+        catch (e) { console.error('WX IndexedDB save failed', e); }
+    }
+    return count;
+};
+
 // SKEW-T ページ列への航路順挿入 (2026-11-15 App-14): 追加生成した1ページを
 // ctme (離陸後経過分) の昇順になる位置へ差し込む。出発ページ (kind
 // 'departure') は常に先頭、到着ページ (kind 'arrival') は常に末尾に残す。
@@ -232,16 +322,18 @@ const parseSkewTDelayMin = (value) => {
   return Math.max(-120, Math.min(720, n));
 };
 
-// SKEW-T 作成確認ダイアログ (2026-11-13 UX変更): ヘッダーに常設していた
-// 遅延入力欄を廃止し、SKEW-T ボタンを押したときだけ、このダイアログで
-// 出発遅延 (分) を確認してから生成を始める。見た目は LoadDataModal に
-// 揃えた (閉じるのは × ボタンと「キャンセル」のみで、背景クリックや
-// Esc では閉じないのも LoadDataModal と同じ)。遅延の文字列 state は
-// ダイアログ内に閉じ、開くたびに空 (= 0分) へ戻すので、前回入れた遅延が
-// 次回に残ることはない。「作成」で解釈済みの分数を onConfirm(分) に渡す。
-const SkewTDelayDialog = ({ isOpen, onClose, onConfirm, stdHours, stdMins, taxiOutMins }) => {
+// GET WX 確認ダイアログ (2026-11-21 App-22 で SkewTDelayDialog を拡張):
+// 旧 SKEW-T 作成確認ダイアログに、取得内容の選択を足したもの。SKEW-T の
+// 遅延入力 (開くたびに 0 から、チップ付き) は従来通りで、その上に
+// 「SKEW-T を作成」「気象図を取得 (時系列・断面)」のチェックを置く。
+// 気象図だけの再取得 (SKEW-T は作り直さない) もここから選べる。
+// 確定時は onConfirm({ delayMin, includeSkewt, includeWx }) を渡す。
+// 閉じるのは × ボタンと「キャンセル」のみ (LoadDataModal と同じ)。
+const GetWxDialog = ({ isOpen, onClose, onConfirm, stdHours, stdMins, taxiOutMins }) => {
     const [text, setText] = useState('');
-    useEffect(() => { if (isOpen) setText(''); }, [isOpen]);
+    const [includeSkewt, setIncludeSkewt] = useState(true);
+    const [includeWx, setIncludeWx] = useState(true);
+    useEffect(() => { if (isOpen) { setText(''); setIncludeSkewt(true); setIncludeWx(true); } }, [isOpen]);
     if (!isOpen) return null;
 
     const delayMin = parseSkewTDelayMin(text);
@@ -255,6 +347,17 @@ const SkewTDelayDialog = ({ isOpen, onClose, onConfirm, stdHours, stdMins, taxiO
         : `全地点のETOを ${delayMin > 0 ? '+' : ''}${delayMin}分 ずらして計算します`;
     const depText = `離陸基準（STD + TAXI OUT）: ${fmtHM(baseDepMin)}${delayMin !== 0 ? ` → ${fmtHM(baseDepMin + delayMin)}` : ''}`;
     const chips = [0, 30, 60, 90, 120];
+    const canRun = includeSkewt || includeWx;
+    const checkRow = (checked, onChange, label, sub) => (
+        <label className="flex items-start gap-2.5 bg-slate-900/60 border border-slate-700 rounded-lg px-3 py-2 cursor-pointer">
+            <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)}
+                className="mt-0.5 w-4 h-4 accent-teal-500 shrink-0" />
+            <span className="flex flex-col">
+                <span className="text-sm font-bold text-slate-100 leading-tight">{label}</span>
+                <span className="text-[10px] text-slate-400 leading-tight mt-0.5">{sub}</span>
+            </span>
+        </label>
+    );
 
     return (
         <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
@@ -262,13 +365,18 @@ const SkewTDelayDialog = ({ isOpen, onClose, onConfirm, stdHours, stdMins, taxiO
                 <div className="flex justify-between items-center border-b border-slate-700 pb-2 mb-4">
                     <h3 className="text-white font-bold flex items-center gap-2">
                         <SafeIcon name="CloudRain" className="w-5 h-5 text-teal-400" />
-                        SKEW-T PDF作成
+                        GET WX
                     </h3>
                     <button onClick={onClose} className="text-slate-400 hover:text-white font-bold text-xl leading-none">&times;</button>
                 </div>
 
                 <div className="flex flex-col gap-2">
-                    <label className="text-xs font-bold text-slate-300">出発遅延（分）</label>
+                    {checkRow(includeSkewt, setIncludeSkewt, 'SKEW-T を作成', '全地点の SKEW-T を ETO 基準で生成します')}
+                    {checkRow(includeWx, setIncludeWx, '気象図を取得', '出発・到着の時系列予報と、断面図・平面図のフレームを保存します（オフラインでも見られます）')}
+                </div>
+
+                <div className={`flex flex-col gap-2 mt-4 ${includeSkewt ? '' : 'opacity-40 pointer-events-none'}`}>
+                    <label className="text-xs font-bold text-slate-300">出発遅延（分）— SKEW-T 用</label>
                     <input
                         type="text"
                         inputMode="numeric"
@@ -300,9 +408,9 @@ const SkewTDelayDialog = ({ isOpen, onClose, onConfirm, stdHours, stdMins, taxiO
                     <button onClick={onClose} className="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold py-2.5 rounded-lg transition-colors">
                         キャンセル
                     </button>
-                    <button onClick={() => onConfirm(delayMin)} className="flex-1 bg-teal-600 hover:bg-teal-500 text-white font-bold py-2.5 rounded-lg flex items-center justify-center gap-2 transition-colors shadow-lg">
+                    <button onClick={() => canRun && onConfirm({ delayMin, includeSkewt, includeWx })} disabled={!canRun} className="flex-1 bg-teal-600 hover:bg-teal-500 disabled:bg-teal-900 disabled:opacity-60 text-white font-bold py-2.5 rounded-lg flex items-center justify-center gap-2 transition-colors shadow-lg">
                         <SafeIcon name="CloudRain" className="w-4 h-4" />
-                        作成
+                        取得
                     </button>
                 </div>
             </div>
@@ -385,7 +493,7 @@ export default function App() {
   // (2026-11-15 App-14)。
   const skewtPagesRef = useRef({ identity: null, pages: null, nightPages: null });
   const skewtBusyRef = useRef(false);
-  // SKEW-T の遅延入力はボタン押下時の確認ダイアログ (SkewTDelayDialog) に
+  // SKEW-T の遅延入力はボタン押下時の確認ダイアログ (GetWxDialog) に
   // 移した (2026-11-13 UX変更)。遅延 state はダイアログ内に閉じて開くたび
   // 0 から始めるため、App 側での保持や新規読込時リセットは不要になった。
 
@@ -1366,7 +1474,24 @@ export default function App() {
     }
   };
 
-  const handleGenerateSkewTPdf = async (delayMinArg = 0) => {
+  // ---- GET WX: 気象図の取得 (2026-11-21 App-22) -------------------------
+  // 時系列予報 (出発・到着 x Part 1/2) を取得して '7pt-wx' に保存し、
+  // NavlogView へ断面・平面フレームのキャッシュを促すイベントを出す。
+  // SKEW-T 生成の成否とは独立に動き、失敗しても例外は外へ出さない。
+  const runGetWxFetch = async () => {
+    const identity = skewtIdentityOf(navlogData);
+    let tafCount = 0;
+    try {
+        tafCount = await wxFetchAndSaveTaf(identity, navlogData.depIcao || null, navlogData.destIcao || null);
+    } catch (e) { console.error('GET WX TAF failed', e); }
+    window.dispatchEvent(new CustomEvent('getwx-preload'));
+    window.dispatchEvent(new CustomEvent('show-toast', { detail: tafCount > 0
+        ? `気象図を取得しました（時系列 ${tafCount}枚＋断面フレーム）`
+        : '気象図の取得に失敗しました。通信環境を確認してください。' }));
+    return tafCount;
+  };
+
+  const handleGenerateSkewTPdf = async (delayMinArg = 0, optsArg = null) => {
     if (!navlogData || !navlogData.newPlan || navlogData.newPlan.length === 0) {
         window.dispatchEvent(new CustomEvent('show-toast', { detail: '先にNAVLOGを読み込んでください' }));
         return;
@@ -1379,6 +1504,17 @@ export default function App() {
     // 出発遅延 (分): 確認ダイアログで確定した値を引数で受け取る。
     // ダイアログ側で解釈済みだが、範囲外・不正値はここでも丸める。
     const delayMin = Number.isFinite(delayMinArg) ? Math.max(-120, Math.min(720, Math.trunc(delayMinArg))) : 0;
+
+    // GET WX の取得内容 (2026-11-21 App-22): optsArg が無い従来呼び出しは
+    // SKEW-T のみ (従来動作)。気象図だけの再取得では SKEW-T を作り直さず、
+    // 時系列の取得とフレームのプリロード合図だけを行って戻る。
+    const includeSkewt = !optsArg || optsArg.includeSkewt !== false;
+    const includeWx = !!(optsArg && optsArg.includeWx);
+    if (!includeSkewt) {
+        if (includeWx) await runGetWxFetch();
+        skewtBusyRef.current = false; // SKEW-T 生成は行わないので占有を解放して戻る
+        return;
+    }
 
     // 保存キャッシュの消去 (2026-11-19 App-21): 生成の開始が確定した時点で、
     // 現在の便と同一 identity の保存済み SKEW-T を先に消す (IndexedDB の
@@ -1662,6 +1798,7 @@ export default function App() {
     window.dispatchEvent(new CustomEvent('show-toast', { detail: delayMin !== 0
         ? `SKEW-Tを作成しました（${skewtPages.length}ページ、遅延${delayMin > 0 ? '+' : ''}${delayMin}分で計算）`
         : `SKEW-Tを作成しました（${skewtPages.length}ページ）` }));
+    if (includeWx) await runGetWxFetch();
     skewtBusyRef.current = false;
 };
 
@@ -2120,10 +2257,10 @@ export default function App() {
         }} 
       />
 
-      <SkewTDelayDialog
+      <GetWxDialog
         isOpen={isSkewTDialogOpen}
         onClose={() => setIsSkewTDialogOpen(false)}
-        onConfirm={(d) => { setIsSkewTDialogOpen(false); handleGenerateSkewTPdf(d); }}
+        onConfirm={(o) => { setIsSkewTDialogOpen(false); handleGenerateSkewTPdf(o.delayMin, o); }}
         stdHours={stdHours}
         stdMins={stdMins}
         taxiOutMins={taxiOutMins}
@@ -2210,7 +2347,7 @@ export default function App() {
                 <span className="text-[9px] sm:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none">LOAD</span>
               </button>
 
-              {/* SKEW-T 追加ボタン */}
+              {/* GET WX ボタン (旧 SKEW-T, 2026-11-21 App-22) */}
               <button 
                 onClick={() => {
                   if (!navlogData || !navlogData.newPlan || navlogData.newPlan.length === 0) {
@@ -2221,14 +2358,14 @@ export default function App() {
                 }} 
                 disabled={skewTProgress !== null}
                 className="bg-slate-700 hover:bg-teal-600 disabled:bg-teal-900 disabled:opacity-80 text-teal-400 hover:text-white px-2 py-1 rounded flex items-center justify-center gap-0.5 transition-colors border border-slate-500 hover:border-teal-400 shadow-sm shrink-0 relative overflow-hidden" 
-                title="Skew-T PDF作成"
+                title="GET WX（SKEW-T＋気象図）"
               >
                 {skewTProgress !== null && (
                     <div className="absolute left-0 top-0 bottom-0 bg-teal-500/40" style={{ width: `${skewTProgress}%`, transition: 'width 0.3s ease-out' }}></div>
                 )}
                 <SafeIcon name={skewTProgress !== null ? "Loader2" : "CloudRain"} className={`w-3 h-3 pointer-events-none relative z-10 ${skewTProgress !== null ? "animate-spin" : ""}`} />
                 <span className="text-[9px] sm:text-[10px] font-black tracking-widest leading-none mt-0.5 pointer-events-none relative z-10">
-                    {skewTProgress !== null ? `DL ${skewTProgress}%` : 'SKEW-T'}
+                    {skewTProgress !== null ? `DL ${skewTProgress}%` : 'GET WX'}
                 </span>
               </button>
 
