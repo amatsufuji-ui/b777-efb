@@ -1,8 +1,8 @@
-// App-22.jsx — 2026-11-21 (App-21.jsx + GET WX 化: SKEW-T ボタンを GET WX に改称し、確認ダイアログで SKEW-T 生成と気象図取得を選べるようにした。気象図は出発・到着空港の気象庁「飛行場時系列予報」Part 1 / Part 2 (計4枚) を取得して IndexedDB '7pt-wx' に便の identity と一緒に保存し (オフラインでも WX ビューアで見られる)、あわせて 'getwx-preload' イベントで NavlogView 側の断面・平面フレームのキャッシュを促す。SKEW-T 単体の従来動作はそのまま)
+// App-23.jsx — 2026-11-21 (App-22.jsx + GET WX の保存範囲を拡大: 時系列に加えて、国内SIGWX (FBJP)・空域気象解説・福岡FIR気象解説の3枚と、自動選択した路線・経度・FLの断面/平面フレーム (実況6+予想6 x3セット) も取得して IndexedDB '7pt-wx' に保存する。実況と解説図は CORS 可の data.jma.go.jp から、予想フレームは metair を no-cors で読み、本文が読めた場合だけ保存する (ブラウザ依存)。それ以外は App-22 のまま)
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import * as LucideIcons from 'lucide-react';
 
-const APP_VERSION = "14.3"; 
+const APP_VERSION = "14.4"; 
 
 import { RAW_CSV_DATA, aircraftRegistrationList, BUDDYCOM_LINKS, ICAO_COORDS } from './data/flightData';
 import { aircraftPerformanceData, defaultCruiseWeights, defaultLandingWeights, modelKeyMap, AIRCRAFT_DIMENSIONS, SEAT_DATA, CRUISE_PERF_DATA, VREF_DATA, HOLD_SPD_DATA_RAW, MANEUVER_1_3G_MACH_DATA, TARGET_PITCH_N1_DATA_RAW, LANDING_DIST_DATA_RAW, B777_WIND_LIMITS, MAX_MAN_DATA } from './data/perfData';
@@ -191,31 +191,151 @@ const wxFetchDataUrl = async (url) => {
     });
 };
 
-// 出発・到着 (対象空港のみ) の Part 1 / Part 2 を取得して保存する。
-// 戻り値は保存できた枚数 (0〜4)。失敗した画像は黙って欠落させる
-// (呼び出し側が枚数で成否を知らせる)。
-const wxFetchAndSaveTaf = async (identity, depIcao, destIcao) => {
+// 路線の端点 (自動選択用、NavlogView.fixed-v27 と同じ表)。東京は RJAA も
+// RJTT と同一視する。
+const WX_ROUTE_ENDPOINTS = {
+    '101': ['RJFF', 'RJCK'], '102': ['RJFF', 'RJEB'], '103': ['RJTT', 'RJCW'],
+    '104': ['RJTT', 'RJCM'], '105': ['RJFF', 'RJTT'], '106': ['RJFK', 'RJTT'],
+    '107': ['ROIG', 'RJTT'], '108': ['ROYN', 'RJOT'], '109': ['ROYN', 'RJFF'],
+};
+const WX_LONS = [
+    { type: '150', lon: 145.0 }, { type: '151', lon: 142.5 }, { type: '152', lon: 140.0 },
+    { type: '153', lon: 137.5 }, { type: '154', lon: 135.0 }, { type: '155', lon: 132.5 },
+    { type: '156', lon: 130.0 }, { type: '157', lon: 127.5 }, { type: '158', lon: 125.0 },
+    { type: '159', lon: 122.5 },
+];
+
+// 断面・平面の自動選択 (NavlogView 側の自動選択と同じ規則)
+const wxAutoSelections = (nd) => {
+    const norm = (c) => (c === 'RJAA' ? 'RJTT' : c);
+    const dep = norm(nd.depIcao || ''), dest = norm(nd.destIcao || '');
+    let routeType = '199';
+    for (const [type, ends] of Object.entries(WX_ROUTE_ENDPOINTS)) {
+        if ((dep === ends[0] && dest === ends[1]) || (dep === ends[1] && dest === ends[0])) { routeType = type; break; }
+    }
+    let lonType = '152';
+    const coords = (typeof ICAO_COORDS !== 'undefined' && ICAO_COORDS) ? ICAO_COORDS : null;
+    const dc = coords ? coords[nd.depIcao] : null;
+    const ac = coords ? coords[nd.destIcao] : null;
+    if (dc && ac) {
+        const mid = (dc.lon + ac.lon) / 2;
+        let bestDiff = Infinity;
+        for (const l of WX_LONS) { const d = Math.abs(l.lon - mid); if (d < bestDiff) { bestDiff = d; lonType = l.type; } }
+    }
+    let flCode = 39, maxFl = 0;
+    for (const r of (nd.newPlan || [])) {
+        const m = String(r.plnAlt || '').match(/(\d{2,3})/);
+        if (m) { const v = parseInt(m[1], 10); if (v > maxFl) maxFl = v; }
+    }
+    if (maxFl) {
+        let c = Math.round(maxFl / 10);
+        if (c % 2 === 0) c = c >= 45 ? c - 1 : c + 1;
+        flCode = Math.max(5, Math.min(45, c));
+    }
+    return { routeType, lonType, flCode };
+};
+
+// フレームURLの構築 (NavlogView.fixed-v27 の wxBuildFrames と同じ規則)
+const wxFrameUrls = (kind, code) => {
+    const pad = (n) => String(n).padStart(2, '0');
+    const hourStr = (ms) => { const d = new Date(ms); return `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}${pad(d.getUTCHours())}`; };
+    const now = Date.now();
+    const anlDate = new Date(now - 35 * 60000);
+    anlDate.setUTCMinutes(0, 0, 0);
+    const anlBase = anlDate.getTime();
+    const frames = [];
+    for (let d = 5; d >= 0; d--) {
+        const t = anlBase - d * 3600000;
+        const url = kind === 'lc'
+            ? `https://www.data.jma.go.jp/airinfo/data/pict/maiji/WANLC${code}_RJTD_${hourStr(t)}0000.PNG`
+            : `https://www.data.jma.go.jp/airinfo/data/pict/maiji/WANLF1${pad(code)}_RJTD_${hourStr(t)}0000.PNG`;
+        frames.push({ url, validMs: t, kind: 'anl' });
+    }
+    const initDate = new Date(now - 95 * 60000);
+    initDate.setUTCHours(Math.floor(initDate.getUTCHours() / 3) * 3, 0, 0, 0);
+    const init = initDate.getTime();
+    let startFt = Math.round((anlBase + 3600000 - init) / 3600000);
+    if (startFt < 1) startFt = 1;
+    const lastFt = Math.min(startFt + 5, 10);
+    for (let ft = startFt; ft <= lastFt; ft++) {
+        const t = init + ft * 3600000;
+        const url = kind === 'lc'
+            ? `https://www3.metair.go.jp/pict/anl/multi/cslfm/WANLC22${String(code).slice(-2)}-${pad(ft)}_RJTD_${hourStr(init)}0000.png`
+            : `https://www3.metair.go.jp/pict/anl/simpllfm/WANLFL2${pad(code)}-${pad(ft)}_RJTD_${hourStr(init)}0000.png`;
+        frames.push({ url, validMs: t, kind: 'fcst' });
+    }
+    return frames;
+};
+
+// metair (CORS ヘッダーなし) の画像を no-cors で読み、本文が取り出せた
+// 場合だけ PNG の dataURL にする。ブラウザによっては opaque 応答の本文
+// を読めず、その場合は例外にして呼び出し側で欠落扱いにする。
+const wxFetchOpaqueDataUrl = async (url) => {
+    const res = await fetch(url, { mode: 'no-cors', cache: 'no-store' });
+    const buf = await res.arrayBuffer();
+    if (!buf || buf.byteLength < 5000) throw new Error('opaque body unavailable');
+    const bytes = new Uint8Array(buf);
+    let bin = '';
+    const CHUNK = 0x8000;
+    for (let i = 0; i < bytes.length; i += CHUNK) {
+        bin += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK));
+    }
+    return 'data:image/png;base64,' + btoa(bin);
+};
+
+// GET WX の保存一式: 時系列 (出発・到着 x Part 1/2)、解説図3枚
+// (FBJP・空域・福岡FIR)、断面/平面フレーム (自動選択の3セット分)。
+// 失敗した画像は黙って欠落させ、保存できた件数を返す。
+const wxFetchAndSaveAll = async (identity, nd) => {
     const targets = [];
-    for (const icao of [depIcao, destIcao]) {
+    for (const icao of [nd.depIcao, nd.destIcao]) {
         if (icao && WX_TAF_AIRPORTS.has(icao) && !targets.includes(icao)) targets.push(icao);
     }
     const taf = {};
-    let count = 0;
+    let tafCount = 0;
     for (const icao of targets) {
         const entry = {};
         for (const part of [1, 2]) {
             try {
                 entry[part === 1 ? 'p1' : 'p2'] = await wxFetchDataUrl(wxTafUrl(icao, part));
-                count++;
+                tafCount++;
             } catch (e) { console.error('WX TAF fetch failed', icao, part, e); }
         }
         if (entry.p1 || entry.p2) taf[icao] = entry;
     }
-    if (identity && count > 0) {
-        try { await wxIdbSave({ identity, savedAt: Date.now(), taf }); }
+
+    const charts3 = {};
+    let chartCount = 0;
+    const chartDefs = [
+        ['fbjp', 'https://www.data.jma.go.jp/airinfo/data/pict/fbjp/fbjp.png'],
+        ['airspace', 'https://www.data.jma.go.jp/airinfo/data/pict/ajpn_cmnt/qyya82.png'],
+        ['fir', 'https://www.data.jma.go.jp/airinfo/data/pict/ajpn_cmnt/qyya83.png'],
+    ];
+    await Promise.all(chartDefs.map(async ([key, url]) => {
+        try { charts3[key] = await wxFetchDataUrl(url); chartCount++; }
+        catch (e) { console.error('WX chart fetch failed', key, e); }
+    }));
+
+    const sel = wxAutoSelections(nd);
+    const frames = {};
+    let frameCount = 0;
+    const sets = [['route', 'lc', sel.routeType], ['lon', 'lc', sel.lonType], ['lf', 'lf', sel.flCode]];
+    await Promise.all(sets.map(async ([key, kind, code]) => {
+        const imgs = {};
+        await Promise.all(wxFrameUrls(kind, code).map(async (f) => {
+            try {
+                imgs[f.validMs] = f.kind === 'anl' ? await wxFetchDataUrl(f.url) : await wxFetchOpaqueDataUrl(f.url);
+                frameCount++;
+            } catch (e) { /* 欠落したフレームはビューア側でオンライン表示にフォールバック */ }
+        }));
+        frames[key] = { code, imgs };
+    }));
+
+    if (identity && (tafCount + chartCount + frameCount) > 0) {
+        try { await wxIdbSave({ identity, savedAt: Date.now(), taf, charts3, frames }); }
         catch (e) { console.error('WX IndexedDB save failed', e); }
     }
-    return count;
+    return { tafCount, chartCount, frameCount };
 };
 
 // SKEW-T ページ列への航路順挿入 (2026-11-15 App-14): 追加生成した1ページを
@@ -1480,15 +1600,16 @@ export default function App() {
   // SKEW-T 生成の成否とは独立に動き、失敗しても例外は外へ出さない。
   const runGetWxFetch = async () => {
     const identity = skewtIdentityOf(navlogData);
-    let tafCount = 0;
+    let counts = { tafCount: 0, chartCount: 0, frameCount: 0 };
     try {
-        tafCount = await wxFetchAndSaveTaf(identity, navlogData.depIcao || null, navlogData.destIcao || null);
-    } catch (e) { console.error('GET WX TAF failed', e); }
+        counts = await wxFetchAndSaveAll(identity, navlogData);
+    } catch (e) { console.error('GET WX fetch failed', e); }
     window.dispatchEvent(new CustomEvent('getwx-preload'));
-    window.dispatchEvent(new CustomEvent('show-toast', { detail: tafCount > 0
-        ? `気象図を取得しました（時系列 ${tafCount}枚＋断面フレーム）`
+    const total = counts.tafCount + counts.chartCount + counts.frameCount;
+    window.dispatchEvent(new CustomEvent('show-toast', { detail: total > 0
+        ? `気象図を取得しました（時系列 ${counts.tafCount}枚・解説図 ${counts.chartCount}枚・断面/平面 ${counts.frameCount}フレーム）`
         : '気象図の取得に失敗しました。通信環境を確認してください。' }));
-    return tafCount;
+    return counts;
   };
 
   const handleGenerateSkewTPdf = async (delayMinArg = 0, optsArg = null) => {

@@ -1,4 +1,4 @@
-// NavlogView.fixed-v27.jsx — 2026-11-21 (fixed-v26 + WX ビューア: 時系列予報ビューアを3タブ化し、断面図 (WANLC) と大気平面図 (WANLF) の実況+予想フレーム送りを追加。フレーム画像は Cache Storage '7pt-wx-img' でオフライン再表示を試み、時系列は GET WX で保存した '7pt-wx' レコードにもフォールバックする。NAVLOG のボタン行に WX図ボタンを追加し、ヘッダーのオレンジ矢羽は時系列タブで開く。それ以外は fixed-v26 のまま)
+// NavlogView.fixed-v28.jsx — 2026-11-21 (fixed-v27 + 実機フィードバック反映: (1) 断面・平面の既定フレームを最新の実況から最初の予想フレームへ変更 (予想の白背景チャートが先に目に入る形)。(2) オフライン表示を IndexedDB '7pt-wx' の保存分優先に変更 (v27 の Cache Storage 方式は実機で効かなかったため、GET WX で保存した dataURL を validMs で引いて表示。Cache Storage は補助として残置)。(3) タブ名「時系列」を「飛行場時系列予報」に変更。(4) 解説図タブを追加: FBJP 国内SIGWX・空域気象解説 (qyya82)・福岡FIR気象解説 (qyya83) をライブ取得し、失敗時は GET WX の保存分を表示。それ以外は fixed-v27 のまま)
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { SafeIcon } from './SharedComponents';
 import { renderQRCode } from './qrcode';
@@ -923,8 +923,12 @@ const wxBuildFrames = (kind, code) => {
     frames.sort((a, b) => a.validMs - b.validMs);
     return frames;
 };
-// 既定の表示フレーム = 最新の実況 (実況の最後)
+// 既定の表示フレーム = 最初の予想フレーム (2026-11-21 fixed-v28 で変更:
+// 実機確認で「最初に開くと実況だけ」との指摘があり、予想チャートを先に
+// 見せる形にした)。予想が無い場合は最新の実況。
 const wxDefaultFrameIndex = (frames) => {
+    const fi = frames.findIndex((f) => f.kind === 'fcst');
+    if (fi >= 0) return fi;
     let idx = 0;
     frames.forEach((f, i) => { if (f.kind === 'anl') idx = i; });
     return idx;
@@ -959,8 +963,10 @@ const wxCacheDelete = async (url) => {
     } catch (e) { /* noop */ }
 };
 
-// フレーム画像: キャッシュ優先で表示し、無ければ直接読み込みながら保存する
-const WxFrameImage = ({ frame }) => {
+// フレーム画像: GET WX の保存分 (dataURL) があればそれを最優先で表示し、
+// 無ければ Cache Storage → 直接読み込みの順にフォールバックする
+// (2026-11-21 fixed-v28: v27 の Cache Storage 主軸は実機で効かなかった)
+const WxFrameImage = ({ frame, storedSrc }) => {
     const [src, setSrc] = useState(null);
     const [status, setStatus] = useState('loading'); // 'loading' | 'ok' | 'error'
     const [bump, setBump] = useState(0);
@@ -970,6 +976,7 @@ const WxFrameImage = ({ frame }) => {
         setSrc(null);
         setStatus('loading');
         (async () => {
+            if (storedSrc) { setSrc(storedSrc); setStatus('ok'); return; }
             if (bump > 0) await wxCacheDelete(frame.url);
             const cached = await wxCacheGetObjectUrl(frame.url);
             if (cancelled) { if (cached) URL.revokeObjectURL(cached); return; }
@@ -978,7 +985,7 @@ const WxFrameImage = ({ frame }) => {
             wxCachePut(frame.url);
         })();
         return () => { cancelled = true; if (objUrl) URL.revokeObjectURL(objUrl); };
-    }, [frame.url, bump]);
+    }, [frame.url, bump, storedSrc]);
     if (status === 'error') {
         return (
             <div className="flex flex-col items-center gap-3 py-16 px-4 text-center">
@@ -1002,7 +1009,7 @@ const WxFrameImage = ({ frame }) => {
 };
 
 // フレーム送りパネル (断面・平面で共通)
-const WxFramePanel = ({ frames, idx, onIdx, onReload, sourceNote }) => {
+const WxFramePanel = ({ frames, idx, onIdx, onReload, sourceNote, storedImgs }) => {
     const frame = frames[idx];
     if (!frame) return <div className="text-slate-400 font-bold text-sm py-16 text-center">フレームがありません</div>;
     const stepBtn = "px-3 py-1.5 rounded-lg font-bold text-sm bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:hover:bg-slate-800 text-slate-200 border border-slate-600 transition-colors shadow-sm flex items-center gap-0.5";
@@ -1025,7 +1032,7 @@ const WxFramePanel = ({ frames, idx, onIdx, onReload, sourceNote }) => {
                 </button>
             </div>
             <div className="flex items-center justify-center bg-black p-1 overflow-hidden min-h-[200px]">
-                <WxFrameImage key={frame.url} frame={frame} />
+                <WxFrameImage key={frame.url} frame={frame} storedSrc={storedImgs ? storedImgs[frame.validMs] : null} />
             </div>
             <div className="px-3 py-2 border-t border-slate-800">
                 <span className="text-slate-500 text-[11px]">{sourceNote}</span>
@@ -1033,6 +1040,15 @@ const WxFramePanel = ({ frames, idx, onIdx, onReload, sourceNote }) => {
         </div>
     );
 };
+
+// 解説図タブの3チャート (2026-11-21 fixed-v28): いずれも data.jma.go.jp
+// 上の固定URLで、発行のたびに上書きされる。CORS は * を確認済みのため
+// 時系列と同じ fetch → Blob で取得でき、GET WX でも保存される。
+const WX_CHARTS = [
+    { key: 'fbjp', label: 'FBJP 国内SIGWX', url: 'https://www.data.jma.go.jp/airinfo/data/pict/fbjp/fbjp.png' },
+    { key: 'airspace', label: '空域気象解説', url: 'https://www.data.jma.go.jp/airinfo/data/pict/ajpn_cmnt/qyya82.png' },
+    { key: 'fir', label: '福岡FIR気象解説', url: 'https://www.data.jma.go.jp/airinfo/data/pict/ajpn_cmnt/qyya83.png' },
+];
 
 const WxViewerModal = ({ depIcao, destIcao, initialTab, initialIcao, autoRouteType, autoLonType, autoFlCode, wxRecord, onClose }) => {
     const [tab, setTab] = useState(initialTab || 'lc');
@@ -1090,6 +1106,44 @@ const WxViewerModal = ({ depIcao, destIcao, initialTab, initialIcao, autoRouteTy
     const [lfIdx, setLfIdx] = useState(() => wxDefaultFrameIndex(wxBuildFrames('lf', autoFlCode || 39)));
     useEffect(() => { setLfIdx(wxDefaultFrameIndex(lfFrames)); }, [flCode]);
 
+    // ---- 解説図タブ (2026-11-21 fixed-v28) ----
+    const [cmntKey, setCmntKey] = useState('fbjp');
+    const [cmntImgUrl, setCmntImgUrl] = useState(null);
+    const [cmntStatus, setCmntStatus] = useState('loading'); // 'loading' | 'ok' | 'stored' | 'error'
+    const [cmntReloadKey, setCmntReloadKey] = useState(0);
+    useEffect(() => {
+        if (tab !== 'cmnt') return;
+        let cancelled = false;
+        let objectUrl = null;
+        setCmntImgUrl(null);
+        setCmntStatus('loading');
+        (async () => {
+            try {
+                const def = WX_CHARTS.find((c) => c.key === cmntKey);
+                const res = await fetch(def.url, { cache: 'no-store' });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const blob = await res.blob();
+                if (cancelled) return;
+                objectUrl = URL.createObjectURL(blob);
+                setCmntImgUrl(objectUrl);
+                setCmntStatus('ok');
+            } catch (e) {
+                if (cancelled) return;
+                const stored = wxRecord && wxRecord.charts3 ? wxRecord.charts3[cmntKey] : null;
+                if (stored) { setCmntImgUrl(stored); setCmntStatus('stored'); }
+                else setCmntStatus('error');
+            }
+        })();
+        return () => { cancelled = true; if (objectUrl) URL.revokeObjectURL(objectUrl); };
+    }, [tab, cmntKey, cmntReloadKey, wxRecord]);
+
+    // GET WX 保存フレーム (validMs -> dataURL) を、コードが一致する時だけ引く
+    const storedImgsFor = (setKey, code) => {
+        const s = wxRecord && wxRecord.frames ? wxRecord.frames[setKey] : null;
+        if (!s || String(s.code) !== String(code)) return null;
+        return s.imgs || null;
+    };
+
     const toggleBtn = (active) =>
         `px-3 py-1.5 rounded-lg font-bold text-xs sm:text-sm transition-colors shadow-sm ${active ? 'bg-cyan-600 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-600'}`;
     const tabBtn = (active) =>
@@ -1100,7 +1154,9 @@ const WxViewerModal = ({ depIcao, destIcao, initialTab, initialIcao, autoRouteTy
         ? `${currentIcao} 飛行場時系列予報`
         : tab === 'lc'
             ? `断面図 ${lcMode === 'route' ? (WX_ROUTES.find((r) => r.type === lcRoute)?.label || '') : `${WX_LONS.find((l) => l.type === lcLon)?.lon.toFixed(1)}°E`}`
-            : `大気平面図 ${wxFlLabel(flCode)}`;
+            : tab === 'lf'
+                ? `大気平面図 ${wxFlLabel(flCode)}`
+                : (WX_CHARTS.find((c) => c.key === cmntKey)?.label || '解説図');
 
     return (
         <div className="fixed inset-0 bg-black/85 z-[115] flex items-center justify-center p-2 sm:p-4 backdrop-blur-sm" onClick={onClose}>
@@ -1113,10 +1169,11 @@ const WxViewerModal = ({ depIcao, destIcao, initialTab, initialIcao, autoRouteTy
                     </div>
                     <button onClick={onClose} className="text-slate-400 hover:text-white font-bold text-2xl leading-none px-1 shrink-0">&times;</button>
                 </div>
-                <div className="flex items-center gap-1.5 px-3 py-2 border-b border-slate-800">
-                    <button onClick={() => setTab('taf')} className={tabBtn(tab === 'taf')}>時系列</button>
+                <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 border-b border-slate-800">
+                    <button onClick={() => setTab('taf')} className={tabBtn(tab === 'taf')}>飛行場時系列予報</button>
                     <button onClick={() => setTab('lc')} className={tabBtn(tab === 'lc')}>断面図</button>
                     <button onClick={() => setTab('lf')} className={tabBtn(tab === 'lf')}>平面図</button>
+                    <button onClick={() => setTab('cmnt')} className={tabBtn(tab === 'cmnt')}>解説図</button>
                 </div>
 
                 {tab === 'taf' && (
@@ -1181,6 +1238,7 @@ const WxViewerModal = ({ depIcao, destIcao, initialTab, initialIcao, autoRouteTy
                         </div>
                         <WxFramePanel frames={lcFrames} idx={lcIdx} onIdx={setLcIdx}
                             onReload={() => setLcBuildKey((k) => k + 1)}
+                            storedImgs={storedImgsFor(lcMode === 'route' ? 'route' : 'lon', lcCode)}
                             sourceNote="出典：気象庁 WANLC（実況＝毎時更新／予想＝metair、初期時刻から1時間刻み）" />
                     </div>
                 )}
@@ -1194,7 +1252,43 @@ const WxViewerModal = ({ depIcao, destIcao, initialTab, initialIcao, autoRouteTy
                         </div>
                         <WxFramePanel frames={lfFrames} idx={lfIdx} onIdx={setLfIdx}
                             onReload={() => setLfBuildKey((k) => k + 1)}
+                            storedImgs={storedImgsFor('lf', flCode)}
                             sourceNote="出典：気象庁 WANLF（実況＝毎時更新／予想＝metair、初期時刻から1時間刻み）。高度は奇数FLのみ" />
+                    </div>
+                )}
+
+                {tab === 'cmnt' && (
+                    <div className="flex flex-col">
+                        <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-slate-800">
+                            <div className="flex items-center gap-1.5">
+                                {WX_CHARTS.map((c) => (
+                                    <button key={c.key} onClick={() => setCmntKey(c.key)} className={toggleBtn(cmntKey === c.key)}>{c.label}</button>
+                                ))}
+                            </div>
+                            {cmntStatus === 'stored' && (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-black bg-amber-600 text-amber-50">保存分（GET WX取得時）</span>
+                            )}
+                            <button onClick={() => setCmntReloadKey((k) => k + 1)} className="ml-auto px-3 py-1.5 rounded-lg font-bold text-xs sm:text-sm bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-600 transition-colors shadow-sm flex items-center gap-1">
+                                <SafeIcon name="RefreshCw" className="w-3.5 h-3.5" /> 再取得
+                            </button>
+                        </div>
+                        <div className="flex items-center justify-center bg-black p-1 overflow-hidden min-h-[200px]">
+                            {cmntStatus === 'loading' && <div className="text-slate-400 font-bold text-sm py-16">読み込み中…</div>}
+                            {cmntStatus === 'error' && (
+                                <div className="flex flex-col items-center gap-3 py-16 px-4 text-center">
+                                    <div className="text-slate-300 font-bold text-sm">取得できませんでした。オフラインで、保存分も無い可能性があります。</div>
+                                    <button onClick={() => setCmntReloadKey((k) => k + 1)} className="px-4 py-2 rounded-lg font-bold text-sm bg-slate-700 hover:bg-slate-600 text-white transition-colors shadow-sm">再試行</button>
+                                </div>
+                            )}
+                            {(cmntStatus === 'ok' || cmntStatus === 'stored') && cmntImgUrl && (
+                                <img src={cmntImgUrl} alt={WX_CHARTS.find((c) => c.key === cmntKey)?.label} draggable={false}
+                                    className="object-contain select-none w-full"
+                                    style={{ maxHeight: 'calc(97vh - 235px)' }} />
+                            )}
+                        </div>
+                        <div className="px-3 py-2 border-t border-slate-800">
+                            <span className="text-slate-500 text-[11px]">出典：気象庁（航空気象解説・国内悪天予想図）・オフライン時は GET WX で保存した分を表示します</span>
+                        </div>
                     </div>
                 )}
             </div>
