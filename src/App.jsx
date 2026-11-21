@@ -1,8 +1,8 @@
-// App-23.jsx — 2026-11-21 (App-22.jsx + GET WX の保存範囲を拡大: 時系列に加えて、国内SIGWX (FBJP)・空域気象解説・福岡FIR気象解説の3枚と、自動選択した路線・経度・FLの断面/平面フレーム (実況6+予想6 x3セット) も取得して IndexedDB '7pt-wx' に保存する。実況と解説図は CORS 可の data.jma.go.jp から、予想フレームは metair を no-cors で読み、本文が読めた場合だけ保存する (ブラウザ依存)。それ以外は App-22 のまま)
+// App-24.jsx — 2026-11-21 (App-23 + GET WX の先読みを完了まで待つように変更: 実機で GET WX 後も触れていない路線がオフラインで出なかった。原因は、先読み (NavlogView 側の <img> 読み込み) が GET WX の完了トーストと無関係に裏で走っており、トースト直後に機内モードにすると大半が読み終わっていなかったこと。そこで App 側でも全路線 (199・101〜109) + 自動選択の経度・FL のフレームを <img> で読み、全部終わる (または失敗する) のを待ってから完了トーストを出すようにした。トーストに先読み枚数を追加。それ以外は App-23 のまま)
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import * as LucideIcons from 'lucide-react';
 
-const APP_VERSION = "14.4"; 
+const APP_VERSION = "14.5"; 
 
 import { RAW_CSV_DATA, aircraftRegistrationList, BUDDYCOM_LINKS, ICAO_COORDS } from './data/flightData';
 import { aircraftPerformanceData, defaultCruiseWeights, defaultLandingWeights, modelKeyMap, AIRCRAFT_DIMENSIONS, SEAT_DATA, CRUISE_PERF_DATA, VREF_DATA, HOLD_SPD_DATA_RAW, MANEUVER_1_3G_MACH_DATA, TARGET_PITCH_N1_DATA_RAW, LANDING_DIST_DATA_RAW, B777_WIND_LIMITS, MAX_MAN_DATA } from './data/perfData';
@@ -265,6 +265,45 @@ const wxFrameUrls = (kind, code) => {
         frames.push({ url, validMs: t, kind: 'fcst' });
     }
     return frames;
+};
+
+// SW キャッシュ向けの先読み (2026-11-21 App-24): <img> として読み込むと
+// Service Worker の runtime cache に載る。読み込みの完了 (load / error /
+// 20秒タイムアウト) まで待ち、成功したかどうかを返す。
+const wxPreloadImage = (url) => new Promise((resolve) => {
+    let done = false;
+    const finish = (ok) => { if (!done) { done = true; resolve(ok); } };
+    try {
+        const img = new Image();
+        img.onload = () => finish(true);
+        img.onerror = () => finish(false);
+        img.src = url;
+    } catch (e) { finish(false); }
+    setTimeout(() => finish(false), 20000);
+});
+
+// GET WX 用の全フレーム先読み: 路線断面は全種 (199・101〜109)、経度断面と
+// 平面図は自動選択分。同時6枚ずつ流し、全て終わるまで待つ。成功枚数を返す。
+const WX_ALL_ROUTE_TYPES = ['199', '101', '102', '103', '104', '105', '106', '107', '108', '109'];
+const wxPreloadAllFrames = async (nd) => {
+    const sel = wxAutoSelections(nd);
+    const urls = [];
+    const seen = new Set();
+    const push = (kind, code) => {
+        for (const f of wxFrameUrls(kind, code)) {
+            if (!seen.has(f.url)) { seen.add(f.url); urls.push(f.url); }
+        }
+    };
+    for (const t of WX_ALL_ROUTE_TYPES) push('lc', t);
+    push('lc', sel.lonType);
+    push('lf', sel.flCode);
+    let ok = 0;
+    for (let i = 0; i < urls.length; i += 6) {
+        const batch = urls.slice(i, i + 6);
+        const rs = await Promise.all(batch.map((u) => wxPreloadImage(u)));
+        ok += rs.filter(Boolean).length;
+    }
+    return ok;
 };
 
 // metair (CORS ヘッダーなし) の画像を no-cors で読み、本文が取り出せた
@@ -1605,9 +1644,13 @@ export default function App() {
         counts = await wxFetchAndSaveAll(identity, navlogData);
     } catch (e) { console.error('GET WX fetch failed', e); }
     window.dispatchEvent(new CustomEvent('getwx-preload'));
+    // 先読みの完了まで待つ (2026-11-21 App-24)。トーストが出た時点で
+    // SW キャッシュへの読み込みも終わっている、が分かるようにするため。
+    let preloadOk = 0;
+    try { preloadOk = await wxPreloadAllFrames(navlogData); } catch (e) { console.error('GET WX preload failed', e); }
     const total = counts.tafCount + counts.chartCount + counts.frameCount;
     window.dispatchEvent(new CustomEvent('show-toast', { detail: total > 0
-        ? `気象図を取得しました（時系列 ${counts.tafCount}枚・解説図 ${counts.chartCount}枚・断面/平面 ${counts.frameCount}フレーム）`
+        ? `気象図を取得しました（時系列 ${counts.tafCount}枚・解説図 ${counts.chartCount}枚・断面/平面 ${counts.frameCount}フレーム・先読み ${preloadOk}枚）`
         : '気象図の取得に失敗しました。通信環境を確認してください。' }));
     return counts;
   };
